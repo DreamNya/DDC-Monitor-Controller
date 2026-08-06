@@ -1,0 +1,58 @@
+{
+    "name": "ddc-monitor-controller",
+    "version": "0.0.1",
+    "private": true,
+    "description": "一款轻量级 Windows 显示器 DDC/CI 控制工具，提供图形化操作界面，支持手动和自动调节显示器亮度与对比度",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/DreamNya/DDC-Monitor-Controller.git"
+    },
+    "homepage": "https://github.com/DreamNya/DDC-Monitor-Controller#README",
+    "license": "MIT",
+    "author": "DreamNya",
+    "type": "module",
+    "scripts": {
+        "build:native": "node scripts/build-native.mjs",
+        "build": "node scripts/build.mjs",
+        "dev": "node scripts/dev.mjs",
+        "test": "node --experimental-strip-types --test src/shared/schedule.test.ts src/main/services/monitor-controller.test.ts src/main/services/auto-adjustment-scheduler.test.ts",
+        "package": "node scripts/portable.mjs"
+    },
+    "dependencies": {
+        "@webviewjs/webview": "0.4.1",
+        "koffi": "3.1.4"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@types/node": "^24.0.0",
+        "esbuild": "^0.25.0",
+        "eslint": "^10.8.0",
+        "globals": "^17.9.0",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.65.0"
+    },
+    "engines": {
+        "node": ">=24"
+    },
+    "os": [
+        "win32"
+    ],
+    "cpu": [
+        "x64"
+    ],
+    "keywords": [
+        "ddc",
+        "ddc-ci",
+        "monitor",
+        "brightness",
+        "contrast",
+        "windows",
+        "system-tray",
+        "webview2"
+    ],
+    "allowScripts": {
+        "@webviewjs/webview": true,
+        "koffi": true,
+        "esbuild@0.25.12": true
+    }
+}

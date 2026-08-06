@@ -1,0 +1,89 @@
+name: Build and Release
+
+on:
+    push:
+        tags:
+            - 'v*'
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    release:
+        name: Build Windows release
+        runs-on: windows-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Set release version
+              shell: pwsh
+              run: |
+                  $tag = '${{ github.ref_name }}'
+                  $version = $tag.Substring(1)
+
+                  "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+                  "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: '24'
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm install
+
+            - name: Build native components
+              run: npm run build:native
+
+            - name: Create portable package
+              run: npm run package
+
+            - name: Create release archives
+              shell: pwsh
+              run: |
+                  $releaseDirectory = Join-Path $PWD 'dist\release'
+                  New-Item -ItemType Directory -Force $releaseDirectory | Out-Null
+
+                  $noRuntimeName = "DDCMonitorController-v$($env:RELEASE_VERSION)-noRuntime-win-x64.zip"
+                  $portableName = "DDCMonitorController-v$($env:RELEASE_VERSION)-portable-win-x64.zip"
+
+                  $noRuntimeArchive = Join-Path $releaseDirectory $noRuntimeName
+                  $portableArchive = Join-Path $releaseDirectory $portableName
+
+                  Compress-Archive `
+                      -Path (Join-Path $PWD 'dist\build\*') `
+                      -DestinationPath $noRuntimeArchive `
+                      -CompressionLevel Optimal
+
+                  Compress-Archive `
+                      -Path (Join-Path $PWD 'dist\portable\*') `
+                      -DestinationPath $portableArchive `
+                      -CompressionLevel Optimal
+
+                  "NO_RUNTIME_ARCHIVE=$noRuntimeArchive" >> $env:GITHUB_ENV
+                  "PORTABLE_ARCHIVE=$portableArchive" >> $env:GITHUB_ENV
+
+            - name: Publish GitHub Release
+              shell: pwsh
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create $env:RELEASE_TAG `
+                      $env:NO_RUNTIME_ARCHIVE `
+                      $env:PORTABLE_ARCHIVE `
+                      --title "DDC Monitor Controller v$($env:RELEASE_VERSION)" `
+                      --generate-notes
+
+                  if ($LASTEXITCODE -ne 0) {
+                      throw '创建 GitHub Release 失败'
+                  }

@@ -1,0 +1,523 @@
+:root {
+    color-scheme: light dark;
+    font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+    color: #202526;
+    background: #f2faf7;
+
+    --accent: #0985d2;
+    --track: #858e8f;
+    --surface: rgb(255 255 255 / 62%);
+    --border: rgb(107 130 125 / 16%);
+    --footer-border: rgb(91 112 108 / 16%);
+    --muted: #5f6969;
+    --error: #b52635;
+
+    --value-surface: rgb(9 133 210 / 9%);
+    --value-border: rgb(9 133 210 / 16%);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+body {
+    margin: 0;
+    background:
+        radial-gradient(circle at 22% 5%, rgb(255 255 255 / 78%), transparent 25rem),
+        linear-gradient(135deg, #f3fbf8, #edf7f4);
+}
+
+button,
+input {
+    min-width: 0;
+    font: inherit;
+}
+
+button {
+    color: inherit;
+}
+
+.quick-page {
+    display: grid;
+    grid-template-rows: 48px minmax(0, 1fr) auto 52px;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ==============================
+   顶部显示器切换区域
+   ============================== */
+
+.monitor-header {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 4px 14px 0;
+    overflow: hidden;
+}
+
+.monitor-switch {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+    border: 0;
+    border-radius: 9px;
+    padding: 3px 7px 3px 0;
+    background: transparent;
+    cursor: pointer;
+    transition:
+        background 140ms ease,
+        transform 140ms ease;
+}
+
+.monitor-switch:hover:not(:disabled) {
+    background: rgb(55 87 80 / 7%);
+}
+
+.monitor-switch:active:not(:disabled) {
+    transform: scale(0.985);
+}
+
+.monitor-switch:focus-visible,
+.footer-button:focus-visible,
+input[type='range']:focus-visible {
+    outline: 2px solid rgb(9 133 210 / 28%);
+    outline-offset: 2px;
+}
+
+.monitor-switch:disabled,
+.footer-button:disabled,
+input:disabled {
+    cursor: wait;
+    opacity: 0.52;
+}
+
+.monitor-icon {
+    position: relative;
+    display: inline-grid;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+}
+
+.monitor-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.15;
+}
+
+.monitor-icon span {
+    position: absolute;
+    top: 25%;
+    left: 50%;
+    font-size: 10px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transform: translateX(-50%);
+}
+
+.monitor-name {
+    min-width: 0;
+    margin-left: 9px;
+    overflow: hidden;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.switch-chevron {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+    fill: none;
+    stroke: var(--muted);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+/* ==============================
+   亮度和对比度控制区域
+   ============================== */
+
+.control-card {
+    align-self: center;
+    display: grid;
+    gap: 12px;
+    width: calc(100% - 20px);
+    max-width: none;
+    min-width: 0;
+    margin: 0 auto;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 16px;
+    background: var(--surface);
+    box-shadow:
+        0 2px 8px rgb(52 78 72 / 7%),
+        inset 0 0 0 1px rgb(255 255 255 / 32%);
+    backdrop-filter: blur(16px);
+    overflow: hidden;
+}
+
+.control-row {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) 42px;
+    align-items: center;
+    column-gap: 12px;
+    min-width: 0;
+    height: 28px;
+}
+
+.control-value {
+    display: block;
+    width: 42px;
+    min-width: 42px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+    user-select: none;
+}
+
+.control-row:has(input:disabled) .control-value {
+    opacity: 0.52;
+}
+
+.control-icon {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+}
+
+.control-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+.contrast-icon .contrast-fill {
+    fill: currentColor;
+    stroke: none;
+}
+
+.slider-wrap {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    height: 28px;
+}
+
+/* ==============================
+   滑块
+   ============================== */
+
+input[type='range'] {
+    --range-progress: 0%;
+
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+    width: 100%;
+    height: 22px;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: linear-gradient(
+            to right,
+            var(--accent) 0,
+            var(--accent) var(--range-progress),
+            var(--track) var(--range-progress),
+            var(--track) 100%
+        )
+        center / 100% 6px no-repeat;
+    cursor: pointer;
+}
+
+/* Chromium / Edge WebView2 */
+
+input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: transparent;
+}
+
+input[type='range']::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-top: -7px;
+    border: 4px solid #f7faf9;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow:
+        0 1px 3px rgb(40 54 51 / 24%),
+        0 0 0 1px rgb(52 74 69 / 13%);
+}
+
+/* Firefox */
+
+input[type='range']::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--track);
+}
+
+input[type='range']::-moz-range-progress {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--accent);
+}
+
+input[type='range']::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 4px solid #f7faf9;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow:
+        0 1px 3px rgb(40 54 51 / 24%),
+        0 0 0 1px rgb(52 74 69 / 13%);
+}
+
+/* ==============================
+   状态和错误信息
+   ============================== */
+
+.feedback {
+    min-width: 0;
+    max-height: 18px;
+    padding: 0 16px;
+    overflow: hidden;
+    color: var(--error);
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+}
+
+.feedback small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ==============================
+   底部操作按钮
+   ============================== */
+
+.quick-footer {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+    border-top: 1px solid var(--footer-border);
+}
+
+.footer-button {
+    display: flex;
+    flex: 1 1 50%;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 0;
+    border: 0;
+    padding: 4px 8px;
+    background: transparent;
+    color: #273130;
+    cursor: pointer;
+    transition: background 140ms ease;
+}
+
+.footer-button + .footer-button {
+    border-left: 1px solid var(--footer-border);
+}
+
+.footer-button:hover:not(:disabled) {
+    background: rgb(55 87 80 / 6%);
+}
+
+.footer-button:active:not(:disabled) {
+    background: rgb(55 87 80 / 10%);
+}
+
+.footer-button svg {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+.footer-button span {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ==============================
+   辅助样式
+   ============================== */
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    clip-path: inset(50%) !important;
+    border: 0 !important;
+    white-space: nowrap !important;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* ==============================
+   较窄窗口适配
+   ============================== */
+
+@media (max-width: 480px) {
+    .monitor-header {
+        padding-inline: 10px;
+    }
+
+    .monitor-icon {
+        width: 30px;
+        height: 30px;
+    }
+
+    .monitor-name {
+        margin-left: 7px;
+        font-size: 16px;
+    }
+
+    .control-card {
+        width: calc(100% - 14px);
+        padding-inline: 12px;
+    }
+
+    .control-row {
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .control-icon {
+        width: 22px;
+        height: 22px;
+    }
+
+    .footer-button {
+        gap: 5px;
+        padding-inline: 5px;
+    }
+
+    .footer-button svg {
+        width: 19px;
+        height: 19px;
+    }
+
+    .footer-button span {
+        font-size: 11px;
+    }
+
+    .control-row {
+        grid-template-columns: 22px minmax(0, 1fr) 42px;
+        gap: 5px;
+    }
+
+    .control-value {
+        width: 42px;
+        font-size: 11px;
+    }
+}
+
+/* ==============================
+   深色模式
+   ============================== */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color: #edf3f1;
+        background: #121b1a;
+
+        --track: #667170;
+        --surface: rgb(34 45 43 / 80%);
+        --border: rgb(255 255 255 / 9%);
+        --footer-border: rgb(255 255 255 / 10%);
+        --muted: #aeb8b6;
+        --error: #ff929c;
+
+        --value-surface: rgb(9 133 210 / 16%);
+        --value-border: rgb(74 174 236 / 22%);
+    }
+
+    body {
+        background:
+            radial-gradient(circle at 22% 5%, rgb(47 73 67 / 36%), transparent 25rem),
+            linear-gradient(135deg, #14201e, #101817);
+    }
+
+    input[type='range']::-webkit-slider-thumb,
+    input[type='range']::-moz-range-thumb {
+        border-color: #e8efed;
+    }
+
+    .footer-button {
+        color: #e6eeec;
+    }
+
+    .monitor-switch:hover:not(:disabled),
+    .footer-button:hover:not(:disabled) {
+        background: rgb(255 255 255 / 6%);
+    }
+
+    .footer-button:active:not(:disabled) {
+        background: rgb(255 255 255 / 10%);
+    }
+}

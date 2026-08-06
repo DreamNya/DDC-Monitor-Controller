@@ -1,0 +1,72 @@
+export const INTERVAL_MINUTES_OPTIONS = [10, 15, 20, 30, 60] as const;
+
+export type IntervalMinutes = (typeof INTERVAL_MINUTES_OPTIONS)[number];
+
+export interface SchedulePoint {
+    /** 从当天 00:00 起经过的小时数，允许小数，例如 8.5 表示 08:30 */
+    time: number;
+    brightness: number;
+    contrast: number;
+}
+
+/** 一套可独立保存和切换的自动调节时间方案 */
+export interface ScheduleProfile {
+    id: string;
+    name: string;
+    schedule: SchedulePoint[];
+}
+
+export interface MonitorValues {
+    brightness: number;
+    contrast: number;
+}
+
+export interface MonitorSnapshot {
+    id: string;
+    index: number;
+    name: string;
+    brightness: number | null;
+    contrast: number | null;
+    error?: string;
+}
+
+export type MonitorTarget = 'all' | string;
+
+export interface ControlWindowBounds {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface AppSettings {
+    autoEnabled: boolean;
+    logEnabled: boolean;
+    intervalMinutes: IntervalMinutes;
+    targetMonitorId: MonitorTarget;
+    activeScheduleProfileId: string;
+    scheduleProfiles: ScheduleProfile[];
+    controlWindowBounds: ControlWindowBounds | null;
+}
+
+export interface AppState {
+    settings: AppSettings;
+    monitors: MonitorSnapshot[];
+    calculatedValues: MonitorValues;
+    nextRunAt: string | null;
+    lastOperation: string;
+    lastError: string | null;
+}
+
+export interface ManualApplyRequest {
+    monitorId: MonitorTarget;
+    brightness: number;
+    contrast: number;
+}
+
+/** 实时调节请求；只携带本次实际发生变化的 VCP 值 */
+export interface LiveApplyRequest {
+    monitorId: MonitorTarget;
+    brightness?: number;
+    contrast?: number;
+}

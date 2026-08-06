@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="256"
+     height="256"
+     viewBox="0 0 256 256"
+     fill="none">
+  <title>显示器亮度图标</title>
+  <desc>蓝色显示器中居中显示完整的黄色亮度太阳图标</desc>
+
+  <!-- 显示器外壳 -->
+  <rect x="28" y="42" width="202" height="149" rx="35" fill="#3566D1"/>
+
+  <!-- 显示区域 -->
+  <rect x="48" y="62" width="160" height="105" rx="17" fill="#EEF4FF"/>
+
+  <!-- 亮度图标：整体缩小并向上居中，所有光芒均位于显示区域内 -->
+  <g fill="#FFBA3D">
+    <!-- 上、下、左、右光芒 -->
+    <rect x="124" y="68" width="8" height="13" rx="1"/>
+    <rect x="124" y="147" width="8" height="13" rx="1"/>
+    <rect x="77" y="110" width="13" height="8" rx="1"/>
+    <rect x="166" y="110" width="13" height="8" rx="1"/>
+
+    <!-- 四条斜向光芒 -->
+    <rect x="91.5" y="80.5" width="8" height="14" rx="1"
+          transform="rotate(-45 95.5 87.5)"/>
+    <rect x="156.5" y="80.5" width="8" height="14" rx="1"
+          transform="rotate(45 160.5 87.5)"/>
+    <rect x="91.5" y="133.5" width="8" height="14" rx="1"
+          transform="rotate(45 95.5 140.5)"/>
+    <rect x="156.5" y="133.5" width="8" height="14" rx="1"
+          transform="rotate(-45 160.5 140.5)"/>
+
+    <!-- 太阳主体 -->
+    <circle cx="128" cy="114" r="34"/>
+  </g>
+
+  <!-- 显示器支架 -->
+  <path d="M105 188H151V209H105V188Z" fill="#2E559E"/>
+  <rect x="76" y="207" width="105" height="20" rx="10" fill="#2E559E"/>
+</svg>

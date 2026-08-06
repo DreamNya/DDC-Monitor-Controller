@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>显示器快捷控制</title>
+        <link rel="stylesheet" href="./quick.css" />
+        <script charset="UTF-8" defer src="./quick.js"></script>
+    </head>
+    <body>
+        <main class="quick-page">
+            <header class="monitor-header">
+                <button
+                    id="monitor-switch-button"
+                    class="monitor-switch"
+                    type="button"
+                    title="切换到下一台显示器"
+                    aria-label="切换显示器">
+                    <span class="monitor-icon" aria-hidden="true">
+                        <svg viewBox="0 0 48 48">
+                            <rect x="7" y="7" width="34" height="25" rx="3"></rect>
+                            <path d="M18 40h12M21 32v8M27 32v8"></path>
+                        </svg>
+                        <span id="monitor-number">1</span>
+                    </span>
+                    <span id="monitor-name" class="monitor-name">正在检测显示器…</span>
+                    <svg class="switch-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m9 6 6 6-6 6"></path>
+                    </svg>
+                </button>
+            </header>
+
+            <section class="control-card" aria-label="显示器参数调节">
+                <label class="control-row" for="brightness-slider">
+                    <span class="control-icon" aria-hidden="true">
+                        <svg viewBox="0 0 48 48">
+                            <circle cx="24" cy="24" r="8"></circle>
+                            <path
+                                d="M24 5v6M24 37v6M5 24h6M37 24h6M10.5 10.5l4.2 4.2M33.3 33.3l4.2 4.2M37.5 10.5l-4.2 4.2M14.7 33.3l-4.2 4.2"></path>
+                        </svg>
+                    </span>
+                    <span class="slider-wrap">
+                        <input
+                            id="brightness-slider"
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value="0"
+                            aria-label="亮度" />
+                    </span>
+                    <output id="brightness-value" class="control-value" for="brightness-slider" aria-label="当前亮度"
+                        >0</output
+                    >
+                </label>
+
+                <label class="control-row" for="contrast-slider">
+                    <span class="control-icon contrast-icon" aria-hidden="true">
+                        <svg viewBox="0 0 48 48">
+                            <circle cx="24" cy="24" r="15"></circle>
+                            <path class="contrast-fill" d="M24 9a15 15 0 0 0 0 30Z"></path>
+                        </svg>
+                    </span>
+                    <span class="slider-wrap">
+                        <input
+                            id="contrast-slider"
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value="0"
+                            aria-label="对比度" />
+                    </span>
+                    <output id="contrast-value" class="control-value" for="contrast-slider" aria-label="当前对比度"
+                        >0</output
+                    >
+                </label>
+            </section>
+
+            <div class="feedback" aria-live="polite">
+                <strong id="status" class="visually-hidden">正在连接主进程…</strong>
+                <small id="error" hidden></small>
+            </div>
+
+            <footer class="quick-footer">
+                <button id="refresh-button" class="footer-button" type="button" title="刷新显示器列表">
+                    <svg viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M39 15V7l-5 5a16 16 0 1 0 4.5 17"></path>
+                    </svg>
+                    <span>刷新显示器</span>
+                </button>
+
+                <button id="open-control-button" class="footer-button" type="button" title="打开完整控制面板">
+                    <svg viewBox="0 0 48 48" aria-hidden="true">
+                        <circle cx="24" cy="24" r="7"></circle>
+                        <path
+                            d="M24 5v5M24 38v5M5 24h5M38 24h5M10.6 10.6l3.6 3.6M33.8 33.8l3.6 3.6M37.4 10.6l-3.6 3.6M14.2 33.8l-3.6 3.6"></path>
+                        <circle cx="24" cy="24" r="15"></circle>
+                    </svg>
+                    <span>完整控制面板</span>
+                </button>
+            </footer>
+        </main>
+    </body>
+</html>

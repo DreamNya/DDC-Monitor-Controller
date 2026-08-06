@@ -1,0 +1,323 @@
+import type { LiveApplyRequest, ManualApplyRequest, MonitorSnapshot, MonitorTarget } from '../../shared/model';
+import { NativeDdcClient, type NativeMonitor, type VcpValue } from './monitor/native-ddc-client.ts';
+
+const VCP_BRIGHTNESS = 0x10;
+const VCP_CONTRAST = 0x12;
+
+export interface DdcClient {
+    refreshMonitors(): NativeMonitor[];
+    readVcpValue(index: number, code: number): VcpValue;
+    writeVcpValue(index: number, code: number, value: number): void;
+    dispose(): void;
+}
+
+export interface MonitorApplyResult {
+    monitorIds: string[];
+    brightness: number;
+    contrast: number;
+    snapshots: MonitorSnapshot[];
+}
+
+export interface MonitorLiveApplyResult {
+    monitorIds: string[];
+    brightness?: number;
+    contrast?: number;
+    snapshots: MonitorSnapshot[];
+}
+
+/**
+ * DDC/CI 操作的 Promise 串行包装与缓存层
+ *
+ * 原生调用仍是同步操作；队列只负责避免 UI、托盘和定时器并发访问同一批
+ * 显示器句柄；显示器拓扑、VCP 最大值和最近一次确认的百分比均在此处缓存
+ */
+export class DDCMonitorController {
+    readonly #client: DdcClient;
+    readonly #maximumValues = new Map<string, number>();
+    readonly #percentageValues = new Map<string, number>();
+
+    #tail: Promise<unknown> = Promise.resolve();
+    #monitors: NativeMonitor[] = [];
+    #snapshots: MonitorSnapshot[] = [];
+    #hasRefreshed = false;
+    #disposed = false;
+    #disposePromise: Promise<void> | undefined;
+
+    constructor(client: DdcClient = new NativeDdcClient()) {
+        this.#client = client;
+    }
+
+    getSnapshots(): Promise<MonitorSnapshot[]> {
+        return this.#enqueue(() => this.#refreshSnapshots());
+    }
+
+    /** 返回内存中的最后一份快照，不触发任何 DDC/CI 通信 */
+    getCachedSnapshots(): MonitorSnapshot[] {
+        return structuredClone(this.#snapshots);
+    }
+
+    /**
+     * 完整设置亮度和对比度，用于手动设置和已经完成刷新后的自动设置
+     *
+     * 此方法本身不刷新显示器；调用方可在低频边界先调用 getSnapshots()
+     */
+    apply(request: ManualApplyRequest): Promise<MonitorApplyResult> {
+        return this.#enqueue(() => {
+            const targets = this.#resolveCachedTargets(request.monitorId);
+            const brightness = clamp(request.brightness);
+            const contrast = clamp(request.contrast);
+
+            for (const monitor of targets) {
+                this.#writePercentage(monitor, VCP_BRIGHTNESS, brightness);
+                this.#updateSnapshotValue(monitor.id, { brightness });
+
+                this.#writePercentage(monitor, VCP_CONTRAST, contrast);
+                this.#updateSnapshotValue(monitor.id, { contrast });
+                this.#clearSnapshotError(monitor.id);
+            }
+
+            return {
+                monitorIds: targets.map(({ id }) => id),
+                brightness,
+                contrast,
+                snapshots: this.getCachedSnapshots(),
+            };
+        });
+    }
+
+    /**
+     * 实时调节只写入本次变化的属性，并始终复用缓存
+     *
+     * 只有某个 VCP 的最大值尚未缓存时，才会额外读取一次以完成百分比换算
+     */
+    applyLive(request: LiveApplyRequest): Promise<MonitorLiveApplyResult> {
+        return this.#enqueue(() => {
+            const requestedBrightness = request.brightness;
+            const requestedContrast = request.contrast;
+            const hasBrightness = requestedBrightness !== undefined;
+            const hasContrast = requestedContrast !== undefined;
+
+            if (!hasBrightness && !hasContrast) {
+                throw new Error('实时调节请求至少需要包含亮度或对比度');
+            }
+
+            const targets = this.#resolveCachedTargets(request.monitorId);
+            const brightness = requestedBrightness !== undefined ? clamp(requestedBrightness) : undefined;
+            const contrast = requestedContrast !== undefined ? clamp(requestedContrast) : undefined;
+
+            for (const monitor of targets) {
+                if (brightness !== undefined) {
+                    this.#writePercentage(monitor, VCP_BRIGHTNESS, brightness);
+                    this.#updateSnapshotValue(monitor.id, { brightness });
+                }
+
+                if (contrast !== undefined) {
+                    this.#writePercentage(monitor, VCP_CONTRAST, contrast);
+                    this.#updateSnapshotValue(monitor.id, { contrast });
+                }
+            }
+
+            return {
+                monitorIds: targets.map(({ id }) => id),
+                ...(brightness !== undefined ? { brightness } : {}),
+                ...(contrast !== undefined ? { contrast } : {}),
+                snapshots: this.getCachedSnapshots(),
+            };
+        });
+    }
+
+    dispose(): Promise<void> {
+        this.#disposePromise ??= this.#disposeResources();
+        return this.#disposePromise;
+    }
+
+    async #disposeResources(): Promise<void> {
+        this.#disposed = true;
+
+        // 等待所有已经进入串行队列的 DDC/CI 操作完成，再释放句柄和卸载 DLL
+        await this.#tail.catch(() => undefined);
+
+        this.#client.dispose();
+        this.#monitors = [];
+        this.#snapshots = [];
+        this.#hasRefreshed = false;
+        this.#maximumValues.clear();
+        this.#percentageValues.clear();
+    }
+
+    #enqueue<T>(operation: () => T | Promise<T>): Promise<T> {
+        if (this.#disposed) {
+            return Promise.reject(new Error('显示器控制器正在退出，无法继续执行 DDC/CI 操作'));
+        }
+
+        const result = this.#tail.then(operation, operation);
+        this.#tail = result.then(
+            () => undefined,
+            () => undefined,
+        );
+
+        return result;
+    }
+
+    #refreshSnapshots(): MonitorSnapshot[] {
+        const monitors = this.#client.refreshMonitors();
+
+        this.#hasRefreshed = true;
+        this.#monitors = monitors;
+        this.#snapshots = [];
+        this.#maximumValues.clear();
+        this.#percentageValues.clear();
+
+        this.#snapshots = monitors.map((monitor) => {
+            const errors: string[] = [];
+            let brightness: number | null = null;
+            let contrast: number | null = null;
+
+            try {
+                brightness = this.#readAndCachePercentage(monitor, VCP_BRIGHTNESS);
+            } catch (error) {
+                errors.push(`亮度：${toErrorMessage(error)}`);
+            }
+
+            try {
+                contrast = this.#readAndCachePercentage(monitor, VCP_CONTRAST);
+            } catch (error) {
+                errors.push(`对比度：${toErrorMessage(error)}`);
+            }
+
+            return {
+                id: monitor.id,
+                name: monitor.name,
+                index: monitor.index,
+                brightness,
+                contrast,
+                ...(errors.length > 0 ? { error: errors.join('\n') } : {}),
+            } satisfies MonitorSnapshot;
+        });
+
+        return this.getCachedSnapshots();
+    }
+
+    #resolveCachedTargets(target: MonitorTarget): NativeMonitor[] {
+        if (!this.#hasRefreshed) {
+            // 正常启动流程会先刷新；这里保留兜底，避免未来调用顺序改变后完全无法设置
+            this.#refreshSnapshots();
+        }
+
+        return resolveTargets(this.#monitors, target);
+    }
+
+    #readAndCachePercentage(monitor: NativeMonitor, code: number): number {
+        const value = this.#client.readVcpValue(monitor.index, code);
+        const percentage = toPercentage(value);
+        const cacheKey = createVcpCacheKey(monitor.id, code);
+
+        this.#maximumValues.set(cacheKey, value.maximum);
+        this.#percentageValues.set(cacheKey, percentage);
+        return percentage;
+    }
+
+    #writePercentage(monitor: NativeMonitor, code: number, percentage: number): void {
+        const cacheKey = createVcpCacheKey(monitor.id, code);
+
+        if (this.#percentageValues.get(cacheKey) === percentage) {
+            return;
+        }
+
+        let maximum = this.#maximumValues.get(cacheKey);
+
+        if (maximum === undefined) {
+            // 仅在启动读取该 VCP 失败、或没有先刷新快照时发生
+            const value = this.#client.readVcpValue(monitor.index, code);
+            maximum = value.maximum;
+            this.#maximumValues.set(cacheKey, maximum);
+
+            const currentPercentage = toPercentage(value);
+            this.#percentageValues.set(cacheKey, currentPercentage);
+
+            if (currentPercentage === percentage) {
+                return;
+            }
+        }
+
+        const rawValue = maximum > 0 ? Math.round((percentage / 100) * maximum) : percentage;
+
+        this.#client.writeVcpValue(monitor.index, code, rawValue);
+        this.#percentageValues.set(cacheKey, percentage);
+    }
+
+    #updateSnapshotValue(monitorId: string, values: { brightness?: number; contrast?: number }): void {
+        this.#snapshots = this.#snapshots.map((monitor) => {
+            if (monitor.id !== monitorId) {
+                return monitor;
+            }
+
+            return {
+                id: monitor.id,
+                index: monitor.index,
+                name: monitor.name,
+                brightness: values.brightness ?? monitor.brightness,
+                contrast: values.contrast ?? monitor.contrast,
+                ...(monitor.error ? { error: monitor.error } : {}),
+            };
+        });
+    }
+
+    #clearSnapshotError(monitorId: string): void {
+        this.#snapshots = this.#snapshots.map((monitor) => {
+            if (monitor.id !== monitorId || monitor.error === undefined) {
+                return monitor;
+            }
+
+            return {
+                id: monitor.id,
+                index: monitor.index,
+                name: monitor.name,
+                brightness: monitor.brightness,
+                contrast: monitor.contrast,
+            };
+        });
+    }
+}
+
+function toPercentage(value: VcpValue): number {
+    if (value.maximum <= 0) {
+        return clamp(value.current);
+    }
+
+    return clamp((value.current / value.maximum) * 100);
+}
+
+function createVcpCacheKey(monitorId: string, code: number): string {
+    return `${monitorId}\u0000${code}`;
+}
+
+function resolveTargets(monitors: readonly NativeMonitor[], target: MonitorTarget): NativeMonitor[] {
+    if (monitors.length === 0) {
+        throw new Error('未检测到支持 DDC/CI 的物理显示器');
+    }
+
+    if (target === 'all') {
+        return [...monitors];
+    }
+
+    const monitor = monitors.find(({ id }) => id === target);
+
+    if (!monitor) {
+        throw new Error(`目标显示器已断开或标识发生变化：${target}`);
+    }
+
+    return [monitor];
+}
+
+function clamp(value: number): number {
+    if (!Number.isFinite(value)) {
+        throw new TypeError('显示器调整值必须为有限数字');
+    }
+
+    return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function toErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
