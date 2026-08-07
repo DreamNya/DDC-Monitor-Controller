@@ -163,6 +163,8 @@ class FakeMonitorController implements MonitorDependency {
         };
     }
 
+    tryPowerOff(_monitorId: string): void {}
+
     releaseApply(): void {
         this.#applyRelease.resolve();
     }

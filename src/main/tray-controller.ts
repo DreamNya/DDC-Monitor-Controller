@@ -30,6 +30,7 @@ function createTrayMenu(autoEnabled: boolean): MenuOptions {
                 label: autoEnabled ? '关闭自动调节' : '开启自动调节',
             },
             { id: 'apply-auto', label: '立即应用自动设置' },
+            { id: 'power-off', label: '显示器关闭' },
             { id: 'refresh', label: '重新检测显示器' },
             { id: 'reset-ui-scale', label: '重置面板缩放比例（100%）' },
             { role: 'separator' },
@@ -139,6 +140,10 @@ export class TrayController {
 
             case 'apply-auto':
                 runBackground('应用自动设置', () => this.#appController.applyAutoNow());
+                break;
+
+            case 'power-off':
+                runBackground('显示器关闭', () => this.#appController.tryPowerOff());
                 break;
 
             case 'refresh':

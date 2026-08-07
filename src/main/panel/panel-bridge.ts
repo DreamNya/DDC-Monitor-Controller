@@ -17,6 +17,7 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
         applyManual: (request) => runCommand(() => appController.applyManual(request)),
         applyLive: (request) => runCommand(() => appController.applyLive(request)),
         applyAutoNow: () => runCommand(() => appController.applyAutoNow()),
+        tryPowerOff: ({ monitorId }) => runCommand(() => appController.tryPowerOff(monitorId)),
         setAutoInterval: ({ intervalMinutes }) => runCommand(() => appController.setAutoInterval(intervalMinutes)),
         setTargetMonitor: ({ monitorId }) => runCommand(() => appController.setTargetMonitor(monitorId)),
         setUiScale: ({ target, percent }) => runCommand(() => appController.setUiScale(target, percent)),

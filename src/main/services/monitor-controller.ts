@@ -3,6 +3,11 @@ import { NativeDdcClient, type NativeMonitor, type VcpValue } from './monitor/na
 
 const VCP_BRIGHTNESS = 0x10;
 const VCP_CONTRAST = 0x12;
+const VCP_POWER_MODE = 0xd6;
+const VCP_POWER_ON = 0x01;
+const VCP_POWER_STANDBY = 0x02;
+const VCP_POWER_DPMS_OFF = 0x04;
+const VCP_POWER_OFF = 0x05;
 
 export interface DdcClient {
     refreshMonitors(): NativeMonitor[];
@@ -78,6 +83,31 @@ export class DDCMonitorController {
      *
      * 只有某个 VCP 的最大值尚未缓存时，才会额外读取一次以完成百分比换算
      */
+    /**
+     * 尝试通过 MCCS Power Mode 让目标显示器关闭。
+     *
+     * 这是 best-effort 操作：每台显示器独立尝试，失败只记录日志，不向上抛出，
+     * 避免一台不支持 0xD6 的显示器阻止其他显示器继续执行。
+     */
+    tryPowerOff(monitorId: MonitorTarget): void {
+        let targets: NativeMonitor[];
+
+        try {
+            targets = resolveTargets(this.#monitors, monitorId);
+        } catch (error) {
+            console.error('尝试让显示器关闭失败：', error);
+            return;
+        }
+
+        for (const monitor of targets) {
+            try {
+                this.#client.writeVcpValue(monitor.index, VCP_POWER_MODE, VCP_POWER_OFF);
+            } catch (error) {
+                console.error(`尝试让显示器“${monitor.name || monitor.id}”关闭失败（VCP 0xD6 = 0x05）：`, error);
+            }
+        }
+    }
+
     async applyLive(request: LiveApplyRequest): Promise<MonitorLiveApplyResult> {
         const requestedBrightness = request.brightness;
         const requestedContrast = request.contrast;

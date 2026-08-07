@@ -351,7 +351,7 @@ input[type='range']::-moz-range-thumb {
 
 .footer-button {
     display: flex;
-    flex: 1 1 50%;
+    flex: 1 1 0;
     align-items: center;
     justify-content: center;
     gap: 7px;

@@ -21,6 +21,7 @@ export interface MonitorBridge {
     applyManual(request: ManualApplyRequest): Promise<null>;
     applyLive(request: LiveApplyRequest): Promise<null>;
     applyAutoNow(): Promise<null>;
+    tryPowerOff(options: { monitorId: MonitorTarget }): Promise<null>;
     setAutoInterval(options: { intervalMinutes: IntervalMinutes | null }): Promise<null>;
     setLogEnabled(options: { enabled: boolean }): Promise<null>;
     setTargetMonitor(options: { monitorId: MonitorTarget }): Promise<null>;

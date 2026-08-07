@@ -36,6 +36,7 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
         applyManual: (request: ManualApplyRequest) => record('applyManual', request),
         applyLive: (request: LiveApplyRequest) => record('applyLive', request),
         applyAutoNow: () => record('applyAutoNow'),
+        tryPowerOff: (monitorId: MonitorTarget) => record('tryPowerOff', monitorId),
         setAutoInterval: (intervalMinutes: IntervalMinutes | null) => record('setAutoInterval', intervalMinutes),
         setTargetMonitor: (monitorId: MonitorTarget) => record('setTargetMonitor', monitorId),
         setUiScale: (target: UiScaleTarget, percent: UiScalePercent) => record('setUiScale', target, percent),
@@ -67,9 +68,11 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     });
 
     assert.equal(await bridge.getState(), state);
+    assert.equal(await bridge.tryPowerOff({ monitorId: 'monitor-1' }), null);
     assert.equal(await bridge.setAutoInterval({ intervalMinutes: 15 }), null);
     assert.equal(await bridge.setUiScale({ target: 'quick', percent: 125 }), null);
     assert.deepEqual(calls, [
+        { name: 'tryPowerOff', args: ['monitor-1'] },
         { name: 'setAutoInterval', args: [15] },
         { name: 'setUiScale', args: ['quick', 125] },
     ]);

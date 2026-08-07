@@ -8,6 +8,8 @@ import type { NativeMonitor, VcpValue } from './monitor/native-ddc-client.ts';
 
 const VCP_BRIGHTNESS = 0x10;
 const VCP_CONTRAST = 0x12;
+const VCP_POWER_MODE = 0xd6;
+const VCP_POWER_OFF = 0x05;
 
 describe('DDCMonitorController cache policy', () => {
     test('manual and live apply reuse refreshed values without extra reads', async () => {
@@ -90,6 +92,35 @@ describe('DDCMonitorController cache policy', () => {
         assert.equal(client.refreshCount, 1);
         await controller.dispose();
     });
+
+    test('power off is best-effort and continues after an individual monitor rejects the VCP write', async () => {
+        const client = new FakeDdcClient([
+            { id: 'monitor-1', name: 'Monitor 1', index: 0 },
+            { id: 'monitor-2', name: 'Monitor 2', index: 1 },
+        ]);
+        client.failedWriteIndexes.add(0);
+        const controller = new DDCMonitorController(client);
+        const originalConsoleError = console.error;
+        const errors: unknown[][] = [];
+        console.error = (...args: unknown[]) => {
+            errors.push(args);
+        };
+
+        try {
+            await controller.getSnapshots();
+            controller.tryPowerOff('all');
+        } finally {
+            console.error = originalConsoleError;
+        }
+
+        assert.deepEqual(client.writeAttempts, [
+            { index: 0, code: VCP_POWER_MODE, value: VCP_POWER_OFF },
+            { index: 1, code: VCP_POWER_MODE, value: VCP_POWER_OFF },
+        ]);
+        assert.deepEqual(client.writes, [{ index: 1, code: VCP_POWER_MODE, value: VCP_POWER_OFF }]);
+        assert.equal(errors.length, 1);
+        await controller.dispose();
+    });
 });
 
 class FakeDdcClient implements DdcClient {
@@ -102,6 +133,8 @@ class FakeDdcClient implements DdcClient {
     refreshCount = 0;
     readCount = 0;
     writes: Array<{ index: number; code: number; value: number }> = [];
+    writeAttempts: Array<{ index: number; code: number; value: number }> = [];
+    failedWriteIndexes = new Set<number>();
 
     constructor(monitors: NativeMonitor[] = [{ id: 'monitor-1', name: 'Test Monitor', index: 0 }]) {
         this.#monitors = monitors;
@@ -124,6 +157,12 @@ class FakeDdcClient implements DdcClient {
     }
 
     writeVcpValue(index: number, code: number, value: number): void {
+        this.writeAttempts.push({ index, code, value });
+
+        if (this.failedWriteIndexes.has(index)) {
+            throw new Error(`Write failed for monitor index ${index}`);
+        }
+
         this.writes.push({ index, code, value });
         const current = this.#values.get(code);
         this.#values.set(code, { current: value, maximum: current?.maximum ?? 100 });

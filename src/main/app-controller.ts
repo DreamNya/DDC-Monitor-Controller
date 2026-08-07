@@ -36,7 +36,7 @@ import { createDefaultSettings, SettingsStore } from './services/settings-store.
 
 type MonitorController = Pick<
     DDCMonitorController,
-    'getSnapshots' | 'getCachedSnapshots' | 'apply' | 'applyLive' | 'dispose'
+    'getSnapshots' | 'getCachedSnapshots' | 'apply' | 'applyLive' | 'tryPowerOff' | 'dispose'
 >;
 type AutoScheduler = Pick<AutoAdjustmentScheduler, 'nextRunAt' | 'schedule' | 'stop' | 'dispose'>;
 
@@ -148,19 +148,23 @@ export class AppController {
 
     applyLive(request: LiveApplyRequest): Promise<void> {
         return this.#executeCommand(async () => {
-            await this.#attempt('实时调节失败', () => this.#monitorController.applyLive(request), (result) => {
-                const changes: string[] = [];
+            await this.#attempt(
+                '实时调节失败',
+                () => this.#monitorController.applyLive(request),
+                (result) => {
+                    const changes: string[] = [];
 
-                if (result.brightness !== undefined) {
-                    changes.push(`亮度 ${result.brightness}`);
-                }
+                    if (result.brightness !== undefined) {
+                        changes.push(`亮度 ${result.brightness}`);
+                    }
 
-                if (result.contrast !== undefined) {
-                    changes.push(`对比度 ${result.contrast}`);
-                }
+                    if (result.contrast !== undefined) {
+                        changes.push(`对比度 ${result.contrast}`);
+                    }
 
-                return `已实时调节：${changes.join('，')}`;
-            });
+                    return `已实时调节：${changes.join('，')}`;
+                },
+            );
             return 'apply-live' as const;
         });
     }
@@ -169,6 +173,20 @@ export class AppController {
         return this.#executeCommand(async () => {
             await this.#applyAuto();
             return 'apply-auto' as const;
+        });
+    }
+
+    tryPowerOff(monitorId: MonitorTarget = this.#state.settings.targetMonitorId): Promise<void> {
+        return this.#commands.run(async () => {
+            try {
+                // 托盘可在应用长期后台运行后触发，先更新原生显示器索引再发送电源指令。
+                await this.#monitorController.getSnapshots();
+            } catch (error) {
+                console.error('显示器关闭前刷新显示器列表失败：', error);
+                return;
+            }
+
+            this.#monitorController.tryPowerOff(monitorId);
         });
     }
 
@@ -383,7 +401,9 @@ export class AppController {
             reason = 'apply-auto';
 
             if (this.#state.lastError === null) {
-                this.#state.setOperation(`自动调节已开启，每 ${intervalMinutes} 分钟运行；${this.#state.lastOperation}`);
+                this.#state.setOperation(
+                    `自动调节已开启，每 ${intervalMinutes} 分钟运行；${this.#state.lastOperation}`,
+                );
             }
         } else {
             this.#state.succeed(`自动调节间隔已设置为 ${intervalMinutes} 分钟`);

@@ -32,6 +32,7 @@ const elements = {
     contrastSlider: getElement<HTMLInputElement>('#contrast-slider'),
     contrastValue: getElement<HTMLOutputElement>('#contrast-value'),
     refreshButton: getElement<HTMLButtonElement>('#refresh-button'),
+    powerOffButton: getElement<HTMLButtonElement>('#power-off-button'),
     openControlButton: getElement<HTMLButtonElement>('#open-control-button'),
 };
 
@@ -78,6 +79,19 @@ function bindEvents(): void {
 
         void actions.run(async () => {
             await bridge.refreshMonitors();
+        });
+    });
+
+    elements.powerOffButton.addEventListener('click', () => {
+        liveAdjustment.cancelPending();
+        const monitor = getSelectedMonitor();
+
+        if (!monitor) {
+            return;
+        }
+
+        void actions.run(async () => {
+            await bridge.tryPowerOff({ monitorId: monitor.id });
         });
     });
 
@@ -234,6 +248,7 @@ function setBusy(value: boolean): void {
     elements.brightnessSlider.disabled = value || !hasMonitor;
     elements.contrastSlider.disabled = value || !hasMonitor;
     elements.refreshButton.disabled = value;
+    elements.powerOffButton.disabled = value || !hasMonitor;
     elements.openControlButton.disabled = value;
 }
 
