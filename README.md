@@ -2,6 +2,8 @@
 
 一款轻量级 Windows 显示器 DDC/CI 控制工具，提供图形化操作界面，支持手动和自动调节显示器亮度与对比度
 
+GitHub: <https://github.com/DreamNya/DDC-Monitor-Controller>
+
 ## 功能特性
 
 * 轻量级后台运行
@@ -47,7 +49,22 @@
 
 ### 下载
 
-前往项目 [Releases 页面](https://github.com/DreamNya/ddc-monitor-controller/releases/latest) 下载最新版本
+下载编译后的文件
+
+* **GitHub Release**
+
+```text
+https://github.com/DreamNya/DDC-Monitor-Controller/releases
+```
+
+* **蓝奏云分流**
+
+```text
+https://wwbwh.lanzouw.com/b01d75e9of
+密码:4zwx
+```
+
+### 版本说明
 
 | 版本 | 是否包含 Node.js Runtime | 适用场景
 | ---- | ---- | ----
@@ -61,7 +78,9 @@
 ### 启动
 
 双击 `DDCMonitorController.exe` 即可启动程序
+
 程序启动后会常驻系统托盘
+
 （可将`DDCMonitorController.exe`添加到系统启动项或计划任务以支持开机自动启动）
 
 ### 快速设置
