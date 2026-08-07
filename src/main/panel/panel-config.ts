@@ -24,7 +24,6 @@ export const PANEL_PAGES = Object.freeze({
         decorations: false,
         windowsUndecoratedShadow: true,
         resizable: false,
-        maximized: false,
         alwaysOnTop: true,
         windowsSkipTaskbar: true,
     },
@@ -36,7 +35,6 @@ export const PANEL_PAGES = Object.freeze({
         decorations: false,
         windowsUndecoratedShadow: true,
         resizable: true,
-        maximized: false,
     },
 } satisfies Record<PanelPage, PanelPageOptions>);
 

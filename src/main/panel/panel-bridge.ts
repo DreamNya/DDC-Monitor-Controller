@@ -12,32 +12,40 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
     const { appController } = dependencies;
 
     return {
-        getState: () => appController.getState(),
-        refreshMonitors: () => appController.refreshMonitors(),
-        applyManual: (request) => appController.applyManual(request),
-        applyLive: (request) => appController.applyLive(request),
-        applyAutoNow: () => appController.applyAutoNow(),
-        setAutoInterval: ({ intervalMinutes }) => appController.setAutoInterval(intervalMinutes),
-        setTargetMonitor: ({ monitorId }) => appController.setTargetMonitor(monitorId),
-        setUiScale: ({ target, percent }) => appController.setUiScale(target, percent),
-        setActiveScheduleProfile: ({ profileId }) => appController.setActiveScheduleProfile(profileId),
-        createScheduleProfile: ({ name, schedule }) => appController.createScheduleProfile(name, schedule),
-        renameScheduleProfile: ({ profileId, name }) => appController.renameScheduleProfile(profileId, name),
-        deleteScheduleProfile: ({ profileId }) => appController.deleteScheduleProfile(profileId),
-        saveSchedule: ({ profileId, schedule }) => appController.saveSchedule(profileId, schedule),
-        setLogEnabled: ({ enabled }) => appController.setLogEnabled(enabled),
-        startControlWindowDrag: () => {
+        getState: async () => appController.getState(),
+        refreshMonitors: () => runCommand(() => appController.refreshMonitors()),
+        applyManual: (request) => runCommand(() => appController.applyManual(request)),
+        applyLive: (request) => runCommand(() => appController.applyLive(request)),
+        applyAutoNow: () => runCommand(() => appController.applyAutoNow()),
+        setAutoInterval: ({ intervalMinutes }) => runCommand(() => appController.setAutoInterval(intervalMinutes)),
+        setTargetMonitor: ({ monitorId }) => runCommand(() => appController.setTargetMonitor(monitorId)),
+        setUiScale: ({ target, percent }) => runCommand(() => appController.setUiScale(target, percent)),
+        setActiveScheduleProfile: ({ profileId }) =>
+            runCommand(() => appController.setActiveScheduleProfile(profileId)),
+        createScheduleProfile: ({ name, schedule }) =>
+            runCommand(() => appController.createScheduleProfile(name, schedule)),
+        renameScheduleProfile: ({ profileId, name }) =>
+            runCommand(() => appController.renameScheduleProfile(profileId, name)),
+        deleteScheduleProfile: ({ profileId }) => runCommand(() => appController.deleteScheduleProfile(profileId)),
+        saveSchedule: ({ profileId, schedule }) => runCommand(() => appController.saveSchedule(profileId, schedule)),
+        setLogEnabled: ({ enabled }) => runCommand(() => appController.setLogEnabled(enabled)),
+        startControlWindowDrag: async () => {
             dependencies.startControlWindowDrag();
-            return Promise.resolve(null);
+            return null;
         },
-        resetSettings: () => appController.resetSettings(),
-        openControlPanel: () => {
+        resetSettings: () => runCommand(() => appController.resetSettings()),
+        openControlPanel: async () => {
             setImmediate(dependencies.openControlPanel);
-            return Promise.resolve(null);
+            return null;
         },
-        closePanel: () => {
+        closePanel: async () => {
             setImmediate(dependencies.closePanel);
-            return Promise.resolve(null);
+            return null;
         },
     } satisfies MonitorBridge;
+}
+
+async function runCommand(command: () => Promise<void>): Promise<null> {
+    await command();
+    return null;
 }

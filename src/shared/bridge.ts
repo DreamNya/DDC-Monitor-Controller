@@ -17,20 +17,20 @@ import type {
  */
 export interface MonitorBridge {
     getState(): Promise<AppState>;
-    refreshMonitors(): Promise<AppState>;
-    applyManual(request: ManualApplyRequest): Promise<AppState>;
-    applyLive(request: LiveApplyRequest): Promise<AppState>;
-    applyAutoNow(): Promise<AppState>;
-    setAutoInterval(options: { intervalMinutes: IntervalMinutes | null }): Promise<AppState>;
-    setLogEnabled(options: { enabled: boolean }): Promise<AppState>;
-    setTargetMonitor(options: { monitorId: MonitorTarget }): Promise<AppState>;
-    setUiScale(options: { target: UiScaleTarget; percent: UiScalePercent }): Promise<AppState>;
-    setActiveScheduleProfile(options: { profileId: string }): Promise<AppState>;
-    createScheduleProfile(options: { name: string; schedule: SchedulePoint[] }): Promise<AppState>;
-    renameScheduleProfile(options: { profileId: string; name: string }): Promise<AppState>;
-    deleteScheduleProfile(options: { profileId: string }): Promise<AppState>;
-    saveSchedule(options: { profileId: string; schedule: SchedulePoint[] }): Promise<AppState>;
-    resetSettings(): Promise<AppState>;
+    refreshMonitors(): Promise<null>;
+    applyManual(request: ManualApplyRequest): Promise<null>;
+    applyLive(request: LiveApplyRequest): Promise<null>;
+    applyAutoNow(): Promise<null>;
+    setAutoInterval(options: { intervalMinutes: IntervalMinutes | null }): Promise<null>;
+    setLogEnabled(options: { enabled: boolean }): Promise<null>;
+    setTargetMonitor(options: { monitorId: MonitorTarget }): Promise<null>;
+    setUiScale(options: { target: UiScaleTarget; percent: UiScalePercent }): Promise<null>;
+    setActiveScheduleProfile(options: { profileId: string }): Promise<null>;
+    createScheduleProfile(options: { name: string; schedule: SchedulePoint[] }): Promise<null>;
+    renameScheduleProfile(options: { profileId: string; name: string }): Promise<null>;
+    deleteScheduleProfile(options: { profileId: string }): Promise<null>;
+    saveSchedule(options: { profileId: string; schedule: SchedulePoint[] }): Promise<null>;
+    resetSettings(): Promise<null>;
     startControlWindowDrag(): Promise<null>;
     openControlPanel(): Promise<null>;
     closePanel(): Promise<null>;

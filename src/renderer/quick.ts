@@ -1,5 +1,5 @@
 import type { MonitorBridge } from '../shared/bridge';
-import type { AppState, MonitorTarget } from '../shared/model';
+import type { AppState, AppStateChange, MonitorTarget } from '../shared/model';
 import {
     createActionController,
     createLiveAdjustmentController,
@@ -38,7 +38,6 @@ const elements = {
 const liveAdjustment = createLiveAdjustmentController({
     interval: 200,
     apply: (values) => bridge.applyLive(values),
-    onApplied: render,
     onError: (error) => showError('实时调节失败', error),
 });
 
@@ -52,7 +51,7 @@ void initialize();
 async function initialize(): Promise<void> {
     try {
         bridge = await waitForBridge();
-        window.__monitorStateChanged = render;
+        window.__monitorStateChanged = renderStateChange;
         bindEvents();
 
         await actions.run(async () => {
@@ -77,10 +76,7 @@ function bindEvents(): void {
         selectedMonitorId = undefined;
 
         void actions.run(async () => {
-            render(await bridge.refreshMonitors(), {
-                resetMonitorSelection: true,
-                syncManualValues: true,
-            });
+            await bridge.refreshMonitors();
         });
     });
 
@@ -144,7 +140,14 @@ function cycleMonitor(): void {
     selectMonitorValues();
 
     void actions.run(async () => {
-        render(await bridge.setTargetMonitor({ monitorId: nextMonitor.id }));
+        await bridge.setTargetMonitor({ monitorId: nextMonitor.id });
+    });
+}
+
+function renderStateChange({ reason, state }: AppStateChange): void {
+    render(state, {
+        resetMonitorSelection: reason === 'refresh-monitors',
+        syncManualValues: reason === 'refresh-monitors' || reason === 'apply-auto',
     });
 }
 

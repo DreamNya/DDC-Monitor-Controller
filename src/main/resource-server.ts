@@ -13,8 +13,6 @@ const MIME_TYPES: Readonly<Record<string, string>> = Object.freeze({
 });
 
 export interface ResourceServer {
-    readonly origin: string;
-    readonly entryUrl: string;
     getUrl(pathname: string): string;
     close(): Promise<void>;
 }
@@ -41,7 +39,6 @@ const TEXT_NO_CACHE_HEADERS: http.OutgoingHttpHeaders = {
  */
 export async function createResourceServer(rendererRoot: string): Promise<ResourceServer> {
     const root = path.resolve(rendererRoot);
-    const prefix = `/`;
 
     const server = http.createServer((request, response) => {
         void handleRequest(request.method, request.url, response).catch((error) => {
@@ -70,11 +67,9 @@ export async function createResourceServer(rendererRoot: string): Promise<Resour
     const origin = `http://127.0.0.1:${address.port}`;
 
     return {
-        origin,
-        entryUrl: `${origin}${prefix}control.html`,
         getUrl: (pathname: string) => {
             const normalized = pathname.replace(/^\/+/, '');
-            return `${origin}${prefix}${encodeURI(normalized)}`;
+            return `${origin}/${encodeURI(normalized)}`;
         },
         close: () => closeServer(server),
     };
@@ -92,19 +87,14 @@ export async function createResourceServer(rendererRoot: string): Promise<Resour
 
         const url = new URL(requestUrl ?? '/', origin);
 
-        if (!url.pathname.startsWith(prefix)) {
-            writeText(response, 404, 'Not Found');
-            return;
-        }
-
-        const encodedPath = url.pathname.slice(prefix.length);
+        const encodedPath = url.pathname.slice(1);
         const pathname = decodeURIComponent(encodedPath) || 'control.html';
         const filePath = path.resolve(root, pathname);
         const relativePath = path.relative(root, filePath);
 
         if (
             relativePath === '..' ||
-            relativePath.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) ||
+            relativePath.startsWith(`..${path.sep}`) ||
             path.resolve(root, relativePath) !== filePath
         ) {
             writeText(response, 403, 'Forbidden');

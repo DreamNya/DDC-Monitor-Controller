@@ -1,10 +1,10 @@
 import type { MonitorBridge } from '../shared/bridge';
-import type { AppState, LiveApplyRequest, MonitorTarget } from '../shared/model';
+import type { AppState, AppStateChange, LiveApplyRequest, MonitorTarget } from '../shared/model';
 
 declare global {
     interface Window {
         monitor?: MonitorBridge;
-        __monitorStateChanged?: (state: AppState) => void;
+        __monitorStateChanged?: (change: AppStateChange) => void;
     }
 }
 
@@ -16,8 +16,7 @@ export type ManualAdjustment = {
 
 type LiveAdjustmentOptions = {
     interval?: number;
-    apply: (values: LiveApplyRequest) => Promise<AppState>;
-    onApplied: (state: AppState) => void;
+    apply: (values: LiveApplyRequest) => Promise<unknown>;
     onError: (error: unknown) => void;
 };
 
@@ -180,8 +179,7 @@ export function createLiveAdjustmentController(options: LiveAdjustmentOptions): 
 
         task = (async () => {
             try {
-                const state = await options.apply(values);
-                options.onApplied(state);
+                await options.apply(values);
             } catch (error) {
                 options.onError(error);
             } finally {

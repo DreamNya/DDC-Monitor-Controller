@@ -1,5 +1,7 @@
 export const INTERVAL_MINUTES_OPTIONS = [10, 15, 20, 30, 60] as const;
 
+export const MAX_SCHEDULE_PROFILE_NAME_LENGTH = 40;
+
 export type IntervalMinutes = (typeof INTERVAL_MINUTES_OPTIONS)[number];
 
 export interface SchedulePoint {
@@ -30,7 +32,8 @@ export interface MonitorSnapshot {
     error?: string;
 }
 
-export type MonitorTarget = 'all' | string;
+/** 显示器标识；保留字符串 `all` 表示全部显示器 */
+export type MonitorTarget = string;
 
 export type UiScaleTarget = 'quick' | 'control';
 
@@ -63,6 +66,21 @@ export interface AppState {
     nextRunAt: string | null;
     lastOperation: string;
     lastError: string | null;
+}
+
+export type AppStateChangeReason =
+    | 'initialize'
+    | 'refresh-monitors'
+    | 'apply-manual'
+    | 'apply-live'
+    | 'apply-auto'
+    | 'update-settings'
+    | 'update-schedule';
+
+/** 主进程向所有界面广播的唯一状态变更消息 */
+export interface AppStateChange {
+    state: AppState;
+    reason: AppStateChangeReason;
 }
 
 export interface ManualApplyRequest {

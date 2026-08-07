@@ -54,7 +54,7 @@ export function readControlWindowBounds(
     window: BrowserWindow,
     uiScalePercent: UiScalePercent = DEFAULT_UI_SCALE_PERCENT,
 ): ControlWindowBounds | undefined {
-    if (window.isDisposed() || window.isMaximized() || window.isMinimized()) {
+    if (window.isDisposed()) {
         return undefined;
     }
 

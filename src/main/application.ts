@@ -32,8 +32,10 @@ export class DesktopApplication {
     constructor(options: DesktopApplicationOptions) {
         this.#paths = options.paths;
         this.#singleInstanceLock = options.singleInstanceLock;
-        this.#appController = new AppController((enabled) => {
-            options.fileLogger.setEnabled(enabled);
+        this.#appController = new AppController({
+            onLogEnabledChanged: (enabled) => {
+                options.fileLogger.setEnabled(enabled);
+            },
         });
     }
 
@@ -42,6 +44,7 @@ export class DesktopApplication {
 
         this.#createAnchorWindow();
         await fs.mkdir(this.#paths.webviewDataDirectory, { recursive: true });
+        await this.#appController.initialize();
         this.#resourceServer = await createResourceServer(this.#paths.rendererRoot);
 
         const panelManager = new PanelManager({
@@ -64,14 +67,13 @@ export class DesktopApplication {
         this.#panelManager = panelManager;
         this.#trayController = trayController;
 
-        await trayController.initialize(true);
+        await trayController.initialize(this.#appController.getState().settings.autoEnabled);
 
-        this.#appController.setStateListener((state) => {
+        this.#appController.setStateListener((change) => {
+            const { state } = change;
             trayController.updateAutoEnabled(state.settings.autoEnabled);
-            panelManager.pushState(state);
+            panelManager.pushState(change);
         });
-
-        await this.#appController.initialize();
 
         if (this.#quitting) {
             return;

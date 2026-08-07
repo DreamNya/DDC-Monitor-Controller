@@ -68,7 +68,7 @@ function main() {
 
     copyDirectoryContents(buildRoot, appRoot);
 
-    // 便携包只在根目录保留启动器。
+    // 便携包只在根目录保留启动器
     fs.rmSync(path.join(appRoot, 'DDCMonitorController.exe'), { force: true });
 
     fs.copyFileSync(builtLauncher, path.join(portableRoot, 'DDCMonitorController.exe'));

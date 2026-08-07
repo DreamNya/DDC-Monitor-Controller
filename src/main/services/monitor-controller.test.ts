@@ -64,6 +64,19 @@ describe('DDCMonitorController cache policy', () => {
         await controller.dispose();
     });
 
+    test('apply requires the application layer to refresh topology first', async () => {
+        const client = new FakeDdcClient();
+        const controller = new DDCMonitorController(client);
+
+        await assert.rejects(
+            controller.apply({ monitorId: 'all', brightness: 40, contrast: 50 }),
+            /未检测到支持 DDC\/CI 的物理显示器/,
+        );
+
+        assert.equal(client.refreshCount, 0);
+        await controller.dispose();
+    });
+
     test('an empty refreshed topology is not immediately refreshed again by apply', async () => {
         const client = new FakeDdcClient([]);
         const controller = new DDCMonitorController(client);

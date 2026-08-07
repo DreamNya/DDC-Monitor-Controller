@@ -1,6 +1,7 @@
 import type { MonitorBridge } from '../shared/bridge';
 import type {
     AppState,
+    AppStateChange,
     IntervalMinutes,
     MonitorTarget,
     SchedulePoint,
@@ -59,7 +60,6 @@ const elements = {
     scheduleBody: getElement<HTMLTableSectionElement>('#schedule-body'),
     addPointButton: getElement<HTMLButtonElement>('#add-point-button'),
     saveScheduleButton: getElement<HTMLButtonElement>('#save-schedule-button'),
-    /* resetButton: getElement<HTMLButtonElement>('#reset-button'), */
     toast: getElement<HTMLElement>('#toast'),
     closeButton: getElement<HTMLButtonElement>('#close-button'),
     windowDragRegion: getElement<HTMLElement>('#window-drag-region'),
@@ -73,7 +73,6 @@ const elements = {
 const liveAdjustment = createLiveAdjustmentController({
     interval: 200,
     apply: (values) => bridge.applyLive(values),
-    onApplied: render,
     onError: (error) => showToast(getErrorMessage(error)),
 });
 
@@ -87,7 +86,7 @@ void initialize();
 async function initialize(): Promise<void> {
     try {
         bridge = await waitForBridge();
-        window.__monitorStateChanged = render;
+        window.__monitorStateChanged = renderStateChange;
         bindEvents();
 
         await actions.run(async () => {
@@ -120,7 +119,7 @@ function bindEvents(): void {
         selectMonitorValues(monitorId);
 
         void actions.run(async () => {
-            render(await bridge.setTargetMonitor({ monitorId }), { syncManualValues: true });
+            await bridge.setTargetMonitor({ monitorId });
         });
     });
 
@@ -128,7 +127,7 @@ function bindEvents(): void {
         liveAdjustment.cancelPending();
 
         void actions.run(async () => {
-            render(await bridge.refreshMonitors(), { syncManualValues: true });
+            await bridge.refreshMonitors();
         });
     });
 
@@ -136,7 +135,7 @@ function bindEvents(): void {
         liveAdjustment.cancelPending();
 
         void actions.run(async () => {
-            render(await bridge.applyManual(readManualValues()), { syncManualValues: true });
+            await bridge.applyManual(readManualValues());
         });
     });
 
@@ -147,13 +146,13 @@ function bindEvents(): void {
         updateAutoIntervalDisplay();
 
         void actions.run(async () => {
-            render(await bridge.setAutoInterval({ intervalMinutes }));
+            await bridge.setAutoInterval({ intervalMinutes });
         });
     });
 
     elements.applyAutoButton.addEventListener('click', () => {
         void actions.run(async () => {
-            render(await bridge.applyAutoNow(), { syncManualValues: true });
+            await bridge.applyAutoNow();
         });
     });
 
@@ -170,24 +169,12 @@ function bindEvents(): void {
         const profileId = getActiveScheduleProfile().id;
 
         void actions.run(async () => {
-            render(
-                await bridge.saveSchedule({
-                    profileId,
-                    schedule: readScheduleRows(),
-                }),
-            );
+            await bridge.saveSchedule({
+                profileId,
+                schedule: readScheduleRows(),
+            });
         });
     });
-
-    /* elements.resetButton.addEventListener('click', () => {
-        if (!confirm('确定恢复默认配置吗？所有已保存的定时方案都会被删除')) {
-            return;
-        }
-
-        void actions.run(async () => {
-            render(await bridge.resetSettings(), { syncManualValues: true });
-        });
-    }); */
 
     elements.closeButton.addEventListener('click', () => {
         void bridge.closePanel();
@@ -206,11 +193,9 @@ function bindEvents(): void {
 
     elements.logToggle.addEventListener('change', () => {
         void actions.run(async () => {
-            render(
-                await bridge.setLogEnabled({
-                    enabled: elements.logToggle.checked,
-                }),
-            );
+            await bridge.setLogEnabled({
+                enabled: elements.logToggle.checked,
+            });
         });
     });
 
@@ -251,7 +236,7 @@ function bindUiScaleSlider(
         }
 
         void actions.run(async () => {
-            render(await bridge.setUiScale({ target, percent }));
+            await bridge.setUiScale({ target, percent });
         });
     });
 }
@@ -295,7 +280,7 @@ function handleScheduleProfileChange(): void {
     }
 
     void actions.run(async () => {
-        render(await bridge.setActiveScheduleProfile({ profileId }));
+        await bridge.setActiveScheduleProfile({ profileId });
     });
 }
 
@@ -308,12 +293,10 @@ function createScheduleProfile(): void {
     }
 
     void actions.run(async () => {
-        render(
-            await bridge.createScheduleProfile({
-                name,
-                schedule: readScheduleRows(),
-            }),
-        );
+        await bridge.createScheduleProfile({
+            name,
+            schedule: readScheduleRows(),
+        });
     });
 }
 
@@ -326,12 +309,10 @@ function renameScheduleProfile(): void {
     }
 
     void actions.run(async () => {
-        render(
-            await bridge.renameScheduleProfile({
-                profileId: profile.id,
-                name,
-            }),
-        );
+        await bridge.renameScheduleProfile({
+            profileId: profile.id,
+            name,
+        });
     });
 }
 
@@ -348,7 +329,14 @@ function deleteScheduleProfile(): void {
     }
 
     void actions.run(async () => {
-        render(await bridge.deleteScheduleProfile({ profileId: profile.id }));
+        await bridge.deleteScheduleProfile({ profileId: profile.id });
+    });
+}
+
+function renderStateChange({ reason, state }: AppStateChange): void {
+    render(state, {
+        syncManualValues:
+            reason === 'refresh-monitors' || reason === 'apply-manual' || reason === 'apply-auto',
     });
 }
 
