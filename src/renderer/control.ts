@@ -1,7 +1,15 @@
 import type { MonitorBridge } from '../shared/bridge';
-import type { AppState, IntervalMinutes, MonitorTarget, SchedulePoint, ScheduleProfile } from '../shared/model';
+import type {
+    AppState,
+    IntervalMinutes,
+    MonitorTarget,
+    SchedulePoint,
+    ScheduleProfile,
+    UiScaleTarget,
+} from '../shared/model';
 import { INTERVAL_MINUTES_OPTIONS } from '../shared/model';
 import { formatTime, parseTime } from '../shared/schedule';
+import { isUiScalePercent } from '../shared/ui-scale';
 import {
     createActionController,
     createLiveAdjustmentController,
@@ -12,6 +20,7 @@ import {
     resolveMonitorValues,
     setRangeValue,
     updateRangeOutput,
+    updateRangeProgress,
     waitForBridge,
     type ManualAdjustment,
 } from './common';
@@ -55,6 +64,10 @@ const elements = {
     closeButton: getElement<HTMLButtonElement>('#close-button'),
     windowDragRegion: getElement<HTMLElement>('#window-drag-region'),
     logToggle: getElement<HTMLInputElement>('#log-toggle'),
+    quickUiScaleSlider: getElement<HTMLInputElement>('#quick-ui-scale-slider'),
+    quickUiScaleValue: getElement<HTMLOutputElement>('#quick-ui-scale-value'),
+    controlUiScaleSlider: getElement<HTMLInputElement>('#control-ui-scale-slider'),
+    controlUiScaleValue: getElement<HTMLOutputElement>('#control-ui-scale-value'),
 };
 
 const liveAdjustment = createLiveAdjustmentController({
@@ -92,6 +105,8 @@ async function initialize(): Promise<void> {
 function bindEvents(): void {
     elements.brightnessSlider.addEventListener('input', handleSliderInput);
     elements.contrastSlider.addEventListener('input', handleSliderInput);
+    bindUiScaleSlider('quick', elements.quickUiScaleSlider, elements.quickUiScaleValue);
+    bindUiScaleSlider('control', elements.controlUiScaleSlider, elements.controlUiScaleValue);
 
     elements.liveAdjustToggle.addEventListener('change', () => {
         if (!elements.liveAdjustToggle.checked) {
@@ -215,6 +230,30 @@ function parseAutoInterval(value: string): IntervalMinutes | null {
     }
 
     return matchedInterval;
+}
+
+function bindUiScaleSlider(
+    target: UiScaleTarget,
+    slider: HTMLInputElement,
+    output: HTMLOutputElement,
+): void {
+    slider.addEventListener('input', () => {
+        output.value = `${slider.value}%`;
+        updateRangeProgress(slider, '%');
+    });
+
+    slider.addEventListener('change', () => {
+        const percent = Number(slider.value);
+
+        if (!isUiScalePercent(percent)) {
+            showToast(`不支持的 UI 缩放比例：${slider.value}%`);
+            return;
+        }
+
+        void actions.run(async () => {
+            render(await bridge.setUiScale({ target, percent }));
+        });
+    });
 }
 
 function handleSliderInput(event: Event): void {
@@ -344,6 +383,8 @@ function render(state: AppState, options: RenderOptions = {}): void {
     elements.autoIntervalSelect.value = state.settings.autoEnabled ? String(state.settings.intervalMinutes) : 'off';
     updateAutoIntervalDisplay();
     elements.logToggle.checked = state.settings.logEnabled;
+    setRangeValue(elements.quickUiScaleSlider, elements.quickUiScaleValue, state.settings.uiScale.quick);
+    setRangeValue(elements.controlUiScaleSlider, elements.controlUiScaleValue, state.settings.uiScale.control);
     elements.autoBadge.textContent = state.settings.autoEnabled ? `自动模式开启` : '自动模式关闭';
     elements.autoBadge.classList.toggle('on', state.settings.autoEnabled);
 

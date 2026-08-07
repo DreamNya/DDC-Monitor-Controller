@@ -8,8 +8,18 @@ import type {
     MonitorSnapshot,
     MonitorTarget,
     SchedulePoint,
+    UiScalePercent,
+    UiScaleTarget,
 } from '../shared/model';
 import { calculateAutoSettings } from '../shared/schedule';
+import {
+    createDefaultUiScaleSettings,
+    isUiScalePercent,
+    isUiScaleTarget,
+    UI_SCALE_MAX_PERCENT,
+    UI_SCALE_MIN_PERCENT,
+    UI_SCALE_STEP_PERCENT,
+} from '../shared/ui-scale';
 import { AutoAdjustmentScheduler } from './services/auto-adjustment-scheduler';
 import { DDCMonitorController } from './services/monitor-controller';
 import { ScheduleProfileService } from './services/schedule-profile-service';
@@ -229,6 +239,42 @@ export class AppController {
         this.#settings.targetMonitorId = monitorId;
         await this.#saveSettings();
         this.#lastOperation = monitorId === 'all' ? '目标已切换为全部显示器' : '目标显示器已更新';
+        this.#lastError = null;
+
+        return this.#finish(true);
+    }
+
+    async setUiScale(target: UiScaleTarget, percent: UiScalePercent): Promise<AppState> {
+        if (!isUiScaleTarget(target)) {
+            throw new RangeError(`不支持的 UI 缩放目标：${String(target)}`);
+        }
+
+        if (!isUiScalePercent(percent)) {
+            throw new RangeError(
+                `UI 缩放比例必须为 ${UI_SCALE_MIN_PERCENT}%–${UI_SCALE_MAX_PERCENT}%，` +
+                    `且以 ${UI_SCALE_STEP_PERCENT}% 为步进：${String(percent)}`,
+            );
+        }
+
+        if (this.#settings.uiScale[target] === percent) {
+            return this.#finish(true);
+        }
+
+        this.#settings.uiScale[target] = percent;
+        await this.#saveSettings();
+
+        const targetName = target === 'quick' ? '快速设置面板' : '详细设置面板';
+        this.#lastOperation = `${targetName} UI 缩放已设置为 ${percent}%`;
+        this.#lastError = null;
+
+        return this.#finish(true);
+    }
+
+    async resetUiScale(): Promise<AppState> {
+        this.#settings.uiScale = createDefaultUiScaleSettings();
+        await this.#saveSettings();
+
+        this.#lastOperation = '快速设置面板和详细设置面板 UI 缩放已重置为 100%';
         this.#lastError = null;
 
         return this.#finish(true);

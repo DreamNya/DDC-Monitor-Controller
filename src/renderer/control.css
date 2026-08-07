@@ -174,7 +174,7 @@ small {
     gap: var(--card-gap);
     min-height: 0;
     overflow: hidden;
-    padding: 0 20px 15px 20px;
+    padding: 0 20px 20px;
 }
 
 .column {
@@ -185,8 +185,9 @@ small {
 }
 
 .left-column {
-    grid-template-rows: auto auto;
+    grid-template-rows: auto auto auto;
     align-content: start;
+    margin-right: 10px;
 }
 
 .right-column {
@@ -262,6 +263,22 @@ small {
     flex-direction: column;
 }
 
+.manual-card {
+    overflow: hidden;
+}
+
+.manual-card > .stacked-heading {
+    flex: 0 0 auto;
+}
+
+.manual-card-content {
+    margin-top: 5px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
 .stacked-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -304,6 +321,45 @@ select {
     background: #edf1f7;
     text-align: center;
     font-variant-numeric: tabular-nums;
+}
+
+.ui-scale-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(10px, 1.4vw, 16px);
+    margin-top: clamp(9px, 1.35vh, 14px);
+}
+
+.ui-scale-option {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(4px, 0.6vh, 7px) 8px;
+    min-width: 0;
+}
+
+.ui-scale-option label {
+    min-width: 0;
+    overflow: hidden;
+    font-size: clamp(10px, 1.45vh, 13px);
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ui-scale-option output {
+    min-width: 42px;
+    border-radius: 8px;
+    padding: 2px 6px;
+    background: #edf1f7;
+    font-size: clamp(10px, 1.4vh, 13px);
+    font-weight: 650;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.ui-scale-option input[type='range'] {
+    grid-column: 1 / -1;
 }
 
 input[type='range'] {
@@ -566,14 +622,17 @@ input[type='range'] {
     scrollbar-gutter: stable;
 }
 
+.manual-card-content::-webkit-scrollbar,
 .table-wrap::-webkit-scrollbar {
     width: 8px;
 }
 
+.manual-card-content::-webkit-scrollbar-track,
 .table-wrap::-webkit-scrollbar-track {
     background: transparent;
 }
 
+.manual-card-content::-webkit-scrollbar-thumb,
 .table-wrap::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 999px;
@@ -581,6 +640,7 @@ input[type='range'] {
     background-clip: padding-box;
 }
 
+.manual-card-content::-webkit-scrollbar-thumb:hover,
 .table-wrap::-webkit-scrollbar-thumb:hover {
     background: rgb(105 115 134 / 68%);
     background-clip: padding-box;
@@ -747,6 +807,7 @@ td:last-child {
 
     .secondary,
     .slider-group output,
+    .ui-scale-option output,
     .auto-values div,
     .setting-row {
         background: #2b323e;

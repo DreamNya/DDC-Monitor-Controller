@@ -10,6 +10,7 @@ import type {
     ScheduleProfile,
 } from '../../shared/model';
 import { cloneDefaultSchedule, normalizeSchedule } from '../../shared/schedule';
+import { createDefaultUiScaleSettings, normalizeUiScaleSettings } from '../../shared/ui-scale';
 
 const SETTINGS_PATH = path.join(
     process.env.LOCALAPPDATA ?? path.join(homedir(), 'AppData', 'Local'),
@@ -56,6 +57,7 @@ function createDefaultSettings(): AppSettings {
         logEnabled: false,
         intervalMinutes: 30,
         targetMonitorId: 'all',
+        uiScale: createDefaultUiScaleSettings(),
         activeScheduleProfileId: DEFAULT_PROFILE_ID,
         scheduleProfiles: [createDefaultScheduleProfile()],
         controlWindowBounds: null,
@@ -90,6 +92,7 @@ function normalizeSettings(value: unknown): AppSettings {
         controlWindowBounds: normalizeControlWindowBounds(source.controlWindowBounds),
         intervalMinutes,
         targetMonitorId: targetMonitorId === 'all' || typeof targetMonitorId === 'string' ? targetMonitorId : 'all',
+        uiScale: normalizeUiScaleSettings(source.uiScale),
         activeScheduleProfileId,
         scheduleProfiles,
     };

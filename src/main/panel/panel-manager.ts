@@ -1,13 +1,14 @@
 import { type Application, type BrowserWindow, type WebContext, type Webview } from '@webviewjs/webview';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { AppState } from '../../shared/model';
+import type { AppState, UiScalePercent } from '../../shared/model';
+import { scaleUiDimension, toUiScaleFactor, unscaleUiDimension } from '../../shared/ui-scale';
 import type { AppController } from '../app-controller';
 import type { createResourceServer } from '../resource-server';
 import { runBackground } from '../utils/run-background';
 import { startNativeWindowDrag } from './native-window-drag';
 import { createPanelBridge } from './panel-bridge';
-import { PANEL_PAGES, type PanelPage } from './panel-config';
+import { CONTROL_PANEL_MIN_SIZE, getScaledPanelSize, PANEL_PAGES, type PanelPage } from './panel-config';
 import { positionQuickPanel, readControlWindowBounds, restoreControlWindowBounds } from './window-placement';
 
 type ResourceServer = Awaited<ReturnType<typeof createResourceServer>>;
@@ -36,6 +37,11 @@ export class PanelManager {
     #applicationExiting = false;
     #controlWindowBoundsTimer: ReturnType<typeof setTimeout> | undefined;
     #appIcon: Buffer | undefined;
+    #uiScalePercent: UiScalePercent | undefined;
+    #quickPanelAnchor: { x: number; y: number } | undefined;
+    #pendingWindowResize:
+        | { fromUiScalePercent: UiScalePercent; toUiScalePercent: UiScalePercent }
+        | undefined;
 
     constructor(options: PanelManagerOptions) {
         this.#app = options.app;
@@ -88,6 +94,9 @@ export class PanelManager {
             this.#window = undefined;
             this.#context = undefined;
             this.#page = undefined;
+            this.#uiScalePercent = undefined;
+            this.#quickPanelAnchor = undefined;
+            this.#pendingWindowResize = undefined;
             this.#destroying = false;
         }
     }
@@ -95,6 +104,12 @@ export class PanelManager {
     pushState(state: AppState): void {
         if (this.#applicationExiting) {
             return;
+        }
+
+        const page = this.#page;
+
+        if (page) {
+            this.#applyUiScale(state.settings.uiScale[page]);
         }
 
         const webview = this.#webview;
@@ -147,6 +162,7 @@ export class PanelManager {
             this.#webview = newWebview;
             this.#exposeBridge(newWebview);
             this.#bindWebviewEvents(newWebview, window, page);
+            this.#setWebviewZoom(newWebview);
             newWebview.focus();
         } catch (error) {
             console.error('重新创建开发 WebView 失败：', error);
@@ -206,14 +222,18 @@ export class PanelManager {
         }
 
         const pageOptions = PANEL_PAGES[page];
+        const uiScalePercent = refreshedState.settings.uiScale[page];
 
         if (this.#canReuseCurrentPanel(page)) {
             const window = this.#window as BrowserWindow;
             const webview = this.#webview as Webview;
 
             if (page === 'quick' && x !== undefined && y !== undefined) {
+                this.#quickPanelAnchor = { x, y };
                 positionQuickPanel(window, x, y);
             }
+
+            this.#applyUiScale(uiScalePercent);
 
             window.show();
 
@@ -239,8 +259,11 @@ export class PanelManager {
             dataDirectory: this.#webviewDataDirectory,
         });
 
+        const windowSize = getScaledPanelSize(page, uiScalePercent);
+
         const window = this.#app.createBrowserWindow({
             ...pageOptions,
+            ...windowSize,
             logical: true,
             visible: false,
             resizable: false,
@@ -264,12 +287,15 @@ export class PanelManager {
         this.#webview = webview;
         this.#context = context;
         this.#page = page;
+        this.#uiScalePercent = uiScalePercent;
+        this.#quickPanelAnchor = page === 'quick' && x !== undefined && y !== undefined ? { x, y } : undefined;
 
-        this.#configureWindow(window, page);
+        this.#setWebviewZoom(webview);
+        this.#configureWindow(window, page, uiScalePercent);
         this.#exposeBridge(webview);
         this.#bindWebviewEvents(webview, window, page);
         this.#bindWindowClose(window, page);
-        this.#placeWindow(window, page, x, y);
+        this.#placeWindow(window, page, x, y, uiScalePercent);
 
         window.show();
 
@@ -290,15 +316,23 @@ export class PanelManager {
         );
     }
 
-    #configureWindow(window: BrowserWindow, page: PanelPage): void {
+    #configureWindow(window: BrowserWindow, page: PanelPage, uiScalePercent: UiScalePercent): void {
         if (page !== 'control') {
+            window.on('resize', () => this.#applyPendingWindowResize(window));
             return;
         }
 
         window.setResizable(true);
-        window.setMinSize(500, 400, true);
+        window.setMinSize(
+            scaleUiDimension(CONTROL_PANEL_MIN_SIZE.width, uiScalePercent),
+            scaleUiDimension(CONTROL_PANEL_MIN_SIZE.height, uiScalePercent),
+            true,
+        );
         window.on('move', () => this.#scheduleControlWindowBoundsSave(window));
-        window.on('resize', () => this.#scheduleControlWindowBoundsSave(window));
+        window.on('resize', () => {
+            this.#applyPendingWindowResize(window);
+            this.#scheduleControlWindowBoundsSave(window);
+        });
     }
 
     #bindWindowClose(window: BrowserWindow, page: PanelPage): void {
@@ -319,14 +353,24 @@ export class PanelManager {
         });
     }
 
-    #placeWindow(window: BrowserWindow, page: PanelPage, x?: number, y?: number): void {
+    #placeWindow(
+        window: BrowserWindow,
+        page: PanelPage,
+        x: number | undefined,
+        y: number | undefined,
+        uiScalePercent: UiScalePercent,
+    ): void {
         if (page === 'quick' && x !== undefined && y !== undefined) {
             positionQuickPanel(window, x, y);
             return;
         }
 
         if (page === 'control') {
-            const restored = restoreControlWindowBounds(window, this.#appController.getControlWindowBounds());
+            const restored = restoreControlWindowBounds(
+                window,
+                this.#appController.getControlWindowBounds(),
+                uiScalePercent,
+            );
 
             if (!restored) {
                 window.center();
@@ -379,6 +423,8 @@ export class PanelManager {
                 window.setMaximized(true);
             }
 
+            this.#setWebviewZoom(webview);
+
             window.focus();
             webview.focus();
         });
@@ -402,7 +448,13 @@ export class PanelManager {
             return;
         }
 
-        const bounds = readControlWindowBounds(window);
+        const uiScalePercent = this.#uiScalePercent;
+
+        if (uiScalePercent === undefined) {
+            return;
+        }
+
+        const bounds = readControlWindowBounds(window, uiScalePercent);
 
         if (!bounds) {
             return;
@@ -420,5 +472,114 @@ export class PanelManager {
 
         clearTimeout(this.#controlWindowBoundsTimer);
         this.#controlWindowBoundsTimer = undefined;
+    }
+
+    #applyUiScale(uiScalePercent: UiScalePercent): void {
+        const window = this.#window;
+        const webview = this.#webview;
+        const page = this.#page;
+        const previousUiScalePercent = this.#uiScalePercent;
+
+        if (!window || !webview || !page || window.isDisposed() || webview.isDisposed()) {
+            return;
+        }
+
+        if (previousUiScalePercent === undefined) {
+            this.#uiScalePercent = uiScalePercent;
+            this.#setWebviewZoom(webview);
+            return;
+        }
+
+        if (previousUiScalePercent === uiScalePercent) {
+            return;
+        }
+
+        const currentSize = window.getInnerSize(true);
+        const resizeFromUiScalePercent =
+            this.#pendingWindowResize?.fromUiScalePercent ?? previousUiScalePercent;
+        const canResizeNow = !window.isMaximized() && !window.isMinimized();
+
+        if (!canResizeNow && resizeFromUiScalePercent !== uiScalePercent) {
+            this.#pendingWindowResize = {
+                fromUiScalePercent: resizeFromUiScalePercent,
+                toUiScalePercent: uiScalePercent,
+            };
+        } else {
+            this.#pendingWindowResize = undefined;
+        }
+
+        this.#uiScalePercent = uiScalePercent;
+        webview.zoom(toUiScaleFactor(uiScalePercent));
+
+        if (page === 'control') {
+            window.setMinSize(
+                scaleUiDimension(CONTROL_PANEL_MIN_SIZE.width, uiScalePercent),
+                scaleUiDimension(CONTROL_PANEL_MIN_SIZE.height, uiScalePercent),
+                true,
+            );
+        }
+
+        if (canResizeNow) {
+            this.#resizeWindowForUiScale(
+                window,
+                currentSize,
+                resizeFromUiScalePercent,
+                uiScalePercent,
+            );
+        }
+
+        if (page === 'quick' && this.#quickPanelAnchor) {
+            positionQuickPanel(window, this.#quickPanelAnchor.x, this.#quickPanelAnchor.y);
+        }
+    }
+
+    #setWebviewZoom(webview: Webview): void {
+        const uiScalePercent = this.#uiScalePercent;
+
+        if (uiScalePercent !== undefined && !webview.isDisposed()) {
+            webview.zoom(toUiScaleFactor(uiScalePercent));
+        }
+    }
+
+    #applyPendingWindowResize(window: BrowserWindow): void {
+        const pendingResize = this.#pendingWindowResize;
+
+        if (
+            !pendingResize ||
+            this.#window !== window ||
+            window.isDisposed() ||
+            window.isMaximized() ||
+            window.isMinimized()
+        ) {
+            return;
+        }
+
+        this.#pendingWindowResize = undefined;
+        this.#resizeWindowForUiScale(
+            window,
+            window.getInnerSize(true),
+            pendingResize.fromUiScalePercent,
+            pendingResize.toUiScalePercent,
+        );
+
+        if (this.#page === 'quick' && this.#quickPanelAnchor) {
+            positionQuickPanel(window, this.#quickPanelAnchor.x, this.#quickPanelAnchor.y);
+        }
+    }
+
+    #resizeWindowForUiScale(
+        window: BrowserWindow,
+        currentSize: { width: number; height: number },
+        fromUiScalePercent: UiScalePercent,
+        toUiScalePercent: UiScalePercent,
+    ): void {
+        const baseWidth = unscaleUiDimension(currentSize.width, fromUiScalePercent);
+        const baseHeight = unscaleUiDimension(currentSize.height, fromUiScalePercent);
+
+        window.setSize(
+            scaleUiDimension(baseWidth, toUiScalePercent),
+            scaleUiDimension(baseHeight, toUiScalePercent),
+            true,
+        );
     }
 }

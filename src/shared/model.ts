@@ -32,6 +32,12 @@ export interface MonitorSnapshot {
 
 export type MonitorTarget = 'all' | string;
 
+export type UiScaleTarget = 'quick' | 'control';
+
+export type UiScalePercent = number;
+
+export type UiScaleSettings = Record<UiScaleTarget, UiScalePercent>;
+
 export interface ControlWindowBounds {
     x: number;
     y: number;
@@ -44,6 +50,7 @@ export interface AppSettings {
     logEnabled: boolean;
     intervalMinutes: IntervalMinutes;
     targetMonitorId: MonitorTarget;
+    uiScale: UiScaleSettings;
     activeScheduleProfileId: string;
     scheduleProfiles: ScheduleProfile[];
     controlWindowBounds: ControlWindowBounds | null;

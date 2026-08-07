@@ -5,6 +5,8 @@ import type {
     ManualApplyRequest,
     MonitorTarget,
     SchedulePoint,
+    UiScalePercent,
+    UiScaleTarget,
 } from './model';
 
 /**
@@ -22,6 +24,7 @@ export interface MonitorBridge {
     setAutoInterval(options: { intervalMinutes: IntervalMinutes | null }): Promise<AppState>;
     setLogEnabled(options: { enabled: boolean }): Promise<AppState>;
     setTargetMonitor(options: { monitorId: MonitorTarget }): Promise<AppState>;
+    setUiScale(options: { target: UiScaleTarget; percent: UiScalePercent }): Promise<AppState>;
     setActiveScheduleProfile(options: { profileId: string }): Promise<AppState>;
     createScheduleProfile(options: { name: string; schedule: SchedulePoint[] }): Promise<AppState>;
     renameScheduleProfile(options: { profileId: string; name: string }): Promise<AppState>;

@@ -19,6 +19,7 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
         applyAutoNow: () => appController.applyAutoNow(),
         setAutoInterval: ({ intervalMinutes }) => appController.setAutoInterval(intervalMinutes),
         setTargetMonitor: ({ monitorId }) => appController.setTargetMonitor(monitorId),
+        setUiScale: ({ target, percent }) => appController.setUiScale(target, percent),
         setActiveScheduleProfile: ({ profileId }) => appController.setActiveScheduleProfile(profileId),
         createScheduleProfile: ({ name, schedule }) => appController.createScheduleProfile(name, schedule),
         renameScheduleProfile: ({ profileId, name }) => appController.renameScheduleProfile(profileId, name),

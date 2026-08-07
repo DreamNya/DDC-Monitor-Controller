@@ -31,6 +31,7 @@ function createTrayMenu(autoEnabled: boolean): MenuOptions {
             },
             { id: 'apply-auto', label: '立即应用自动设置' },
             { id: 'refresh', label: '重新检测显示器' },
+            { id: 'reset-ui-scale', label: '重置面板缩放比例（100%）' },
             { role: 'separator' },
             { id: 'open-webview', label: '打开WebView目录' },
             { role: 'separator' },
@@ -142,6 +143,10 @@ export class TrayController {
 
             case 'refresh':
                 runBackground('重新检测显示器', () => this.#appController.refreshMonitors());
+                break;
+
+            case 'reset-ui-scale':
+                runBackground('重置面板缩放比例', () => this.#appController.resetUiScale());
                 break;
 
             case 'open-webview': {

@@ -1,5 +1,6 @@
 import type { BrowserWindow } from '@webviewjs/webview';
-import type { ControlWindowBounds } from '../../shared/model';
+import type { ControlWindowBounds, UiScalePercent } from '../../shared/model';
+import { DEFAULT_UI_SCALE_PERCENT, scaleUiDimension, unscaleUiDimension } from '../../shared/ui-scale';
 
 export function positionQuickPanel(window: BrowserWindow, trayX: number, trayY: number): void {
     const screenMargin = 8;
@@ -30,18 +31,29 @@ export function positionQuickPanel(window: BrowserWindow, trayX: number, trayY: 
     window.setPosition(panelX, panelY, false);
 }
 
-export function restoreControlWindowBounds(window: BrowserWindow, bounds: ControlWindowBounds | null): boolean {
+export function restoreControlWindowBounds(
+    window: BrowserWindow,
+    bounds: ControlWindowBounds | null,
+    uiScalePercent: UiScalePercent = DEFAULT_UI_SCALE_PERCENT,
+): boolean {
     if (!bounds) {
         return false;
     }
 
-    window.setSize(bounds.width, bounds.height, true);
+    window.setSize(
+        scaleUiDimension(bounds.width, uiScalePercent),
+        scaleUiDimension(bounds.height, uiScalePercent),
+        true,
+    );
     window.setPosition(bounds.x, bounds.y, true);
 
     return hasVisibleWindowArea(window);
 }
 
-export function readControlWindowBounds(window: BrowserWindow): ControlWindowBounds | undefined {
+export function readControlWindowBounds(
+    window: BrowserWindow,
+    uiScalePercent: UiScalePercent = DEFAULT_UI_SCALE_PERCENT,
+): ControlWindowBounds | undefined {
     if (window.isDisposed() || window.isMaximized() || window.isMinimized()) {
         return undefined;
     }
@@ -52,8 +64,8 @@ export function readControlWindowBounds(window: BrowserWindow): ControlWindowBou
     return {
         x: Math.round(x),
         y: Math.round(y),
-        width: Math.round(width),
-        height: Math.round(height),
+        width: unscaleUiDimension(width, uiScalePercent),
+        height: unscaleUiDimension(height, uiScalePercent),
     };
 }
 
