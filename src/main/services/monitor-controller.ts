@@ -134,12 +134,14 @@ export class DDCMonitorController {
             try {
                 brightness = this.#readAndCachePercentage(monitor, VCP_BRIGHTNESS);
             } catch (error) {
+                console.error(`读取显示器“${monitor.name || monitor.id}”亮度失败：`, error);
                 errors.push(`亮度：${toErrorMessage(error)}`);
             }
 
             try {
                 contrast = this.#readAndCachePercentage(monitor, VCP_CONTRAST);
             } catch (error) {
+                console.error(`读取显示器“${monitor.name || monitor.id}”对比度失败：`, error);
                 errors.push(`对比度：${toErrorMessage(error)}`);
             }
 

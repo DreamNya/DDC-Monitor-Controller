@@ -147,6 +147,8 @@ export class AutoAdjustmentScheduler {
 
                 try {
                     this.#onCycleCompleted();
+                } catch (error) {
+                    console.error('发布自动调节状态失败：', error);
                 } finally {
                     this.#scheduleNextCheck();
                 }

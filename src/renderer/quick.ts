@@ -61,6 +61,7 @@ async function initialize(): Promise<void> {
             });
         });
     } catch (error) {
+        console.error('快捷控制页初始化失败：', error);
         showError('快捷控制页初始化失败', error);
     }
 }

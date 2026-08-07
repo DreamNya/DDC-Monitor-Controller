@@ -62,7 +62,7 @@ export class SettingsStore {
             const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
 
             if (code !== 'ENOENT') {
-                console.warn('读取配置失败，将使用默认配置：', error);
+                console.error('读取配置失败，将使用默认配置：', error);
             }
 
             return createDefaultSettings();
@@ -108,7 +108,7 @@ export class SettingsStore {
         this.#saveTimer = this.#setTimer(() => {
             this.#saveTimer = undefined;
             void this.#flushPending(true).catch((error: unknown) => {
-                console.warn('写入配置失败，将在下一个节流窗口重试：', error);
+                console.error('写入配置失败，将在下一个节流窗口重试：', error);
             });
         }, this.#saveThrottleMs);
     }
@@ -246,7 +246,8 @@ function normalizeScheduleSafely(value: unknown): SchedulePoint[] | undefined {
 
     try {
         return normalizeSchedule(value as SchedulePoint[]);
-    } catch {
+    } catch (error) {
+        console.error('配置中的定时方案无效，已忽略：', error);
         return undefined;
     }
 }

@@ -95,6 +95,7 @@ async function initialize(): Promise<void> {
             });
         });
     } catch (error) {
+        console.error('控制面板初始化失败：', error);
         elements.lastOperation.textContent = '控制面板初始化失败';
         elements.lastError.hidden = false;
         elements.lastError.textContent = getErrorMessage(error);
@@ -142,10 +143,9 @@ function bindEvents(): void {
     elements.addCurrentPointButton.addEventListener('click', addCurrentSchedulePoint);
 
     elements.autoIntervalSelect.addEventListener('change', () => {
-        const intervalMinutes = parseAutoInterval(elements.autoIntervalSelect.value);
-        updateAutoIntervalDisplay();
-
         void actions.run(async () => {
+            const intervalMinutes = parseAutoInterval(elements.autoIntervalSelect.value);
+            updateAutoIntervalDisplay();
             await bridge.setAutoInterval({ intervalMinutes });
         });
     });
@@ -500,7 +500,8 @@ function readScheduleRows(): SchedulePoint[] {
 function hasUnsavedScheduleChanges(): boolean {
     try {
         return !sameSchedule(getActiveScheduleProfile().schedule, readScheduleRows());
-    } catch {
+    } catch (error) {
+        console.error('检查定时方案未保存状态失败：', error);
         return true;
     }
 }

@@ -12,7 +12,7 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
     const { appController } = dependencies;
 
     return {
-        getState: async () => appController.getState(),
+        getState: () => runBridgeCall(() => appController.getState()),
         refreshMonitors: () => runCommand(() => appController.refreshMonitors()),
         applyManual: (request) => runCommand(() => appController.applyManual(request)),
         applyLive: (request) => runCommand(() => appController.applyLive(request)),
@@ -46,6 +46,15 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
 }
 
 async function runCommand(command: () => Promise<void>): Promise<null> {
-    await command();
+    await runBridgeCall(command);
     return null;
+}
+
+async function runBridgeCall<T>(operation: () => T | Promise<T>): Promise<T> {
+    try {
+        return await operation();
+    } catch (error) {
+        console.error('WebView 后端调用失败：', error);
+        throw error;
+    }
 }

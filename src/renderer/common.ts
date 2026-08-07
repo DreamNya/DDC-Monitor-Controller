@@ -181,6 +181,7 @@ export function createLiveAdjustmentController(options: LiveAdjustmentOptions): 
             try {
                 await options.apply(values);
             } catch (error) {
+                console.error('实时调节操作失败：', error);
                 options.onError(error);
             } finally {
                 lastFinishedAt = performance.now();
@@ -234,6 +235,7 @@ export function createActionController(options: ActionControllerOptions): Action
         try {
             await action();
         } catch (error) {
+            console.error('界面操作失败：', error);
             options.onError(error);
         } finally {
             busy = false;

@@ -215,7 +215,7 @@ export class PanelSession {
             this.#window.dispose();
             this.#context.dispose();
         } catch (error) {
-            console.warn('释放控制面板资源时发生错误：', error);
+            console.error('释放控制面板资源时发生错误：', error);
         }
     }
 

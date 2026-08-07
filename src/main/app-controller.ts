@@ -341,7 +341,7 @@ export class AppController {
         ]);
 
         if (settingsResult.status === 'rejected') {
-            console.warn('退出前写入最后一份配置失败：', settingsResult.reason);
+            console.error('退出前写入最后一份配置失败：', settingsResult.reason);
         }
 
         if (monitorResult.status === 'rejected') {
