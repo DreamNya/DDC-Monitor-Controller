@@ -3,10 +3,12 @@
         {
             "target_name": "MonitorNative",
             "sources": ["addon.cpp"],
-            "dependencies": [
-                "<!(node -p \"require('node-addon-api').targets\"):node_addon_api_except"
+            "include_dirs": [
+                "<!(node -p \"require('node-addon-api').include_dir\")"
             ],
             "defines": [
+                "NAPI_CPP_EXCEPTIONS",
+                "_HAS_EXCEPTIONS=1",
                 "UNICODE",
                 "_UNICODE"
             ],
@@ -16,6 +18,7 @@
                     {
                         "msvs_settings": {
                             "VCCLCompilerTool": {
+                                "ExceptionHandling": 1,
                                 "WarningLevel": 4,
                                 "DisableSpecificWarnings": [
                                     "4127"

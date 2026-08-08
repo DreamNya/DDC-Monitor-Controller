@@ -1,9 +1,14 @@
 import type { MonitorBridge } from '../shared/bridge';
 import type { AppState, AppStateChange, LiveApplyRequest, MonitorTarget } from '../shared/model';
 
+interface WebViewHost {
+    postMessage(message: string): void;
+    addEventListener(type: 'message', listener: (event: MessageEvent<unknown>) => void): void;
+}
+
 declare global {
     interface Window {
-        monitor?: MonitorBridge;
+        chrome?: { webview?: WebViewHost };
         __monitorStateChanged?: (change: AppStateChange) => void;
     }
 }
@@ -35,30 +40,99 @@ export type ActionController = {
     refreshBusyState: () => void;
 };
 
-export function waitForBridge(timeout = 5000, pollInterval = 25): Promise<MonitorBridge> {
-    const bridge = window.monitor;
-    if (bridge) {
-        return Promise.resolve(bridge);
+type PendingRpcRequest = {
+    resolve(value: unknown): void;
+    reject(error: Error): void;
+};
+
+let monitorBridge: MonitorBridge | undefined;
+let nextRpcRequestId = 0;
+const pendingRpcRequests = new Map<number, PendingRpcRequest>();
+
+export function waitForBridge(): Promise<MonitorBridge> {
+    try {
+        return Promise.resolve(getMonitorBridge());
+    } catch (error) {
+        return Promise.reject(error);
+    }
+}
+
+function getMonitorBridge(): MonitorBridge {
+    if (monitorBridge) {
+        return monitorBridge;
     }
 
+    const host = window.chrome?.webview;
+    if (!host) {
+        throw new Error('WebView2 原生消息桥不可用');
+    }
+
+    host.addEventListener('message', handleNativeMessage);
+    monitorBridge = new Proxy(
+        {},
+        {
+            get: (_target, property) => {
+                if (typeof property !== 'string' || property === 'then') {
+                    return undefined;
+                }
+                return (...args: unknown[]) => callNativeBridge(host, property, args);
+            },
+        },
+    ) as MonitorBridge;
+
+    return monitorBridge;
+}
+
+function callNativeBridge(host: WebViewHost, method: string, args: unknown[]): Promise<unknown> {
     return new Promise((resolve, reject) => {
-        const retryTimes = Math.ceil(timeout / pollInterval);
-        let times = 0;
-
-        const intervalId = setInterval(() => {
-            const bridge = window.monitor;
-            if (bridge) {
-                clearInterval(intervalId);
-                resolve(bridge);
-                return;
-            }
-
-            if (++times >= retryTimes) {
-                clearInterval(intervalId);
-                reject(new Error('Node.js 后端桥接初始化超时'));
-            }
-        }, pollInterval);
+        const id = ++nextRpcRequestId;
+        pendingRpcRequests.set(id, { resolve, reject });
+        host.postMessage(`rpc:${JSON.stringify({ id, method, args })}`);
     });
+}
+
+function handleNativeMessage(event: MessageEvent<unknown>): void {
+    if (typeof event.data !== 'string') {
+        return;
+    }
+
+    try {
+        if (event.data.startsWith('rpc-result:')) {
+            handleRpcResult(event.data.slice('rpc-result:'.length));
+            return;
+        }
+
+        if (event.data.startsWith('state:')) {
+            const change = JSON.parse(event.data.slice('state:'.length)) as AppStateChange;
+            window.__monitorStateChanged?.(change);
+        }
+    } catch (error) {
+        console.error('处理 Native WebView 消息失败：', error);
+    }
+}
+
+function handleRpcResult(payload: string): void {
+    const value: unknown = JSON.parse(payload);
+    if (!value || typeof value !== 'object') {
+        return;
+    }
+
+    const result = value as Record<string, unknown>;
+    if (!Number.isSafeInteger(result.id)) {
+        return;
+    }
+
+    const request = pendingRpcRequests.get(result.id as number);
+    if (!request) {
+        return;
+    }
+    pendingRpcRequests.delete(result.id as number);
+
+    if (result.ok === true) {
+        request.resolve(result.value);
+    } else {
+        request.reject(new Error(typeof result.error === 'string' ? result.error : 'Native RPC 调用失败'));
+    }
 }
 
 export function disableDefaultContextMenu(): void {

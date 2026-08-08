@@ -12,8 +12,8 @@ import type {
 /**
  * WebView 页面可调用的 Node.js 后端接口
  *
- * @webviewjs/webview 会把这些方法注入到 window.monitor；页面侧调用时，
- * 所有函数都返回 Promise
+ * Renderer 通过 WebView2 自带的 window.chrome.webview 建立 RPC；
+ * 所有函数都通过 WebMessage 转发到 Node.js，并返回 Promise
  */
 export interface MonitorBridge {
     getState(): Promise<AppState>;
