@@ -1,6 +1,6 @@
 {
     "name": "ddc-monitor-controller",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "private": true,
     "description": "一款轻量级 Windows 显示器 DDC/CI 控制工具，提供图形化操作界面，支持手动和自动调节显示器亮度与对比度",
     "repository": {
@@ -15,7 +15,7 @@
         "build:native": "node scripts/build-native.mjs",
         "build": "node scripts/build.mjs",
         "dev": "node scripts/dev.mjs",
-        "test": "node --experimental-strip-types --test src/shared/schedule.test.ts src/shared/ui-scale.test.ts src/main/services/monitor-controller.test.ts src/main/services/auto-adjustment-scheduler.test.ts src/main/services/settings-store.test.ts src/main/app-controller.test.ts src/main/panel/panel-bridge.test.ts",
+        "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
         "package": "node scripts/portable.mjs"
     },
     "dependencies": {
@@ -27,10 +27,10 @@
         "esbuild": "^0.25.0",
         "eslint": "^10.8.0",
         "globals": "^17.9.0",
-        "typescript": "^5.9.3",
-        "typescript-eslint": "^8.65.0",
         "node-addon-api": "8.8.0",
-        "node-gyp": "12.3.0"
+        "node-gyp": "12.3.0",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.65.0"
     },
     "engines": {
         "node": ">=24"
