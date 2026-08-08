@@ -132,6 +132,31 @@ https://wwbwh.lanzouw.com/b01d75e9of
 * DDC/CI
 * Windows Native DLL
 
+### 架构说明
+
+本项目采用 **C++ Native 能力层 + TypeScript 业务层 + WebView2 Renderer UI** 的结构
+
+#### 总体原则
+
+* **C++ 负责 Windows / 硬件相关的底层能力**
+* **TypeScript 负责应用业务逻辑与状态管理**
+* **HTML 负责界面展示与用户交互**
+* 各层通过明确的 Native Addon / WebMessage RPC 边界通信，避免业务逻辑与桥接逻辑耦合
+
+#### 目录结构
+
+```text
+native/
+├─ Launcher/         Windows 启动器
+├─ WebViewNative/    WebView2 / Win32 桥接层
+└─ MonitorNative/    DDC/CI 桥接层
+
+src/
+├─ main/             Node.js 后端业务层
+├─ renderer/         WebView2 前端 UI
+└─ shared/           前后端共享类型、模型与 RPC 契约
+```
+
 ### 克隆项目
 
 ```bash
