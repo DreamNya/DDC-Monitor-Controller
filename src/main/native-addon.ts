@@ -18,7 +18,6 @@ interface MonitorNativeAddon {
     refreshMonitors(): NativeMonitor[];
     getVcpValue(index: number, code: number): VcpValue;
     setVcpValue(index: number, code: number, value: number): void;
-    startWindowDrag(handle: bigint): void;
     shutdown(): void;
 }
 

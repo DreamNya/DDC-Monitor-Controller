@@ -52,7 +52,6 @@ const mainCtx = await context({
     format: 'esm',
     target: 'node24',
     sourcemap: 'inline',
-    external: ['@webviewjs/webview'],
     define: { 'process.env.NODE_ENV': JSON.stringify('development') },
     plugins: [createReloadPlugin('main-reload', mainFirstBuild, restartApp)],
 });
@@ -155,13 +154,19 @@ async function prepareAssets() {
         ...staticFiles.map((file) =>
             fs.copyFile(path.resolve(rendererSource, file), path.resolve(rendererOutput, file)),
         ),
-        fs.copyFile(path.resolve(root, 'assets/tray-icon.png'), path.resolve(outputRoot, 'assets/tray-icon.png')),
+        fs.copyFile(path.resolve(root, 'assets/tray-icon.ico'), path.resolve(outputRoot, 'assets/tray-icon.ico')),
         fs
             .copyFile(
                 path.resolve(root, 'native/bin/win-x64/MonitorNative.node'),
                 path.resolve(outputRoot, 'native/MonitorNative.node'),
             )
             .catch(() => console.warn('警告：MonitorNative.node 不存在；请先执行 npm run build:native')),
+        fs
+            .copyFile(
+                path.resolve(root, 'native/bin/win-x64/WebViewNative.node'),
+                path.resolve(outputRoot, 'native/WebViewNative.node'),
+            )
+            .catch(() => console.warn('警告：WebViewNative.node 不存在；请先执行 npm run build:native')),
     ]);
 }
 

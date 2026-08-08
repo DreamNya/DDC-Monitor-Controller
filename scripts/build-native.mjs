@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
+const WEBVIEW2_SDK_VERSION = '1.0.4129.50';
 
 function assertWindows() {
     if (process.platform !== 'win32') {
@@ -83,8 +84,72 @@ function quote(value) {
     return `"${value}"`;
 }
 
-function buildAddon(outputDir) {
-    const addonRoot = path.join(root, 'native', 'MonitorNative');
+function ensureWebView2Sdk() {
+    const override = process.env.WEBVIEW2_SDK_DIR;
+
+    if (override) {
+        const sdkDirectory = path.resolve(override);
+        assertWebView2Sdk(sdkDirectory);
+        return sdkDirectory;
+    }
+
+    const sdkDirectory = path.join(root, '.cache', 'webview2', `Microsoft.Web.WebView2.${WEBVIEW2_SDK_VERSION}`);
+    const header = path.join(sdkDirectory, 'build', 'native', 'include', 'WebView2.h');
+
+    if (fs.existsSync(header)) {
+        assertWebView2Sdk(sdkDirectory);
+        return sdkDirectory;
+    }
+
+    const cacheRoot = path.dirname(sdkDirectory);
+    const archive = path.join(cacheRoot, `Microsoft.Web.WebView2.${WEBVIEW2_SDK_VERSION}.zip`);
+    fs.mkdirSync(cacheRoot, { recursive: true });
+    fs.rmSync(sdkDirectory, { recursive: true, force: true });
+    fs.rmSync(archive, { force: true });
+
+    console.log(`正在下载 Microsoft.Web.WebView2 SDK ${WEBVIEW2_SDK_VERSION}...`);
+    run(
+        'powershell.exe',
+        [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-Command',
+            [
+                "$ErrorActionPreference='Stop'",
+                "$ProgressPreference='SilentlyContinue'",
+                'Invoke-WebRequest -UseBasicParsing -Uri $env:WEBVIEW2_PACKAGE_URL -OutFile $env:WEBVIEW2_PACKAGE_ARCHIVE',
+                'Expand-Archive -LiteralPath $env:WEBVIEW2_PACKAGE_ARCHIVE -DestinationPath $env:WEBVIEW2_PACKAGE_DIR -Force',
+                'Remove-Item -LiteralPath $env:WEBVIEW2_PACKAGE_ARCHIVE -Force',
+            ].join('; '),
+        ],
+        {
+            env: {
+                ...process.env,
+                WEBVIEW2_PACKAGE_URL: `https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/${WEBVIEW2_SDK_VERSION}`,
+                WEBVIEW2_PACKAGE_ARCHIVE: archive,
+                WEBVIEW2_PACKAGE_DIR: sdkDirectory,
+            },
+        },
+    );
+
+    assertWebView2Sdk(sdkDirectory);
+    return sdkDirectory;
+}
+
+function assertWebView2Sdk(sdkDirectory) {
+    assertFile(
+        path.join(sdkDirectory, 'build', 'native', 'include', 'WebView2.h'),
+        `WebView2 SDK 缺少 WebView2.h：${sdkDirectory}`,
+    );
+    assertFile(
+        path.join(sdkDirectory, 'build', 'native', 'x64', 'WebView2LoaderStatic.lib'),
+        `WebView2 SDK 缺少 x64 WebView2LoaderStatic.lib：${sdkDirectory}`,
+    );
+}
+
+function buildAddon(name, outputDir, environment = {}) {
+    const addonRoot = path.join(root, 'native', name);
     const bindingGyp = path.join(addonRoot, 'binding.gyp');
     const nodeGyp = path.join(root, 'node_modules', 'node-gyp', 'bin', 'node-gyp.js');
 
@@ -93,10 +158,11 @@ function buildAddon(outputDir) {
 
     run(process.execPath, [nodeGyp, 'rebuild', '--release', '--arch=x64'], {
         cwd: addonRoot,
+        env: { ...process.env, ...environment },
     });
 
-    const builtAddon = path.join(addonRoot, 'build', 'Release', 'MonitorNative.node');
-    const outputAddon = path.join(outputDir, 'MonitorNative.node');
+    const builtAddon = path.join(addonRoot, 'build', 'Release', `${name}.node`);
+    const outputAddon = path.join(outputDir, `${name}.node`);
 
     assertFile(builtAddon, `node-gyp 未生成预期文件：${builtAddon}`);
     fs.copyFileSync(builtAddon, outputAddon);
@@ -153,11 +219,14 @@ function main() {
     const outputDir = path.join(root, 'native', 'bin', 'win-x64');
     fs.mkdirSync(outputDir, { recursive: true });
 
-    const addon = buildAddon(outputDir);
+    const webView2Sdk = ensureWebView2Sdk();
+    const monitorAddon = buildAddon('MonitorNative', outputDir);
+    const webViewAddon = buildAddon('WebViewNative', outputDir, { WEBVIEW2_SDK_DIR: webView2Sdk });
     const launcher = buildLauncher(outputDir);
 
     console.log('Node-API 原生模块和无控制台启动器已生成：');
-    console.log(`  ${addon}`);
+    console.log(`  ${monitorAddon}`);
+    console.log(`  ${webViewAddon}`);
     console.log(`  ${launcher}`);
 }
 

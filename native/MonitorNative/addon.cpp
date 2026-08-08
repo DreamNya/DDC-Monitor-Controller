@@ -330,34 +330,6 @@ Napi::Value set_vcp_value(const Napi::CallbackInfo& info) {
     return env.Undefined();
 }
 
-Napi::Value start_window_drag(const Napi::CallbackInfo& info) {
-    const Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsBigInt()) {
-        Napi::TypeError::New(env, "handle 必须是 bigint").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    bool lossless = false;
-    const std::uint64_t raw_handle = info[0].As<Napi::BigInt>().Uint64Value(&lossless);
-
-    if (!lossless || raw_handle == 0) {
-        Napi::RangeError::New(env, "无效的原生窗口句柄").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    const HWND window = reinterpret_cast<HWND>(static_cast<std::uintptr_t>(raw_handle));
-
-    if (!IsWindow(window)) {
-        Napi::Error::New(env, "原生窗口句柄已失效").ThrowAsJavaScriptException();
-        return env.Undefined();
-    }
-
-    ReleaseCapture();
-    SendMessageW(window, WM_NCLBUTTONDOWN, HTCAPTION, 0);
-    return env.Undefined();
-}
-
 Napi::Value shutdown(const Napi::CallbackInfo& info) {
     std::lock_guard lock(g_mutex);
     cleanup_locked();
@@ -370,7 +342,6 @@ Napi::Object initialize(Napi::Env env, Napi::Object exports) {
     exports.Set("refreshMonitors", Napi::Function::New(env, refresh_monitors));
     exports.Set("getVcpValue", Napi::Function::New(env, get_vcp_value));
     exports.Set("setVcpValue", Napi::Function::New(env, set_vcp_value));
-    exports.Set("startWindowDrag", Napi::Function::New(env, start_window_drag));
     exports.Set("shutdown", Napi::Function::New(env, shutdown));
     return exports;
 }

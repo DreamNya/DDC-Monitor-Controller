@@ -62,10 +62,8 @@ jobs:
                   python-version: '3.12'
                   architecture: x64
 
-            # @webviewjs/webview 当前存在 npm ci 安装问题，
-            # 暂时使用 npm install
             - name: Install dependencies
-              run: npm install
+              run: npm ci
 
             - name: Build native components
               run: npm run build:native
@@ -73,7 +71,8 @@ jobs:
             - name: Verify native addon
               shell: pwsh
               run: |
-                  node -e "const native = require('./native/bin/win-x64/MonitorNative.node'); for (const name of ['refreshMonitors', 'getVcpValue', 'setVcpValue', 'startWindowDrag', 'shutdown']) { if (typeof native[name] !== 'function') throw new Error('MonitorNative.node 缺少导出：' + name); }"
+                  node -e "const native = require('./native/bin/win-x64/MonitorNative.node'); for (const name of ['refreshMonitors', 'getVcpValue', 'setVcpValue', 'shutdown']) { if (typeof native[name] !== 'function') throw new Error('MonitorNative.node 缺少导出：' + name); }"
+                  node -e "const native = require('./native/bin/win-x64/WebViewNative.node'); for (const name of ['initialize', 'openPanel', 'closePanel', 'startWindowDrag', 'postWebMessage', 'setPanelScale', 'reloadPage', 'reloadStylesheets', 'updateTrayAutoEnabled', 'openPath', 'shutdown']) { if (typeof native[name] !== 'function') throw new Error('WebViewNative.node 缺少导出：' + name); }"
 
             # 会隐式执行 npm run build // TODO
             - name: Create portable package

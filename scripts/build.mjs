@@ -2,7 +2,6 @@ import { build } from 'esbuild';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { copyRuntimeDependencies } from './copy-runtime-dependencies.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const outputRoot = path.resolve(root, 'dist/build');
@@ -28,7 +27,6 @@ await build({
     target: 'node24',
     sourcemap: development ? 'inline' : false,
     minify: false,
-    external: ['@webviewjs/webview'],
     define: {
         'process.env.NODE_ENV': JSON.stringify(development ? 'development' : 'production'),
     },
@@ -63,11 +61,11 @@ await Promise.all([
     fs.copyFile(path.resolve(root, 'src/renderer/control.css'), path.resolve(outputRoot, 'renderer/control.css')),
     fs.copyFile(path.resolve(root, 'src/renderer/quick.html'), path.resolve(outputRoot, 'renderer/quick.html')),
     fs.copyFile(path.resolve(root, 'src/renderer/quick.css'), path.resolve(outputRoot, 'renderer/quick.css')),
-    fs.copyFile(path.resolve(root, 'assets/tray-icon.png'), path.resolve(outputRoot, 'assets/tray-icon.png')),
-    // fs.copyFile(path.resolve(root, 'assets/app-icon.ico'), path.resolve(outputRoot, 'assets/app-icon.ico')),
+    fs.copyFile(path.resolve(root, 'assets/tray-icon.ico'), path.resolve(outputRoot, 'assets/tray-icon.ico')),
 ]);
 
 const nativeAddon = path.resolve(root, 'native/bin/win-x64/MonitorNative.node');
+const webViewNativeAddon = path.resolve(root, 'native/bin/win-x64/WebViewNative.node');
 const launcher = path.resolve(root, 'native/bin/win-x64/DDCMonitorController.exe');
 
 try {
@@ -78,13 +76,19 @@ try {
 }
 
 try {
+    await fs.stat(webViewNativeAddon);
+    await fs.copyFile(webViewNativeAddon, path.resolve(outputRoot, 'native/WebViewNative.node'));
+} catch {
+    console.warn('警告：尚未生成 WebViewNative.node；请在 Windows 上执行 npm run build:native 后重新构建');
+}
+
+try {
     await fs.stat(launcher);
     await fs.copyFile(launcher, path.resolve(outputRoot, 'DDCMonitorController.exe'));
 } catch {
     console.warn('警告：尚未生成无控制台启动器；可先执行 npm run build:native，再重新构建');
 }
 
-await copyRuntimeDependencies('build');
 
 const packageJSON = path.resolve(root, 'package.json');
 await fs.copyFile(packageJSON, path.resolve(outputRoot, 'package.json'));

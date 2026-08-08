@@ -1,9 +1,8 @@
-import { Application } from '@webviewjs/webview';
-import fs from 'node:fs/promises';
+import path from 'node:path';
 import { AppController } from './app-controller';
 import { registerDevelopmentMessageHandler } from './development';
+import { NativeShell, type NativeShellEvent } from './native-shell';
 import { PanelManager } from './panel/panel-manager';
-import { createResourceServer } from './resource-server';
 import type { RuntimePaths } from './runtime-paths';
 import type { FileLogger } from './services/file-logger';
 import type { SingleInstanceLock } from './single-instance';
@@ -18,12 +17,11 @@ export interface DesktopApplicationOptions {
 export class DesktopApplication {
     readonly #paths: RuntimePaths;
     readonly #singleInstanceLock: SingleInstanceLock;
-    readonly #app = new Application();
     readonly #appController: AppController;
+    readonly #nativeShell = new NativeShell();
 
     #panelManager: PanelManager | undefined;
     #trayController: TrayController | undefined;
-    #resourceServer: Awaited<ReturnType<typeof createResourceServer>> | undefined;
     #unregisterDevelopmentHandler: (() => void) | undefined;
     #desktopReady = false;
     #requestedOpen = false;
@@ -40,26 +38,18 @@ export class DesktopApplication {
     }
 
     async start(): Promise<void> {
-        await this.#app.whenReady({ interval: 32, ref: true });
-
-        this.#createAnchorWindow();
-        await fs.mkdir(this.#paths.webviewDataDirectory, { recursive: true });
         await this.#appController.initialize();
-        this.#resourceServer = await createResourceServer(this.#paths.rendererRoot);
+        const initialState = this.#appController.getState();
 
         const panelManager = new PanelManager({
-            app: this.#app,
             appController: this.#appController,
-            resourceServer: this.#resourceServer,
-            assetsRoot: this.#paths.assetsRoot,
-            webviewDataDirectory: this.#paths.webviewDataDirectory,
+            nativeShell: this.#nativeShell,
         });
 
         const trayController = new TrayController({
-            app: this.#app,
             appController: this.#appController,
             panelManager,
-            assetsRoot: this.#paths.assetsRoot,
+            nativeShell: this.#nativeShell,
             webviewDataDirectory: this.#paths.webviewDataDirectory,
             quitApplication: () => this.quit(),
         });
@@ -67,7 +57,18 @@ export class DesktopApplication {
         this.#panelManager = panelManager;
         this.#trayController = trayController;
 
-        await trayController.initialize(this.#appController.getState().settings.autoEnabled);
+        this.#nativeShell.initialize(
+            {
+                rendererRoot: this.#paths.rendererRoot,
+                webviewDataDirectory: this.#paths.webviewDataDirectory,
+                iconPath: path.resolve(this.#paths.assetsRoot, 'tray-icon.ico'),
+                trayTooltip: 'DDC Monitor Controller',
+                development: process.env.NODE_ENV !== 'production',
+            },
+            (event) => this.#handleNativeShellEvent(event),
+        );
+
+        trayController.updateAutoEnabled(initialState.settings.autoEnabled);
 
         this.#appController.setStateListener((change) => {
             const { state } = change;
@@ -129,9 +130,6 @@ export class DesktopApplication {
     }
 
     async #performQuit(): Promise<void> {
-        const resourceServer = this.#resourceServer;
-        this.#resourceServer = undefined;
-
         try {
             this.#unregisterDevelopmentHandler?.();
             this.#unregisterDevelopmentHandler = undefined;
@@ -139,11 +137,7 @@ export class DesktopApplication {
             this.#panelManager?.prepareForApplicationExit();
             this.#trayController?.stop();
 
-            const results = await Promise.allSettled([
-                this.#appController.dispose(),
-                resourceServer?.close(),
-                this.#singleInstanceLock.close(),
-            ]);
+            const results = await Promise.allSettled([this.#appController.dispose(), this.#singleInstanceLock.close()]);
 
             for (const result of results) {
                 if (result.status === 'rejected') {
@@ -153,26 +147,35 @@ export class DesktopApplication {
         } catch (error) {
             console.error('准备退出应用时发生错误：', error);
         } finally {
-            this.#app.exit();
+            this.#nativeShell.shutdown();
         }
     }
 
-    #createAnchorWindow(): void {
-        // 保留一个不含 WebView、永不显示的原生窗口，使系统托盘持续存在
-        this.#app.createBrowserWindow({
-            title: 'DDC Monitor Controller Anchor',
-            width: 1,
-            height: 1,
-            x: -32_000,
-            y: -32_000,
-            logical: true,
-            visible: false,
-            focused: false,
-            decorations: false,
-            maximizable: false,
-            minimizable: false,
-            windowsSkipTaskbar: true,
-            windowsClassName: 'DDCMonitorControllerAnchorWindow',
-        });
+    #handleNativeShellEvent(event: NativeShellEvent): void {
+        switch (event.type) {
+            case 'tray-primary-click':
+                this.#panelManager?.requestOpen('quick', event.x, event.y);
+                break;
+
+            case 'tray-command':
+                this.#trayController?.handleMenuClick(event.id);
+                break;
+
+            case 'web-message':
+                this.#panelManager?.handleWebMessage(event.message);
+                break;
+
+            case 'window-closed':
+                this.#panelManager?.handleWindowClosed(event.id);
+                break;
+
+            case 'window-bounds':
+                this.#panelManager?.handleWindowBounds(event.id, event.bounds);
+                break;
+
+            case 'error':
+                console.error(`Native Shell：${event.message}`);
+                break;
+        }
     }
 }
