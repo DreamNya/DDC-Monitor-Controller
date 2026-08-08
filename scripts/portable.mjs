@@ -52,14 +52,14 @@ function main() {
     const buildScript = path.join(root, 'scripts', 'build.mjs');
     const packageJson = path.join(root, 'package.json');
     const builtLauncher = path.join(buildRoot, 'DDCMonitorController.exe');
-    const builtDll = path.join(buildRoot, 'native', 'MonitorDdc.dll');
+    const builtAddon = path.join(buildRoot, 'native', 'MonitorNative.node');
 
     assertFile(buildScript, `找不到构建脚本：${buildScript}`);
     assertFile(packageJson, `找不到 package.json：${packageJson}`);
 
     runNodeScript(buildScript);
 
-    if (!fs.existsSync(builtLauncher) || !fs.existsSync(builtDll)) {
+    if (!fs.existsSync(builtLauncher) || !fs.existsSync(builtAddon)) {
         throw new Error('dist/build 缺少原生文件；请先执行 npm run build:native');
     }
 

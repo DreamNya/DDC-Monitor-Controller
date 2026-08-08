@@ -7,18 +7,6 @@ export async function copyRuntimeDependencies(target) {
     const outputRoot = path.join(projectRoot, 'dist', target, 'node_modules');
 
     const runtimeFiles = [
-        // Koffi 主包
-        'koffi/package.json',
-        'koffi/index.js',
-        'koffi/LICENSE.txt',
-        'koffi/src/koffi/index.js',
-        'koffi/src/koffi/src/static.js',
-
-        // Koffi Windows x64 原生模块
-        '@koromix/koffi-win32-x64/package.json',
-        '@koromix/koffi-win32-x64/index.js',
-        '@koromix/koffi-win32-x64/win32_x64/koffi.node',
-
         // WebView 主包
         '@webviewjs/webview/package.json',
         '@webviewjs/webview/index.js',

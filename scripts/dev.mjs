@@ -52,7 +52,7 @@ const mainCtx = await context({
     format: 'esm',
     target: 'node24',
     sourcemap: 'inline',
-    external: ['@webviewjs/webview', 'koffi'],
+    external: ['@webviewjs/webview'],
     define: { 'process.env.NODE_ENV': JSON.stringify('development') },
     plugins: [createReloadPlugin('main-reload', mainFirstBuild, restartApp)],
 });
@@ -158,10 +158,10 @@ async function prepareAssets() {
         fs.copyFile(path.resolve(root, 'assets/tray-icon.png'), path.resolve(outputRoot, 'assets/tray-icon.png')),
         fs
             .copyFile(
-                path.resolve(root, 'native/bin/win-x64/MonitorDdc.dll'),
-                path.resolve(outputRoot, 'native/MonitorDdc.dll'),
+                path.resolve(root, 'native/bin/win-x64/MonitorNative.node'),
+                path.resolve(outputRoot, 'native/MonitorNative.node'),
             )
-            .catch(() => console.warn('警告：可选 Native 文件不存在，已跳过')),
+            .catch(() => console.warn('警告：MonitorNative.node 不存在；请先执行 npm run build:native')),
     ]);
 }
 

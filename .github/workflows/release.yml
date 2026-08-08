@@ -4,46 +4,76 @@ on:
     push:
         tags:
             - 'v*'
+
     workflow_dispatch:
+        inputs:
+            tag:
+                description: 'Release tag，例如 v0.0.1'
+                required: true
+                type: string
 
 permissions:
     contents: write
 
 concurrency:
-    group: release-${{ github.ref }}
+    group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
     cancel-in-progress: false
 
 jobs:
     release:
         name: Build Windows release
-        runs-on: windows-latest
+        runs-on: windows-2025
 
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 0
+                  ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
             - name: Set release version
               shell: pwsh
               run: |
-                  $tag = '${{ github.ref_name }}'
-                  $version = $tag.Substring(1)
+                  if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+                      $tag = '${{ inputs.tag }}'
+                  } else {
+                      $tag = '${{ github.ref_name }}'
+                  }
+
+                  if ($tag -notmatch '^v(.+)$') {
+                      throw "无效 Release tag：$tag"
+                  }
+
+                  $version = $Matches[1]
 
                   "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
                   "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
 
             - name: Set up Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@v7
               with:
                   node-version: '24'
+                  architecture: x64
                   cache: npm
 
+            - name: Set up Python
+              uses: actions/setup-python@v7
+              with:
+                  python-version: '3.12'
+                  architecture: x64
+
+            # @webviewjs/webview 当前存在 npm ci 安装问题，
+            # 暂时使用 npm install。
             - name: Install dependencies
               run: npm install
 
             - name: Build native components
               run: npm run build:native
+
+            - name: Verify native addon
+              shell: pwsh
+              run: |
+                  node -e "const native = require('./native/bin/win-x64/MonitorNative.node'); for (const name of ['refreshMonitors', 'getVcpValue', 'setVcpValue', 'startWindowDrag', 'shutdown']) { if (typeof native[name] !== 'function') throw new Error('MonitorNative.node 缺少导出：' + name); }"
 
             - name: Create portable package
               run: npm run package
@@ -81,6 +111,7 @@ jobs:
                   gh release create $env:RELEASE_TAG `
                       $env:NO_RUNTIME_ARCHIVE `
                       $env:PORTABLE_ARCHIVE `
+                      --verify-tag `
                       --title "DDC Monitor Controller v$($env:RELEASE_VERSION)" `
                       --generate-notes
 

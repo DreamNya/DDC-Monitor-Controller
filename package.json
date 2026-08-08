@@ -19,8 +19,7 @@
         "package": "node scripts/portable.mjs"
     },
     "dependencies": {
-        "@webviewjs/webview": "0.4.1",
-        "koffi": "3.1.4"
+        "@webviewjs/webview": "0.4.1"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
@@ -29,7 +28,9 @@
         "eslint": "^10.8.0",
         "globals": "^17.9.0",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.65.0"
+        "typescript-eslint": "^8.65.0",
+        "node-addon-api": "8.8.0",
+        "node-gyp": "12.3.0"
     },
     "engines": {
         "node": ">=24"
@@ -52,7 +53,6 @@
     ],
     "allowScripts": {
         "@webviewjs/webview": true,
-        "koffi": true,
         "esbuild@0.25.12": true
     }
 }

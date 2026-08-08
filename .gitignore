@@ -139,3 +139,4 @@ dist
 native/build/
 native/bin/
 native/Launcher/resource.res
+native/MonitorNative/build

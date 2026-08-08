@@ -28,7 +28,7 @@ await build({
     target: 'node24',
     sourcemap: development ? 'inline' : false,
     minify: false,
-    external: ['@webviewjs/webview', 'koffi'],
+    external: ['@webviewjs/webview'],
     define: {
         'process.env.NODE_ENV': JSON.stringify(development ? 'development' : 'production'),
     },
@@ -67,14 +67,14 @@ await Promise.all([
     // fs.copyFile(path.resolve(root, 'assets/app-icon.ico'), path.resolve(outputRoot, 'assets/app-icon.ico')),
 ]);
 
-const dll = path.resolve(root, 'native/bin/win-x64/MonitorDdc.dll');
+const nativeAddon = path.resolve(root, 'native/bin/win-x64/MonitorNative.node');
 const launcher = path.resolve(root, 'native/bin/win-x64/DDCMonitorController.exe');
 
 try {
-    await fs.stat(dll);
-    await fs.copyFile(dll, path.resolve(outputRoot, 'native/MonitorDdc.dll'));
+    await fs.stat(nativeAddon);
+    await fs.copyFile(nativeAddon, path.resolve(outputRoot, 'native/MonitorNative.node'));
 } catch {
-    console.warn('警告：尚未生成 MonitorDdc.dll；请在 Windows 上执行 npm run build:native 后重新构建');
+    console.warn('警告：尚未生成 MonitorNative.node；请在 Windows 上执行 npm run build:native 后重新构建');
 }
 
 try {
