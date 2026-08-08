@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import {
-    DDCMonitorController,
-    type DdcClient,
-} from './monitor-controller.ts';
+import { DDCMonitorController, type DdcClient } from './monitor-controller.ts';
 import type { NativeMonitor, VcpValue } from './monitor/native-ddc-client.ts';
 
 const VCP_BRIGHTNESS = 0x10;
@@ -90,6 +87,40 @@ describe('DDCMonitorController cache policy', () => {
         assert.equal(client.refreshCount, 1);
         await controller.dispose();
     });
+    test('VCP enumeration parses capabilities and continues after an individual monitor fails', async () => {
+        const client = new FakeDdcClient([
+            { id: 'monitor-1', name: 'Monitor 1', index: 0 },
+            { id: 'monitor-2', name: 'Monitor 2', index: 1 },
+        ]);
+        client.capabilitiesByIndex.set(0, 'vcp(10 12 60(01 03 0F) D6(01 05))');
+        client.failedCapabilitiesIndexes.add(1);
+        const controller = new DDCMonitorController(client);
+        const originalConsoleError = console.error;
+        const errors: unknown[][] = [];
+        console.error = (...args: unknown[]) => {
+            errors.push(args);
+        };
+
+        try {
+            await controller.getSnapshots();
+            const result = controller.enumerateVcpCodes('all');
+
+            assert.deepEqual(result[0]?.vcpCodes, [
+                { code: 0x10, values: [] },
+                { code: 0x12, values: [] },
+                { code: 0x60, values: [0x01, 0x03, 0x0f] },
+                { code: 0xd6, values: [0x01, 0x05] },
+            ]);
+            assert.equal(result[0]?.error, null);
+            assert.equal(result[1]?.capabilities, null);
+            assert.match(result[1]?.error ?? '', /Capabilities failed/);
+        } finally {
+            console.error = originalConsoleError;
+        }
+
+        assert.equal(errors.length, 1);
+        await controller.dispose();
+    });
 });
 
 class FakeDdcClient implements DdcClient {
@@ -102,6 +133,8 @@ class FakeDdcClient implements DdcClient {
     refreshCount = 0;
     readCount = 0;
     writes: Array<{ index: number; code: number; value: number }> = [];
+    failedCapabilitiesIndexes = new Set<number>();
+    capabilitiesByIndex = new Map<number, string>();
 
     constructor(monitors: NativeMonitor[] = [{ id: 'monitor-1', name: 'Test Monitor', index: 0 }]) {
         this.#monitors = monitors;
@@ -110,6 +143,14 @@ class FakeDdcClient implements DdcClient {
     refreshMonitors(): NativeMonitor[] {
         this.refreshCount += 1;
         return structuredClone(this.#monitors);
+    }
+
+    readCapabilities(index: number): string {
+        if (this.failedCapabilitiesIndexes.has(index)) {
+            throw new Error(`Capabilities failed for monitor index ${index}`);
+        }
+
+        return this.capabilitiesByIndex.get(index) ?? 'vcp(10 12)';
     }
 
     readVcpValue(_index: number, code: number): VcpValue {

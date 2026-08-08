@@ -13,6 +13,10 @@ export class NativeDdcClient {
         return getNativeAddon().refreshMonitors();
     }
 
+    readCapabilities(index: number): string {
+        return getNativeAddon().getCapabilities(index);
+    }
+
     readVcpValue(index: number, code: number): VcpValue {
         return getNativeAddon().getVcpValue(index, code);
     }

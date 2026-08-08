@@ -5,11 +5,13 @@ import {
     type TrayEventPayload,
     type TrayIcon,
 } from '@webviewjs/webview';
-import { exec } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { AppController } from './app-controller';
 import type { PanelManager } from './panel/panel-manager';
+import { formatVcpCapabilitiesReport } from './services/vcp-capabilities';
 import { runBackground } from './utils/run-background';
 
 export interface TrayControllerOptions {
@@ -18,6 +20,7 @@ export interface TrayControllerOptions {
     panelManager: PanelManager;
     assetsRoot: string;
     webviewDataDirectory: string;
+    distributionRoot: string;
     quitApplication(): void;
 }
 
@@ -33,6 +36,8 @@ function createTrayMenu(autoEnabled: boolean): MenuOptions {
             { id: 'refresh', label: '重新检测显示器' },
             { id: 'reset-ui-scale', label: '重置面板缩放比例（100%）' },
             { role: 'separator' },
+            { id: 'enumerate-vcp', label: '枚举VCP Code' },
+            { role: 'separator' },
             { id: 'open-webview', label: '打开WebView目录' },
             { role: 'separator' },
             { id: 'quit', label: '退出' },
@@ -46,6 +51,7 @@ export class TrayController {
     readonly #panelManager: PanelManager;
     readonly #assetsRoot: string;
     readonly #webviewDataDirectory: string;
+    readonly #distributionRoot: string;
     readonly #quitApplication: () => void;
 
     #tray: TrayIcon | undefined;
@@ -87,6 +93,7 @@ export class TrayController {
         this.#panelManager = options.panelManager;
         this.#assetsRoot = options.assetsRoot;
         this.#webviewDataDirectory = options.webviewDataDirectory;
+        this.#distributionRoot = options.distributionRoot;
         this.#quitApplication = options.quitApplication;
     }
 
@@ -149,6 +156,9 @@ export class TrayController {
                 runBackground('重置面板缩放比例', () => this.#appController.resetUiScale());
                 break;
 
+            case 'enumerate-vcp':
+                runBackground('枚举 VCP Code', () => this.#enumerateVcpCodes());
+                break;
             case 'open-webview': {
                 const directory = path.join(this.#webviewDataDirectory, '..');
 
@@ -168,4 +178,37 @@ export class TrayController {
                 break;
         }
     }
+
+    async #enumerateVcpCodes(): Promise<void> {
+        const monitors = await this.#appController.enumerateVcpCodes();
+        const report = formatVcpCapabilitiesReport(monitors);
+        const temporaryPath = path.join(tmpdir(), `DDCMonitorController-VCP-Codes-${process.pid}.txt`);
+
+        try {
+            await fs.writeFile(temporaryPath, report, 'utf8');
+            await openWithNotepad(temporaryPath);
+        } catch (error) {
+            console.error('使用 Notepad 打开 VCP Code 枚举结果失败：', error);
+
+            const fallbackPath = path.join(this.#distributionRoot, 'VCP-Codes.txt');
+            await fs.writeFile(fallbackPath, report, 'utf8');
+            console.log(`VCP Code 枚举结果已写入：${fallbackPath}`);
+        }
+    }
+}
+
+function openWithNotepad(filePath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const child = spawn('notepad.exe', [filePath], {
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: false,
+        });
+
+        child.once('error', reject);
+        child.once('spawn', () => {
+            child.unref();
+            resolve();
+        });
+    });
 }

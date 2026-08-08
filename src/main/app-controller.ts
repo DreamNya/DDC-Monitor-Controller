@@ -33,10 +33,11 @@ import {
     saveScheduleProfile,
 } from './services/schedule-profile.ts';
 import { createDefaultSettings, SettingsStore } from './services/settings-store.ts';
+import type { MonitorVcpCapabilities } from './services/vcp-capabilities.ts';
 
 type MonitorController = Pick<
     DDCMonitorController,
-    'getSnapshots' | 'getCachedSnapshots' | 'apply' | 'applyLive' | 'dispose'
+    'getSnapshots' | 'getCachedSnapshots' | 'enumerateVcpCodes' | 'apply' | 'applyLive' | 'dispose'
 >;
 type AutoScheduler = Pick<AutoAdjustmentScheduler, 'nextRunAt' | 'schedule' | 'stop' | 'dispose'>;
 
@@ -148,19 +149,23 @@ export class AppController {
 
     applyLive(request: LiveApplyRequest): Promise<void> {
         return this.#executeCommand(async () => {
-            await this.#attempt('实时调节失败', () => this.#monitorController.applyLive(request), (result) => {
-                const changes: string[] = [];
+            await this.#attempt(
+                '实时调节失败',
+                () => this.#monitorController.applyLive(request),
+                (result) => {
+                    const changes: string[] = [];
 
-                if (result.brightness !== undefined) {
-                    changes.push(`亮度 ${result.brightness}`);
-                }
+                    if (result.brightness !== undefined) {
+                        changes.push(`亮度 ${result.brightness}`);
+                    }
 
-                if (result.contrast !== undefined) {
-                    changes.push(`对比度 ${result.contrast}`);
-                }
+                    if (result.contrast !== undefined) {
+                        changes.push(`对比度 ${result.contrast}`);
+                    }
 
-                return `已实时调节：${changes.join('，')}`;
-            });
+                    return `已实时调节：${changes.join('，')}`;
+                },
+            );
             return 'apply-live' as const;
         });
     }
@@ -169,6 +174,14 @@ export class AppController {
         return this.#executeCommand(async () => {
             await this.#applyAuto();
             return 'apply-auto' as const;
+        });
+    }
+
+    enumerateVcpCodes(): Promise<MonitorVcpCapabilities[]> {
+        return this.#commands.run(async () => {
+            // 托盘可能在应用后台运行很久后触发，枚举前先重新取得当前物理显示器句柄。
+            await this.#monitorController.getSnapshots();
+            return this.#monitorController.enumerateVcpCodes('all');
         });
     }
 
@@ -383,7 +396,9 @@ export class AppController {
             reason = 'apply-auto';
 
             if (this.#state.lastError === null) {
-                this.#state.setOperation(`自动调节已开启，每 ${intervalMinutes} 分钟运行；${this.#state.lastOperation}`);
+                this.#state.setOperation(
+                    `自动调节已开启，每 ${intervalMinutes} 分钟运行；${this.#state.lastOperation}`,
+                );
             }
         } else {
             this.#state.succeed(`自动调节间隔已设置为 ${intervalMinutes} 分钟`);

@@ -1,11 +1,13 @@
 import type { LiveApplyRequest, ManualApplyRequest, MonitorSnapshot, MonitorTarget } from '../../shared/model';
 import { NativeDdcClient, type NativeMonitor, type VcpValue } from './monitor/native-ddc-client.ts';
+import { parseVcpCodes, type MonitorVcpCapabilities } from './vcp-capabilities.ts';
 
 const VCP_BRIGHTNESS = 0x10;
 const VCP_CONTRAST = 0x12;
 
 export interface DdcClient {
     refreshMonitors(): NativeMonitor[];
+    readCapabilities(index: number): string;
     readVcpValue(index: number, code: number): VcpValue;
     writeVcpValue(index: number, code: number, value: number): void;
     dispose(): void;
@@ -46,6 +48,38 @@ export class DDCMonitorController {
     /** 返回内存中的最后一份快照，不触发任何 DDC/CI 通信 */
     getCachedSnapshots(): MonitorSnapshot[] {
         return structuredClone(this.#snapshots);
+    }
+
+    /**
+     * 读取目标显示器的 capabilities string，并从 vcp(...) 段枚举声明的 VCP Code。
+     * 单台显示器读取失败时记录错误并继续处理其他显示器。
+     */
+    enumerateVcpCodes(monitorId: MonitorTarget): MonitorVcpCapabilities[] {
+        const targets = resolveTargets(this.#monitors, monitorId);
+
+        return targets.map((monitor) => {
+            try {
+                const capabilities = this.#client.readCapabilities(monitor.index);
+                return {
+                    id: monitor.id,
+                    name: monitor.name,
+                    index: monitor.index,
+                    capabilities,
+                    vcpCodes: parseVcpCodes(capabilities),
+                    error: null,
+                };
+            } catch (error) {
+                console.error(`枚举显示器“${monitor.name || monitor.id}”的 VCP Code 失败：`, error);
+                return {
+                    id: monitor.id,
+                    name: monitor.name,
+                    index: monitor.index,
+                    capabilities: null,
+                    vcpCodes: [],
+                    error: toErrorMessage(error),
+                };
+            }
+        });
     }
 
     /**
@@ -261,14 +295,14 @@ function resolveTargets(monitors: readonly NativeMonitor[], target: MonitorTarge
     return [monitor];
 }
 
+function toErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 function clamp(value: number): number {
     if (!Number.isFinite(value)) {
         throw new TypeError('显示器调整值必须为有限数字');
     }
 
     return Math.min(100, Math.max(0, Math.round(value)));
-}
-
-function toErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }

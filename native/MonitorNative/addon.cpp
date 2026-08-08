@@ -257,6 +257,49 @@ Napi::Value refresh_monitors(const Napi::CallbackInfo& info) {
     return result;
 }
 
+Napi::Value get_capabilities(const Napi::CallbackInfo& info) {
+    const Napi::Env env = info.Env();
+    std::uint32_t index = 0;
+
+    if (!read_uint32_argument(info, 0, "index", index)) {
+        return env.Undefined();
+    }
+
+    std::lock_guard lock(g_mutex);
+    MonitorRecord* monitor = resolve_monitor(env, index);
+
+    if (monitor == nullptr) {
+        return env.Undefined();
+    }
+
+    DWORD length = 0;
+
+    // Dxva2 在这里封装 DDC/CI Capabilities Request (0xF3) / Reply (0xE3)。
+    if (!GetCapabilitiesStringLength(monitor->handle, &length)) {
+        throw_win32_error(env, "读取显示器 Capabilities 长度", last_error_or(ERROR_GEN_FAILURE));
+        return env.Undefined();
+    }
+
+    if (length == 0) {
+        Napi::Error::New(env, "显示器返回的 Capabilities 长度为 0").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+
+    std::vector<char> buffer(length, '\0');
+
+    if (!CapabilitiesRequestAndCapabilitiesReply(
+            monitor->handle,
+            buffer.data(),
+            length)) {
+        throw_win32_error(env, "读取显示器 Capabilities", last_error_or(ERROR_GEN_FAILURE));
+        return env.Undefined();
+    }
+
+    // API 文档要求 length 包含结尾 NUL；这里额外保证尾字节终止，避免异常驱动返回脏数据。
+    buffer.back() = '\0';
+    return Napi::String::New(env, buffer.data());
+}
+
 Napi::Value get_vcp_value(const Napi::CallbackInfo& info) {
     const Napi::Env env = info.Env();
     std::uint32_t index = 0;
@@ -368,6 +411,7 @@ Napi::Object initialize(Napi::Env env, Napi::Object exports) {
     napi_add_env_cleanup_hook(env, cleanup_environment, nullptr);
 
     exports.Set("refreshMonitors", Napi::Function::New(env, refresh_monitors));
+    exports.Set("getCapabilities", Napi::Function::New(env, get_capabilities));
     exports.Set("getVcpValue", Napi::Function::New(env, get_vcp_value));
     exports.Set("setVcpValue", Napi::Function::New(env, set_vcp_value));
     exports.Set("startWindowDrag", Napi::Function::New(env, start_window_drag));

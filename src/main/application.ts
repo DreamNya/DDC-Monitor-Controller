@@ -61,6 +61,7 @@ export class DesktopApplication {
             panelManager,
             assetsRoot: this.#paths.assetsRoot,
             webviewDataDirectory: this.#paths.webviewDataDirectory,
+            distributionRoot: this.#paths.distributionRoot,
             quitApplication: () => this.quit(),
         });
 
