@@ -1,6 +1,6 @@
 {
     "name": "ddc-monitor-controller",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "private": true,
     "description": "一款轻量级 Windows 显示器 DDC/CI 控制工具，提供图形化操作界面，支持手动和自动调节显示器亮度与对比度",
     "repository": {

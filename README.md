@@ -7,7 +7,7 @@ GitHub: <https://github.com/DreamNya/DDC-Monitor-Controller>
 ## 功能特性
 
 * 轻量级后台运行
-  * 常驻内存约 **20–25 MB**
+  * 常驻内存约 **20 MB**
   * WebView UI 按需创建，关闭窗口后立即销毁
 * 通过系统托盘快速唤醒操作界面
   * 提供 `快速设置` 和 `详细设置` 两种交互面板

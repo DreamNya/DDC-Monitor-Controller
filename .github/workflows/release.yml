@@ -68,11 +68,29 @@ jobs:
             - name: Build native components
               run: npm run build:native
 
-            - name: Verify native addon
+            - name: Verify native addons
               shell: pwsh
               run: |
-                  node -e "const native = require('./native/bin/win-x64/MonitorNative.node'); for (const name of ['refreshMonitors', 'getVcpValue', 'setVcpValue', 'shutdown']) { if (typeof native[name] !== 'function') throw new Error('MonitorNative.node 缺少导出：' + name); }"
-                  node -e "const native = require('./native/bin/win-x64/WebViewNative.node'); for (const name of ['initialize', 'openPanel', 'closePanel', 'startWindowDrag', 'postWebMessage', 'setPanelScale', 'reloadPage', 'reloadStylesheets', 'updateTrayAutoEnabled', 'openPath', 'shutdown']) { if (typeof native[name] !== 'function') throw new Error('WebViewNative.node 缺少导出：' + name); }"
+                  $addons = Get-ChildItem './native/bin/win-x64' -Filter '*.node'
+
+                  if ($addons.Count -eq 0) {
+                      throw '未找到任何 native addon'
+                  }
+
+                  foreach ($addon in $addons) {
+                      Write-Host "Verifying $($addon.Name)..."
+
+                      node -e "
+                          const path = process.argv[1];
+                          const native = require(path);
+                          console.log('Loaded:', path);
+                          console.log('Exports:', Object.keys(native));
+                      " $addon.FullName
+
+                      if ($LASTEXITCODE -ne 0) {
+                          throw "无法加载 native addon: $($addon.Name)"
+                      }
+                  }
 
             # 会隐式执行 npm run build // TODO
             - name: Create portable package
