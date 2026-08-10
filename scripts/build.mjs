@@ -26,7 +26,7 @@ await build({
     format: 'esm',
     target: 'node24',
     sourcemap: development ? 'inline' : false,
-    minify: false,
+    minify: !development,
     define: {
         'process.env.NODE_ENV': JSON.stringify(development ? 'development' : 'production'),
     },
@@ -88,7 +88,6 @@ try {
 } catch {
     console.warn('警告：尚未生成无控制台启动器；可先执行 npm run build:native，再重新构建');
 }
-
 
 const packageJSON = path.resolve(root, 'package.json');
 await fs.copyFile(packageJSON, path.resolve(outputRoot, 'package.json'));
