@@ -198,13 +198,17 @@ function buildLauncher(outputDir) {
         `call ${quote(vcvars)}`,
         `rc /nologo /fo ${quote(launcherRes)} ${quote(launcherRc)}`,
         [
-            'cl /nologo /utf-8 /std:c++20 /EHsc /O2 /W4 /permissive- /MT',
+            'cl /nologo /c /utf-8 /O1 /GL /Gw /GR- /Zl /GS- /W4 /permissive-',
             '/DUNICODE /D_UNICODE',
             quote(launcherSource),
-            quote(launcherRes),
             `/Fo:${quote(launcherObject)}`,
-            '/link /SUBSYSTEM:WINDOWS',
+        ].join(' '),
+        [
+            `link /nologo ${quote(launcherObject)} ${quote(launcherRes)} /NODEFAULTLIB /SUBSYSTEM:WINDOWS`,
+            `/MACHINE:X64 /ENTRY:launcher_entry /LTCG /OPT:REF,ICF /INCREMENTAL:NO /DYNAMICBASE`,
+            `/HIGHENTROPYVA /NXCOMPAT /MANIFEST:EMBED`,
             `/OUT:${quote(launcherExe)}`,
+            'Kernel32.lib',
             'User32.lib',
         ].join(' '),
     ].join(' && ');
