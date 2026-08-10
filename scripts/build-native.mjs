@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
-const WEBVIEW2_SDK_VERSION = '1.0.4129.50';
+const WEBVIEW2_SDK_VERSION = process.env.WEBVIEW2_SDK_VERSION ?? '1.0.4129.50';
 
 function assertWindows() {
     if (process.platform !== 'win32') {
