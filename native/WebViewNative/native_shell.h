@@ -152,10 +152,14 @@ private:
     void emit(NativeEvent event);
     void emit_error(std::string message);
 
-    static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
-    static LRESULT CALLBACK resize_hit_window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
-    LRESULT handle_window_message(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
-    LRESULT handle_resize_hit_window_message(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
+    static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam,
+        LPARAM lparam);
+    static LRESULT CALLBACK resize_hit_window_proc(HWND window, UINT message,
+        WPARAM wparam, LPARAM lparam);
+    LRESULT handle_window_message(HWND window, UINT message, WPARAM wparam,
+        LPARAM lparam);
+    LRESULT handle_resize_hit_window_message(HWND window, UINT message,
+        WPARAM wparam, LPARAM lparam);
 
     Napi::ThreadSafeFunction event_callback_;
     NativeShellConfig config_{};
