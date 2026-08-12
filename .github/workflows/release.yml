@@ -18,11 +18,12 @@ concurrency:
     cancel-in-progress: false
 
 env:
+    NODE_VERSION: '24.18.0'
     WEBVIEW2_SDK_VERSION: '1.0.4129.50'
 
 jobs:
     release:
-        name: ${{ github.event_name == 'push' && 'Build Windows release' || 'Warm WebView2 cache' }}
+        name: ${{ github.event_name == 'push' && 'Build Windows release' || 'Warm native caches' }}
         runs-on: windows-2025
 
         steps:
@@ -49,7 +50,7 @@ jobs:
             - name: Set up Node.js
               uses: actions/setup-node@v7
               with:
-                  node-version: '24'
+                  node-version: ${{ env.NODE_VERSION }}
                   architecture: x64
                   cache: npm
 
@@ -66,7 +67,14 @@ jobs:
                   path: .cache/webview2
                   key: ${{ runner.os }}-webview2-sdk-${{ env.WEBVIEW2_SDK_VERSION }}
 
-            - name: Show WebView2 cache status
+            - name: Restore node-gyp cache
+              id: node-gyp-cache
+              uses: actions/cache@v6
+              with:
+                  path: .cache/node-gyp
+                  key: ${{ runner.os }}-node-gyp-${{ env.NODE_VERSION }}-x64
+
+            - name: Show native cache status
               shell: pwsh
               run: |
                   if ('${{ steps.webview2-cache.outputs.cache-hit }}' -eq 'true') {
@@ -75,12 +83,18 @@ jobs:
                       Write-Host 'WebView2 SDK cache miss'
                   }
 
+                  if ('${{ steps.node-gyp-cache.outputs.cache-hit }}' -eq 'true') {
+                      Write-Host 'node-gyp cache hit'
+                  } else {
+                      Write-Host 'node-gyp cache miss'
+                  }
+
             - name: Install dependencies
-              if: github.event_name == 'push' || steps.webview2-cache.outputs.cache-hit != 'true'
+              if: github.event_name == 'push' || steps.webview2-cache.outputs.cache-hit != 'true' || steps.node-gyp-cache.outputs.cache-hit != 'true'
               run: npm ci
 
             - name: Build native components
-              if: github.event_name == 'push' || steps.webview2-cache.outputs.cache-hit != 'true'
+              if: github.event_name == 'push' || steps.webview2-cache.outputs.cache-hit != 'true' || steps.node-gyp-cache.outputs.cache-hit != 'true'
               run: npm run build:native
 
             - name: Verify native addons

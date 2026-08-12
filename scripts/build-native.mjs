@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, '..');
 const WEBVIEW2_SDK_VERSION = process.env.WEBVIEW2_SDK_VERSION ?? '1.0.4129.50';
+const NODE_GYP_DEV_DIR = path.join(root, '.cache', 'node-gyp');
 
 function assertWindows() {
     if (process.platform !== 'win32') {
@@ -156,7 +157,7 @@ function buildAddon(name, outputDir, environment = {}) {
     assertFile(bindingGyp, `找不到 Node-API 构建配置：${bindingGyp}`);
     assertFile(nodeGyp, '找不到 node-gyp；请先执行 npm install');
 
-    run(process.execPath, [nodeGyp, 'rebuild', '--release', '--arch=x64'], {
+    run(process.execPath, [nodeGyp, 'rebuild', '--release', '--arch=x64', `--devdir=${NODE_GYP_DEV_DIR}`], {
         cwd: addonRoot,
         env: { ...process.env, ...environment },
     });
