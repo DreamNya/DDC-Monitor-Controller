@@ -58,6 +58,7 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     let opened = false;
     let closed = false;
     let dragStarted = false;
+    let logFolderOpened = false;
     const bridge = createPanelBridge({
         appController: appController as unknown as AppController,
         openControlPanel: () => {
@@ -68,6 +69,9 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
         },
         startControlWindowDrag: () => {
             dragStarted = true;
+        },
+        openLogFolder: () => {
+            logFolderOpened = true;
         },
     });
 
@@ -87,6 +91,9 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
 
     assert.equal(await bridge.startControlWindowDrag(), null);
     assert.equal(dragStarted, true);
+
+    assert.equal(await bridge.openLogFolder(), null);
+    assert.equal(logFolderOpened, true);
 
     assert.equal(await bridge.openControlPanel(), null);
     assert.equal(opened, false);

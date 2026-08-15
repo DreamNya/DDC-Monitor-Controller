@@ -44,6 +44,10 @@ export class DesktopApplication {
         const panelManager = new PanelManager({
             appController: this.#appController,
             nativeShell: this.#nativeShell,
+            openLogFolder: () => {
+                const logDirectory = path.resolve(this.#paths.distributionRoot, 'log');
+                this.#nativeShell.openPath(logDirectory);
+            },
         });
 
         const trayController = new TrayController({

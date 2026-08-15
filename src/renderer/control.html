@@ -58,7 +58,9 @@
                                         <small id="last-error" class="error" hidden></small>
                                     </div>
 
-                                    <button id="refresh-button" class="secondary compact" type="button">重新检测</button>
+                                    <button id="refresh-button" class="secondary compact" type="button">
+                                        重新检测
+                                    </button>
                                 </section>
 
                                 <section class="card manual-card">
@@ -117,7 +119,9 @@
                                             </button>
                                         </div>
 
-                                        <p class="hint">手动设置不会关闭自动模式；下一个时间节点到达后会再次应用自动值</p>
+                                        <p class="hint">
+                                            手动设置不会关闭自动模式；下一个时间节点到达后会再次应用自动值
+                                        </p>
                                     </div>
                                 </section>
                             </div>
@@ -231,6 +235,13 @@
                                         <span class="label">运行记录</span>
                                         <h2>文件日志</h2>
                                     </div>
+                                    <button
+                                        id="open-log-folder-button"
+                                        class="secondary compact settings-heading-button"
+                                        type="button"
+                                        title="打开运行目录下的 log 文件夹">
+                                        打开目录
+                                    </button>
                                 </div>
 
                                 <div class="setting-row settings-row">
@@ -254,10 +265,10 @@
                                     </div>
                                     <button
                                         id="reset-ui-scale-button"
-                                        class="secondary compact settings-reset-button"
+                                        class="secondary compact settings-heading-button"
                                         type="button"
                                         title="将快速设置面板和详细设置面板缩放恢复为 100%">
-                                        重置
+                                        重置缩放
                                     </button>
                                 </div>
 
@@ -290,7 +301,6 @@
                                 <p class="hint">重置后，快速设置面板和详细设置面板的 UI 缩放均恢复为 100%</p>
                             </section>
 
-
                             <section class="card font-size-card settings-card">
                                 <div class="section-heading">
                                     <div>
@@ -299,17 +309,19 @@
                                     </div>
                                     <button
                                         id="reset-font-size-button"
-                                        class="secondary compact settings-reset-button"
+                                        class="secondary compact settings-heading-button"
                                         type="button"
                                         title="将默认文字和提示文字恢复为默认大小">
-                                        重置
+                                        重置文字
                                     </button>
                                 </div>
 
                                 <div class="ui-scale-options font-size-options">
                                     <div class="ui-scale-option font-size-option">
                                         <label for="default-font-size-slider">默认文字</label>
-                                        <output id="default-font-size-value" for="default-font-size-slider">14 px</output>
+                                        <output id="default-font-size-value" for="default-font-size-slider"
+                                            >14 px</output
+                                        >
                                         <input
                                             id="default-font-size-slider"
                                             type="range"

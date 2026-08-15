@@ -1013,7 +1013,7 @@ td:last-child {
     margin-top: clamp(10px, 1.5vh, 16px);
 }
 
-.settings-reset-button {
+.settings-heading-button {
     flex: 0 0 auto;
     min-width: max-content;
     padding: clamp(5px, 0.8vh, 7px) clamp(9px, 1.1vw, 12px);

@@ -30,6 +30,7 @@ const STYLESHEET_RELOAD_SCRIPT = `
 export interface PanelManagerOptions {
     appController: AppController;
     nativeShell: NativeShell;
+    openLogFolder(): void;
 }
 
 export class PanelManager {
@@ -49,6 +50,7 @@ export class PanelManager {
             openControlPanel: () => this.requestOpen('control'),
             closePanel: () => this.destroy(),
             startControlWindowDrag: () => this.#nativeShell.startWindowDrag(),
+            openLogFolder: options.openLogFolder,
         });
     }
 

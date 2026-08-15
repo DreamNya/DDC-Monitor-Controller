@@ -1,4 +1,5 @@
 import type { MonitorBridge } from '../shared/bridge';
+import { isFontSizePx } from '../shared/font-size';
 import type {
     AppState,
     AppStateChange,
@@ -11,7 +12,6 @@ import type {
 } from '../shared/model';
 import { INTERVAL_MINUTES_OPTIONS } from '../shared/model';
 import { formatTime, parseTime } from '../shared/schedule';
-import { isFontSizePx } from '../shared/font-size';
 import { isUiScalePercent } from '../shared/ui-scale';
 import {
     applyFontSizeSettings,
@@ -69,6 +69,7 @@ const elements = {
     closeButton: getElement<HTMLButtonElement>('#close-button'),
     windowDragRegion: getElement<HTMLElement>('#window-drag-region'),
     logToggle: getElement<HTMLInputElement>('#log-toggle'),
+    openLogFolderButton: getElement<HTMLButtonElement>('#open-log-folder-button'),
     quickUiScaleSlider: getElement<HTMLInputElement>('#quick-ui-scale-slider'),
     quickUiScaleValue: getElement<HTMLOutputElement>('#quick-ui-scale-value'),
     controlUiScaleSlider: getElement<HTMLInputElement>('#control-ui-scale-slider'),
@@ -227,6 +228,12 @@ function bindEvents(): void {
         });
     });
 
+    elements.openLogFolderButton.addEventListener('click', () => {
+        void actions.run(async () => {
+            await bridge.openLogFolder();
+        });
+    });
+
     disableDefaultContextMenu();
 }
 
@@ -271,11 +278,7 @@ function parseAutoInterval(value: string): IntervalMinutes | null {
     return matchedInterval;
 }
 
-function bindUiScaleSlider(
-    target: UiScaleTarget,
-    slider: HTMLInputElement,
-    output: HTMLOutputElement,
-): void {
+function bindUiScaleSlider(target: UiScaleTarget, slider: HTMLInputElement, output: HTMLOutputElement): void {
     slider.addEventListener('input', () => {
         output.value = `${slider.value}%`;
         updateRangeProgress(slider, '%');
@@ -295,11 +298,7 @@ function bindUiScaleSlider(
     });
 }
 
-function bindFontSizeSlider(
-    target: FontSizeTarget,
-    slider: HTMLInputElement,
-    output: HTMLOutputElement,
-): void {
+function bindFontSizeSlider(target: FontSizeTarget, slider: HTMLInputElement, output: HTMLOutputElement): void {
     const syncPreview = (): void => {
         const pixels = Number(slider.value);
         output.value = `${slider.value} px`;
@@ -437,8 +436,7 @@ function deleteScheduleProfile(): void {
 
 function renderStateChange({ reason, state }: AppStateChange): void {
     render(state, {
-        syncManualValues:
-            reason === 'refresh-monitors' || reason === 'apply-manual' || reason === 'apply-auto',
+        syncManualValues: reason === 'refresh-monitors' || reason === 'apply-manual' || reason === 'apply-auto',
     });
 }
 
@@ -473,6 +471,7 @@ function render(state: AppState, options: RenderOptions = {}): void {
     elements.autoIntervalSelect.value = state.settings.autoEnabled ? String(state.settings.intervalMinutes) : 'off';
     updateAutoIntervalDisplay();
     elements.logToggle.checked = state.settings.logEnabled;
+    elements.openLogFolderButton.disabled = !state.settings.logEnabled;
     setRangeValue(elements.quickUiScaleSlider, elements.quickUiScaleValue, state.settings.uiScale.quick);
     setRangeValue(elements.controlUiScaleSlider, elements.controlUiScaleValue, state.settings.uiScale.control);
     renderFontSizeSettings(state.settings.fontSize);
@@ -640,8 +639,13 @@ function setBusy(value: boolean): void {
     }
 
     if (!value) {
-        elements.deleteProfileButton.disabled = (currentState?.settings.scheduleProfiles.length ?? 0) <= 1;
+        updateControlStates();
     }
+}
+
+function updateControlStates(): void {
+    elements.deleteProfileButton.disabled = (currentState?.settings.scheduleProfiles.length ?? 0) <= 1;
+    elements.openLogFolderButton.disabled = !currentState?.settings.logEnabled;
 }
 
 function showToast(message: string): void {

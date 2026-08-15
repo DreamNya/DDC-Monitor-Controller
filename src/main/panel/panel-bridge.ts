@@ -6,6 +6,7 @@ export interface PanelBridgeDependencies {
     openControlPanel(): void;
     closePanel(): void;
     startControlWindowDrag(): void;
+    openLogFolder(): void;
 }
 
 export function createPanelBridge(dependencies: PanelBridgeDependencies) {
@@ -32,6 +33,10 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
         deleteScheduleProfile: ({ profileId }) => runCommand(() => appController.deleteScheduleProfile(profileId)),
         saveSchedule: ({ profileId, schedule }) => runCommand(() => appController.saveSchedule(profileId, schedule)),
         setLogEnabled: ({ enabled }) => runCommand(() => appController.setLogEnabled(enabled)),
+        openLogFolder: async () => {
+            await runBridgeCall(() => dependencies.openLogFolder());
+            return null;
+        },
         startControlWindowDrag: async () => {
             dependencies.startControlWindowDrag();
             return null;
