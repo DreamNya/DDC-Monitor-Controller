@@ -38,6 +38,8 @@ test('SettingsStore merges all changes in one 10-second window into one write', 
         const latest = structuredClone(first);
         latest.intervalMinutes = 15;
         latest.uiScale.quick = 125;
+        latest.fontSize.default = 18;
+        latest.fontSize.hint = 13;
         store.stage(latest);
 
         assert.equal(scheduleCount, 1);
@@ -51,6 +53,8 @@ test('SettingsStore merges all changes in one 10-second window into one write', 
         assert.equal(saved.logEnabled, true);
         assert.equal(saved.intervalMinutes, 15);
         assert.equal(saved.uiScale.quick, 125);
+        assert.equal(saved.fontSize.default, 18);
+        assert.equal(saved.fontSize.hint, 13);
     } finally {
         await store.dispose();
         await fs.rm(directory, { recursive: true, force: true });

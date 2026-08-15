@@ -9,6 +9,7 @@ import type {
     ScheduleProfile,
 } from '../../shared/model.ts';
 import { INTERVAL_MINUTES_OPTIONS, MAX_SCHEDULE_PROFILE_NAME_LENGTH } from '../../shared/model.ts';
+import { createDefaultFontSizeSettings, normalizeFontSizeSettings } from '../../shared/font-size.ts';
 import { cloneDefaultSchedule, normalizeSchedule } from '../../shared/schedule.ts';
 import { createDefaultUiScaleSettings, normalizeUiScaleSettings } from '../../shared/ui-scale.ts';
 
@@ -164,6 +165,7 @@ export function createDefaultSettings(): AppSettings {
         intervalMinutes: 30,
         targetMonitorId: 'all',
         uiScale: createDefaultUiScaleSettings(),
+        fontSize: createDefaultFontSizeSettings(),
         activeScheduleProfileId: DEFAULT_PROFILE_ID,
         scheduleProfiles: [createDefaultScheduleProfile()],
         controlWindowBounds: null,
@@ -195,6 +197,7 @@ function normalizeSettings(value: unknown): AppSettings {
         intervalMinutes,
         targetMonitorId: typeof targetMonitorId === 'string' ? targetMonitorId : 'all',
         uiScale: normalizeUiScaleSettings(source.uiScale),
+        fontSize: normalizeFontSizeSettings(source.fontSize),
         activeScheduleProfileId,
         scheduleProfiles,
     };

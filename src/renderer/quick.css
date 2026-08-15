@@ -14,6 +14,11 @@
 
     --value-surface: rgb(9 133 210 / 9%);
     --value-border: rgb(9 133 210 / 16%);
+
+    --font-size-default: 14px;
+    --font-size-hint: 11px;
+    --font-size-default-offset: calc(var(--font-size-default) - 14px);
+    --font-size-hint-offset: calc(var(--font-size-hint) - 11px);
 }
 
 * {
@@ -128,7 +133,7 @@ input:disabled {
     position: absolute;
     top: 25%;
     left: 50%;
-    font-size: 10px;
+    font-size: calc(10px + var(--font-size-hint-offset));
     line-height: 1;
     font-variant-numeric: tabular-nums;
     transform: translateX(-50%);
@@ -138,7 +143,7 @@ input:disabled {
     min-width: 0;
     margin-left: 9px;
     overflow: hidden;
-    font-size: 18px;
+    font-size: calc(18px + var(--font-size-default-offset));
     font-weight: 400;
     letter-spacing: 0.01em;
     line-height: 1.1;
@@ -198,7 +203,7 @@ input:disabled {
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 13px;
+    font-size: calc(13px + var(--font-size-default-offset));
     font-weight: 600;
     line-height: 1;
     text-align: right;
@@ -324,7 +329,7 @@ input[type='range']::-moz-range-thumb {
     padding: 0 16px;
     overflow: hidden;
     color: var(--error);
-    font-size: 10px;
+    font-size: calc(10px + var(--font-size-hint-offset));
     line-height: 16px;
     text-align: center;
 }
@@ -390,7 +395,7 @@ input[type='range']::-moz-range-thumb {
 .footer-button span {
     min-width: 0;
     overflow: hidden;
-    font-size: 12px;
+    font-size: calc(12px + var(--font-size-default-offset));
     font-weight: 600;
     line-height: 1.2;
     text-overflow: ellipsis;
@@ -434,7 +439,7 @@ input[type='range']::-moz-range-thumb {
 
     .monitor-name {
         margin-left: 7px;
-        font-size: 16px;
+        font-size: calc(16px + var(--font-size-default-offset));
     }
 
     .control-card {
@@ -463,7 +468,7 @@ input[type='range']::-moz-range-thumb {
     }
 
     .footer-button span {
-        font-size: 11px;
+        font-size: calc(11px + var(--font-size-default-offset));
     }
 
     .control-row {
@@ -473,7 +478,7 @@ input[type='range']::-moz-range-thumb {
 
     .control-value {
         width: 42px;
-        font-size: 11px;
+        font-size: calc(11px + var(--font-size-default-offset));
     }
 }
 

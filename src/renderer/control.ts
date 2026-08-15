@@ -2,6 +2,7 @@ import type { MonitorBridge } from '../shared/bridge';
 import type {
     AppState,
     AppStateChange,
+    FontSizeTarget,
     IntervalMinutes,
     MonitorTarget,
     SchedulePoint,
@@ -10,8 +11,10 @@ import type {
 } from '../shared/model';
 import { INTERVAL_MINUTES_OPTIONS } from '../shared/model';
 import { formatTime, parseTime } from '../shared/schedule';
+import { isFontSizePx } from '../shared/font-size';
 import { isUiScalePercent } from '../shared/ui-scale';
 import {
+    applyFontSizeSettings,
     createActionController,
     createLiveAdjustmentController,
     disableDefaultContextMenu,
@@ -70,6 +73,10 @@ const elements = {
     quickUiScaleValue: getElement<HTMLOutputElement>('#quick-ui-scale-value'),
     controlUiScaleSlider: getElement<HTMLInputElement>('#control-ui-scale-slider'),
     controlUiScaleValue: getElement<HTMLOutputElement>('#control-ui-scale-value'),
+    defaultFontSizeSlider: getElement<HTMLInputElement>('#default-font-size-slider'),
+    defaultFontSizeValue: getElement<HTMLOutputElement>('#default-font-size-value'),
+    hintFontSizeSlider: getElement<HTMLInputElement>('#hint-font-size-slider'),
+    hintFontSizeValue: getElement<HTMLOutputElement>('#hint-font-size-value'),
     navigationItems: [...document.querySelectorAll<HTMLButtonElement>('.nav-item[data-panel-target]')],
     subpanels: [...document.querySelectorAll<HTMLElement>('.subpanel')],
 };
@@ -112,6 +119,8 @@ function bindEvents(): void {
     elements.contrastSlider.addEventListener('input', handleSliderInput);
     bindUiScaleSlider('quick', elements.quickUiScaleSlider, elements.quickUiScaleValue);
     bindUiScaleSlider('control', elements.controlUiScaleSlider, elements.controlUiScaleValue);
+    bindFontSizeSlider('default', elements.defaultFontSizeSlider, elements.defaultFontSizeValue);
+    bindFontSizeSlider('hint', elements.hintFontSizeSlider, elements.hintFontSizeValue);
 
     elements.liveAdjustToggle.addEventListener('change', () => {
         if (!elements.liveAdjustToggle.checked) {
@@ -272,6 +281,54 @@ function bindUiScaleSlider(
     });
 }
 
+function bindFontSizeSlider(
+    target: FontSizeTarget,
+    slider: HTMLInputElement,
+    output: HTMLOutputElement,
+): void {
+    const syncPreview = (): void => {
+        const pixels = Number(slider.value);
+        output.value = `${slider.value} px`;
+        updateRangeProgress(slider, ' px');
+        document.documentElement.style.setProperty(
+            target === 'default' ? '--font-size-default' : '--font-size-hint',
+            `${pixels}px`,
+        );
+    };
+
+    slider.addEventListener('input', syncPreview);
+
+    slider.addEventListener('change', () => {
+        const pixels = Number(slider.value);
+
+        if (!isFontSizePx(target, pixels)) {
+            showToast(`不支持的文字大小：${slider.value}px`);
+            renderFontSizeSettings(currentState?.settings.fontSize);
+            return;
+        }
+
+        void actions.run(async () => {
+            await bridge.setFontSize({ target, pixels });
+        });
+    });
+}
+
+function renderFontSizeSettings(settings: AppState['settings']['fontSize'] | undefined): void {
+    if (!settings) {
+        return;
+    }
+
+    elements.defaultFontSizeSlider.value = String(settings.default);
+    elements.defaultFontSizeValue.value = `${settings.default} px`;
+    updateRangeProgress(elements.defaultFontSizeSlider, ' px');
+
+    elements.hintFontSizeSlider.value = String(settings.hint);
+    elements.hintFontSizeValue.value = `${settings.hint} px`;
+    updateRangeProgress(elements.hintFontSizeSlider, ' px');
+
+    applyFontSizeSettings(settings);
+}
+
 function handleSliderInput(event: Event): void {
     updateSliderOutputs();
 
@@ -404,6 +461,7 @@ function render(state: AppState, options: RenderOptions = {}): void {
     elements.logToggle.checked = state.settings.logEnabled;
     setRangeValue(elements.quickUiScaleSlider, elements.quickUiScaleValue, state.settings.uiScale.quick);
     setRangeValue(elements.controlUiScaleSlider, elements.controlUiScaleValue, state.settings.uiScale.control);
+    renderFontSizeSettings(state.settings.fontSize);
     elements.autoBadge.textContent = state.settings.autoEnabled ? `自动模式开启` : '自动模式关闭';
     elements.autoBadge.classList.toggle('on', state.settings.autoEnabled);
 

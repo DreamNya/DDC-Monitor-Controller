@@ -3,6 +3,8 @@ import type {
     AppStateChange,
     AppStateChangeReason,
     ControlWindowBounds,
+    FontSizePx,
+    FontSizeTarget,
     IntervalMinutes,
     LiveApplyRequest,
     ManualApplyRequest,
@@ -11,6 +13,7 @@ import type {
     UiScalePercent,
     UiScaleTarget,
 } from '../shared/model.ts';
+import { FONT_SIZE_LIMITS, isFontSizePx, isFontSizeTarget } from '../shared/font-size.ts';
 import { calculateAutoSettings } from '../shared/schedule.ts';
 import {
     createDefaultUiScaleSettings,
@@ -235,6 +238,34 @@ export class AppController {
                 settings.uiScale = createDefaultUiScaleSettings();
             });
             this.#state.succeed('快速设置面板和详细设置面板 UI 缩放已重置为 100%');
+            return 'update-settings';
+        });
+    }
+
+    setFontSize(target: FontSizeTarget, pixels: FontSizePx): Promise<void> {
+        return this.#executeCommand(() => {
+            if (!isFontSizeTarget(target)) {
+                throw new RangeError(`不支持的文字大小目标：${String(target)}`);
+            }
+
+            if (!isFontSizePx(target, pixels)) {
+                const limits = FONT_SIZE_LIMITS[target];
+                throw new RangeError(
+                    `文字大小必须为 ${limits.min}px–${limits.max}px，` +
+                        `且以 ${limits.step}px 为步进：${String(pixels)}`,
+                );
+            }
+
+            if (this.#state.settings.fontSize[target] === pixels) {
+                return null;
+            }
+
+            this.#state.commit((settings) => {
+                settings.fontSize[target] = pixels;
+            });
+
+            const targetName = target === 'default' ? '默认文字' : '提示文字';
+            this.#state.succeed(`${targetName}大小已设置为 ${pixels}px`);
             return 'update-settings';
         });
     }

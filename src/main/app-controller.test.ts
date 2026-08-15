@@ -42,6 +42,15 @@ test('AppController publishes each command once and commits settings atomically 
     assert.equal(controller.getState().settings.uiScale.quick, 125);
     assert.equal(settingsStore.staged.length, 1);
 
+    await controller.setFontSize('default', 18);
+    assert.equal(controller.getState().settings.fontSize.default, 18);
+    assert.equal(settingsStore.staged.length, 2);
+    assert.deepEqual(changes.map(({ reason }) => reason), ['update-settings', 'update-settings']);
+
+    await assert.rejects(controller.setFontSize('hint', 19), /文字大小必须/);
+    assert.equal(controller.getState().settings.fontSize.hint, 11);
+    assert.equal(settingsStore.staged.length, 2);
+
     await controller.dispose();
     assert.equal(settingsStore.disposed, true);
     assert.equal(monitorController.disposed, true);

@@ -1,6 +1,7 @@
 import type { MonitorBridge } from '../shared/bridge';
 import type { AppState, AppStateChange, MonitorTarget } from '../shared/model';
 import {
+    applyFontSizeSettings,
     createActionController,
     createLiveAdjustmentController,
     disableDefaultContextMenu,
@@ -155,6 +156,7 @@ function renderStateChange({ reason, state }: AppStateChange): void {
 function render(state: AppState, options: RenderOptions = {}): void {
     const previousSelection = selectedMonitorId;
     currentState = state;
+    applyFontSizeSettings(state.settings.fontSize);
 
     elements.status.textContent = state.lastOperation;
     elements.error.hidden = state.lastError === null;

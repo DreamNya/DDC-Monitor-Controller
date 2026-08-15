@@ -282,6 +282,44 @@
 
                                 <p class="hint">可通过右键托盘图标菜单重置面板缩放比例</p>
                             </section>
+
+
+                            <section class="card font-size-card settings-card">
+                                <div class="section-heading">
+                                    <div>
+                                        <span class="label">界面显示</span>
+                                        <h2>文字大小</h2>
+                                    </div>
+                                </div>
+
+                                <div class="ui-scale-options font-size-options">
+                                    <div class="ui-scale-option font-size-option">
+                                        <label for="default-font-size-slider">默认文字</label>
+                                        <output id="default-font-size-value" for="default-font-size-slider">14 px</output>
+                                        <input
+                                            id="default-font-size-slider"
+                                            type="range"
+                                            min="10"
+                                            max="24"
+                                            step="1"
+                                            value="14" />
+                                    </div>
+
+                                    <div class="ui-scale-option font-size-option">
+                                        <label for="hint-font-size-slider">提示文字</label>
+                                        <output id="hint-font-size-value" for="hint-font-size-slider">11 px</output>
+                                        <input
+                                            id="hint-font-size-slider"
+                                            type="range"
+                                            min="8"
+                                            max="18"
+                                            step="1"
+                                            value="11" />
+                                    </div>
+                                </div>
+
+                                <p class="hint">默认文字用于标题、按钮和数值；提示文字用于标签、说明和辅助信息</p>
+                            </section>
                         </div>
                     </section>
                 </div>

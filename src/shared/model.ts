@@ -41,6 +41,12 @@ export type UiScalePercent = number;
 
 export type UiScaleSettings = Record<UiScaleTarget, UiScalePercent>;
 
+export type FontSizeTarget = 'default' | 'hint';
+
+export type FontSizePx = number;
+
+export type FontSizeSettings = Record<FontSizeTarget, FontSizePx>;
+
 export interface ControlWindowBounds {
     x: number;
     y: number;
@@ -54,6 +60,7 @@ export interface AppSettings {
     intervalMinutes: IntervalMinutes;
     targetMonitorId: MonitorTarget;
     uiScale: UiScaleSettings;
+    fontSize: FontSizeSettings;
     activeScheduleProfileId: string;
     scheduleProfiles: ScheduleProfile[];
     controlWindowBounds: ControlWindowBounds | null;

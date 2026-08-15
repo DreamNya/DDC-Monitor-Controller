@@ -1,5 +1,5 @@
 import type { MonitorBridge } from '../shared/bridge';
-import type { AppState, AppStateChange, LiveApplyRequest, MonitorTarget } from '../shared/model';
+import type { AppState, AppStateChange, FontSizeSettings, LiveApplyRequest, MonitorTarget } from '../shared/model';
 
 interface WebViewHost {
     postMessage(message: string): void;
@@ -48,6 +48,13 @@ type PendingRpcRequest = {
 let monitorBridge: MonitorBridge | undefined;
 let nextRpcRequestId = 0;
 const pendingRpcRequests = new Map<number, PendingRpcRequest>();
+
+
+export function applyFontSizeSettings(settings: FontSizeSettings): void {
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty('--font-size-default', `${settings.default}px`);
+    rootStyle.setProperty('--font-size-hint', `${settings.hint}px`);
+}
 
 export function waitForBridge(): Promise<MonitorBridge> {
     try {
