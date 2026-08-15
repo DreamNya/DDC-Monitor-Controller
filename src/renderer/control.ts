@@ -30,6 +30,8 @@ type RenderOptions = {
     syncManualValues?: boolean;
 };
 
+type ControlSubpanelId = 'control-panel' | 'settings-panel';
+
 let bridge: MonitorBridge;
 let currentState: AppState | undefined;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -68,6 +70,8 @@ const elements = {
     quickUiScaleValue: getElement<HTMLOutputElement>('#quick-ui-scale-value'),
     controlUiScaleSlider: getElement<HTMLInputElement>('#control-ui-scale-slider'),
     controlUiScaleValue: getElement<HTMLOutputElement>('#control-ui-scale-value'),
+    navigationItems: [...document.querySelectorAll<HTMLButtonElement>('.nav-item[data-panel-target]')],
+    subpanels: [...document.querySelectorAll<HTMLElement>('.subpanel')],
 };
 
 const liveAdjustment = createLiveAdjustmentController({
@@ -103,6 +107,7 @@ async function initialize(): Promise<void> {
 }
 
 function bindEvents(): void {
+    bindPanelNavigation();
     elements.brightnessSlider.addEventListener('input', handleSliderInput);
     elements.contrastSlider.addEventListener('input', handleSliderInput);
     bindUiScaleSlider('quick', elements.quickUiScaleSlider, elements.quickUiScaleValue);
@@ -200,6 +205,32 @@ function bindEvents(): void {
     });
 
     disableDefaultContextMenu();
+}
+
+function bindPanelNavigation(): void {
+    for (const item of elements.navigationItems) {
+        item.addEventListener('click', () => {
+            const target = item.dataset.panelTarget;
+
+            if (target === 'control-panel' || target === 'settings-panel') {
+                showSubpanel(target);
+            }
+        });
+    }
+}
+
+function showSubpanel(target: ControlSubpanelId): void {
+    for (const item of elements.navigationItems) {
+        const isActive = item.dataset.panelTarget === target;
+        item.classList.toggle('active', isActive);
+        item.setAttribute('aria-selected', String(isActive));
+    }
+
+    for (const panel of elements.subpanels) {
+        const isActive = panel.id === target;
+        panel.hidden = !isActive;
+        panel.classList.toggle('active', isActive);
+    }
 }
 
 function parseAutoInterval(value: string): IntervalMinutes | null {

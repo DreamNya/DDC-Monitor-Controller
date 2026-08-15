@@ -21,201 +21,267 @@
                 <button id="close-button" class="icon-button" type="button" aria-label="关闭">×</button>
             </header>
 
-            <div class="workspace">
-                <div class="column left-column">
-                    <section class="card status-card">
-                        <div class="status-content">
-                            <span class="label">当前状态</span>
-                            <strong id="last-operation">正在连接主进程…</strong>
-                            <small id="last-error" class="error" hidden></small>
-                        </div>
+            <div class="panel-shell">
+                <aside class="sidebar" aria-label="面板导航">
+                    <nav class="sidebar-nav">
+                        <button
+                            class="nav-item active"
+                            type="button"
+                            data-panel-target="control-panel"
+                            data-allow-while-busy
+                            aria-controls="control-panel"
+                            aria-selected="true">
+                            <span class="nav-icon" aria-hidden="true">▦</span>
+                            <span>控制面板</span>
+                        </button>
+                        <button
+                            class="nav-item"
+                            type="button"
+                            data-panel-target="settings-panel"
+                            data-allow-while-busy
+                            aria-controls="settings-panel"
+                            aria-selected="false">
+                            <span class="nav-icon" aria-hidden="true">⚙</span>
+                            <span>设置</span>
+                        </button>
+                    </nav>
+                </aside>
 
-                        <button id="refresh-button" class="secondary compact" type="button">重新检测</button>
+                <div class="panel-stage">
+                    <section id="control-panel" class="subpanel active" aria-label="控制面板">
+                        <div class="workspace">
+                            <div class="column left-column">
+                                <section class="card status-card">
+                                    <div class="status-content">
+                                        <span class="label">当前状态</span>
+                                        <strong id="last-operation">正在连接主进程…</strong>
+                                        <small id="last-error" class="error" hidden></small>
+                                    </div>
 
-                        <div class="setting-row log-setting">
-                            <div>
-                                <strong>文件日志</strong>
-                                <small>写入运行目录下的 log 文件夹</small>
+                                    <button id="refresh-button" class="secondary compact" type="button">重新检测</button>
+                                </section>
+
+                                <section class="card manual-card">
+                                    <div class="section-heading stacked-heading">
+                                        <div>
+                                            <span class="label">控制目标</span>
+                                            <h2>手动调节</h2>
+                                        </div>
+                                        <select id="monitor-select" aria-label="目标显示器"></select>
+                                    </div>
+
+                                    <div class="manual-card-content">
+                                        <div class="slider-group">
+                                            <label for="brightness-slider">
+                                                <span>亮度</span>
+                                                <output id="brightness-value">0</output>
+                                            </label>
+                                            <input
+                                                id="brightness-slider"
+                                                type="range"
+                                                min="0"
+                                                max="100"
+                                                step="1"
+                                                value="0" />
+                                        </div>
+
+                                        <div class="slider-group">
+                                            <label for="contrast-slider">
+                                                <span>对比度</span>
+                                                <output id="contrast-value">0</output>
+                                            </label>
+                                            <input
+                                                id="contrast-slider"
+                                                type="range"
+                                                min="0"
+                                                max="100"
+                                                step="1"
+                                                value="0" />
+                                        </div>
+
+                                        <div class="setting-row live-setting">
+                                            <div>
+                                                <strong>拖动时实时调节</strong>
+                                                <small>节流每 200ms 更新一次</small>
+                                            </div>
+                                            <label class="switch small-switch" title="启用 200ms 节流实时调节">
+                                                <input id="live-adjust-toggle" type="checkbox" checked />
+                                                <span></span>
+                                            </label>
+                                        </div>
+
+                                        <div class="manual-actions">
+                                            <button id="apply-button" class="primary" type="button">应用设置</button>
+                                            <button id="add-current-point-button" class="secondary" type="button">
+                                                当前值添加为节点
+                                            </button>
+                                        </div>
+
+                                        <p class="hint">手动设置不会关闭自动模式；下一个时间节点到达后会再次应用自动值</p>
+                                    </div>
+                                </section>
                             </div>
 
-                            <label class="switch small-switch" title="启用文件日志">
-                                <input id="log-toggle" type="checkbox" />
-                                <span></span>
-                            </label>
+                            <div class="column right-column">
+                                <section class="card auto-card">
+                                    <div class="section-heading auto-heading">
+                                        <div>
+                                            <span class="label">自动模式</span>
+                                            <h2>按时间调节</h2>
+                                        </div>
+                                    </div>
+
+                                    <div class="auto-values auto-values--with-interval">
+                                        <div class="auto-value auto-value--interval">
+                                            <span>运行间隔</span>
+                                            <div class="auto-interval-control">
+                                                <div class="auto-interval-select-wrap">
+                                                    <strong id="auto-interval-display" class="auto-interval-display">
+                                                        关闭
+                                                    </strong>
+                                                    <select
+                                                        id="auto-interval-select"
+                                                        class="auto-interval-select"
+                                                        aria-label="自动调节时间间隔"
+                                                        title="自动调节时间间隔">
+                                                        <option value="off">关闭</option>
+                                                        <option value="10">10 分钟</option>
+                                                        <option value="15">15 分钟</option>
+                                                        <option value="20">20 分钟</option>
+                                                        <option value="30">30 分钟</option>
+                                                        <option value="60">60 分钟</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span>当前亮度</span>
+                                            <strong id="auto-brightness">--</strong>
+                                        </div>
+                                        <div>
+                                            <span>当前对比度</span>
+                                            <strong id="auto-contrast">--</strong>
+                                        </div>
+                                        <div>
+                                            <span>下次运行</span>
+                                            <strong id="next-run">--</strong>
+                                        </div>
+                                    </div>
+
+                                    <button id="apply-auto-button" class="secondary wide" type="button">
+                                        立即应用自动设置
+                                    </button>
+                                </section>
+
+                                <section class="card schedule-card">
+                                    <div class="section-heading schedule-heading">
+                                        <div>
+                                            <span class="label">线性插值</span>
+                                            <h2>时间节点</h2>
+                                        </div>
+                                    </div>
+
+                                    <div class="schedule-profile-toolbar">
+                                        <select id="schedule-profile-select" aria-label="当前定时方案"></select>
+                                        <div class="schedule-profile-actions">
+                                            <button id="create-profile-button" class="secondary compact" type="button">
+                                                新建
+                                            </button>
+                                            <button id="rename-profile-button" class="secondary compact" type="button">
+                                                重命名
+                                            </button>
+                                            <button id="delete-profile-button" class="danger compact" type="button">
+                                                删除
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="table-wrap">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>时间</th>
+                                                    <th>亮度</th>
+                                                    <th>对比度</th>
+                                                    <th aria-label="操作"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="schedule-body"></tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="button-row">
+                                        <button id="add-point-button" class="secondary compact" type="button">
+                                            添加节点
+                                        </button>
+                                        <button id="save-schedule-button" class="primary" type="button">
+                                            保存当前方案
+                                        </button>
+                                    </div>
+                                </section>
+                            </div>
                         </div>
                     </section>
 
-                    <section class="card manual-card">
-                        <div class="section-heading stacked-heading">
-                            <div>
-                                <span class="label">控制目标</span>
-                                <h2>手动调节</h2>
-                            </div>
-                            <select id="monitor-select" aria-label="目标显示器"></select>
-                        </div>
-
-                        <div class="manual-card-content">
-                            <div class="slider-group">
-                                <label for="brightness-slider">
-                                    <span>亮度</span>
-                                    <output id="brightness-value">0</output>
-                                </label>
-                                <input id="brightness-slider" type="range" min="0" max="100" step="1" value="0" />
-                            </div>
-
-                            <div class="slider-group">
-                                <label for="contrast-slider">
-                                    <span>对比度</span>
-                                    <output id="contrast-value">0</output>
-                                </label>
-                                <input id="contrast-slider" type="range" min="0" max="100" step="1" value="0" />
-                            </div>
-
-                            <div class="setting-row live-setting">
-                                <div>
-                                    <strong>拖动时实时调节</strong>
-                                    <small>节流每 200ms 更新一次</small>
-                                </div>
-                                <label class="switch small-switch" title="启用 200ms 节流实时调节">
-                                    <input id="live-adjust-toggle" type="checkbox" checked />
-                                    <span></span>
-                                </label>
-                            </div>
-
-                            <div class="manual-actions">
-                                <button id="apply-button" class="primary" type="button">应用设置</button>
-                                <button id="add-current-point-button" class="secondary" type="button">
-                                    当前值添加为节点
-                                </button>
-                            </div>
-
-                            <p class="hint">手动设置不会关闭自动模式；下一个时间节点到达后会再次应用自动值</p>
-                        </div>
-                    </section>
-
-                    <section class="card ui-scale-card">
-                        <div class="section-heading">
-                            <div>
-                                <span class="label">界面显示</span>
-                                <h2>UI 缩放</h2>
-                            </div>
-                        </div>
-
-                        <div class="ui-scale-options">
-                            <div class="ui-scale-option">
-                                <label for="quick-ui-scale-slider">快速设置面板</label>
-                                <output id="quick-ui-scale-value" for="quick-ui-scale-slider">100%</output>
-                                <input
-                                    id="quick-ui-scale-slider"
-                                    type="range"
-                                    min="75"
-                                    max="200"
-                                    step="5"
-                                    value="100" />
-                            </div>
-
-                            <div class="ui-scale-option">
-                                <label for="control-ui-scale-slider">详细设置面板</label>
-                                <output id="control-ui-scale-value" for="control-ui-scale-slider">100%</output>
-                                <input
-                                    id="control-ui-scale-slider"
-                                    type="range"
-                                    min="75"
-                                    max="200"
-                                    step="5"
-                                    value="100" />
-                            </div>
-                        </div>
-
-                        <p class="hint">可通过右键托盘图标菜单重置面板缩放比例</p>
-                    </section>
-                </div>
-
-                <div class="column right-column">
-                    <section class="card auto-card">
-                        <div class="section-heading auto-heading">
-                            <div>
-                                <span class="label">自动模式</span>
-                                <h2>按时间调节</h2>
-                            </div>
-                        </div>
-
-                        <div class="auto-values auto-values--with-interval">
-                            <div class="auto-value auto-value--interval">
-                                <span>运行间隔</span>
-                                <div class="auto-interval-control">
-                                    <div class="auto-interval-select-wrap">
-                                        <strong id="auto-interval-display" class="auto-interval-display">关闭</strong>
-                                        <select
-                                            id="auto-interval-select"
-                                            class="auto-interval-select"
-                                            aria-label="自动调节时间间隔"
-                                            title="自动调节时间间隔">
-                                            <option value="off">关闭</option>
-                                            <option value="10">10 分钟</option>
-                                            <option value="15">15 分钟</option>
-                                            <option value="20">20 分钟</option>
-                                            <option value="30">30 分钟</option>
-                                            <option value="60">60 分钟</option>
-                                        </select>
+                    <section id="settings-panel" class="subpanel" aria-label="设置" hidden>
+                        <div class="settings-workspace">
+                            <section class="card settings-card">
+                                <div class="section-heading">
+                                    <div>
+                                        <span class="label">运行记录</span>
+                                        <h2>文件日志</h2>
                                     </div>
                                 </div>
-                            </div>
-                            <div>
-                                <span>当前亮度</span>
-                                <strong id="auto-brightness">--</strong>
-                            </div>
-                            <div>
-                                <span>当前对比度</span>
-                                <strong id="auto-contrast">--</strong>
-                            </div>
-                            <div>
-                                <span>下次运行</span>
-                                <strong id="next-run">--</strong>
-                            </div>
-                        </div>
 
-                        <button id="apply-auto-button" class="secondary wide" type="button">立即应用自动设置</button>
-                    </section>
+                                <div class="setting-row settings-row">
+                                    <div>
+                                        <strong>启用文件日志</strong>
+                                        <small>开启后写入运行目录下的 log 文件夹</small>
+                                    </div>
 
-                    <section class="card schedule-card">
-                        <div class="section-heading schedule-heading">
-                            <div>
-                                <span class="label">线性插值</span>
-                                <h2>时间节点</h2>
-                            </div>
-                            <!-- <button id="add-point-button" class="secondary compact" type="button">添加节点</button> -->
-                        </div>
+                                    <label class="switch small-switch" title="启用文件日志">
+                                        <input id="log-toggle" type="checkbox" />
+                                        <span></span>
+                                    </label>
+                                </div>
+                            </section>
 
-                        <div class="schedule-profile-toolbar">
-                            <select id="schedule-profile-select" aria-label="当前定时方案"></select>
-                            <div class="schedule-profile-actions">
-                                <button id="create-profile-button" class="secondary compact" type="button">新建</button>
-                                <button id="rename-profile-button" class="secondary compact" type="button">
-                                    重命名
-                                </button>
-                                <button id="delete-profile-button" class="danger compact" type="button">删除</button>
-                            </div>
-                        </div>
+                            <section class="card ui-scale-card settings-card">
+                                <div class="section-heading">
+                                    <div>
+                                        <span class="label">界面显示</span>
+                                        <h2>UI 缩放</h2>
+                                    </div>
+                                </div>
 
-                        <div class="table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>时间</th>
-                                        <th>亮度</th>
-                                        <th>对比度</th>
-                                        <th aria-label="操作"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="schedule-body"></tbody>
-                            </table>
-                        </div>
+                                <div class="ui-scale-options">
+                                    <div class="ui-scale-option">
+                                        <label for="quick-ui-scale-slider">快速设置面板</label>
+                                        <output id="quick-ui-scale-value" for="quick-ui-scale-slider">100%</output>
+                                        <input
+                                            id="quick-ui-scale-slider"
+                                            type="range"
+                                            min="75"
+                                            max="200"
+                                            step="5"
+                                            value="100" />
+                                    </div>
 
-                        <div class="button-row">
-                            <!-- <button id="reset-button" class="danger" type="button">恢复默认</button> -->
-                            <button id="add-point-button" class="secondary compact" type="button">添加节点</button>
-                            <button id="save-schedule-button" class="primary" type="button">保存当前方案</button>
+                                    <div class="ui-scale-option">
+                                        <label for="control-ui-scale-slider">详细设置面板</label>
+                                        <output id="control-ui-scale-value" for="control-ui-scale-slider">100%</output>
+                                        <input
+                                            id="control-ui-scale-slider"
+                                            type="range"
+                                            min="75"
+                                            max="200"
+                                            step="5"
+                                            value="100" />
+                                    </div>
+                                </div>
+
+                                <p class="hint">可通过右键托盘图标菜单重置面板缩放比例</p>
+                            </section>
                         </div>
                     </section>
                 </div>
