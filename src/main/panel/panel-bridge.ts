@@ -20,7 +20,9 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
         setAutoInterval: ({ intervalMinutes }) => runCommand(() => appController.setAutoInterval(intervalMinutes)),
         setTargetMonitor: ({ monitorId }) => runCommand(() => appController.setTargetMonitor(monitorId)),
         setUiScale: ({ target, percent }) => runCommand(() => appController.setUiScale(target, percent)),
+        resetUiScale: () => runCommand(() => appController.resetUiScale()),
         setFontSize: ({ target, pixels }) => runCommand(() => appController.setFontSize(target, pixels)),
+        resetFontSize: () => runCommand(() => appController.resetFontSize()),
         setActiveScheduleProfile: ({ profileId }) =>
             runCommand(() => appController.setActiveScheduleProfile(profileId)),
         createScheduleProfile: ({ name, schedule }) =>

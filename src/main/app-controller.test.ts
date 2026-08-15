@@ -56,6 +56,51 @@ test('AppController publishes each command once and commits settings atomically 
     assert.equal(monitorController.disposed, true);
 });
 
+test('AppController resets panel display settings without touching unrelated settings', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    settings.logEnabled = true;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const controller = createController(monitorController, settingsStore, scheduler);
+
+    await controller.initialize();
+
+    await controller.setUiScale('quick', 150);
+    await controller.setUiScale('control', 175);
+    await controller.setFontSize('default', 20);
+    await controller.setFontSize('hint', 16);
+    await controller.saveControlWindowBounds({ x: 120, y: 80, width: 930, height: 760 });
+
+    await controller.resetUiScale();
+    let state = controller.getState();
+    assert.deepEqual(state.settings.uiScale, { quick: 100, control: 100 });
+    assert.deepEqual(state.settings.fontSize, { default: 20, hint: 16 });
+    assert.deepEqual(state.settings.controlWindowBounds, { x: 120, y: 80, width: 930, height: 760 });
+
+    await controller.resetFontSize();
+    state = controller.getState();
+    assert.deepEqual(state.settings.fontSize, { default: 14, hint: 11 });
+    assert.deepEqual(state.settings.controlWindowBounds, { x: 120, y: 80, width: 930, height: 760 });
+
+    await controller.setUiScale('quick', 125);
+    await controller.setUiScale('control', 140);
+    await controller.setFontSize('default', 18);
+    await controller.setFontSize('hint', 13);
+    await controller.resetPanelStyles();
+
+    state = controller.getState();
+    assert.deepEqual(state.settings.uiScale, { quick: 100, control: 100 });
+    assert.deepEqual(state.settings.fontSize, { default: 14, hint: 11 });
+    assert.equal(state.settings.controlWindowBounds, null);
+    assert.equal(state.settings.logEnabled, true);
+    assert.equal(state.settings.autoEnabled, false);
+    assert.match(state.lastOperation, /面板样式已重置/);
+
+    await controller.dispose();
+});
+
 test('AppController serializes auto-enable and auto-disable side effects', async () => {
     const settings = createDefaultSettings();
     settings.autoEnabled = false;

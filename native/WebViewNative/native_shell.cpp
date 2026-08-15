@@ -720,9 +720,7 @@ void NativeShell::open_window_on_ui(WindowOpenOptions options) {
         window_options_.close_on_deactivate = options.close_on_deactivate;
         window_options_.emit_bounds_changes = options.emit_bounds_changes;
         apply_window_scale(options.ui_scale_percent);
-        if (window_options_.placement == WindowPlacement::Anchor) {
-            position_anchor_window();
-        }
+        position_window();
         show_and_focus_window();
         return;
     }

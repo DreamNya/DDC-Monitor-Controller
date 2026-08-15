@@ -13,7 +13,12 @@ import type {
     UiScalePercent,
     UiScaleTarget,
 } from '../shared/model.ts';
-import { FONT_SIZE_LIMITS, isFontSizePx, isFontSizeTarget } from '../shared/font-size.ts';
+import {
+    createDefaultFontSizeSettings,
+    FONT_SIZE_LIMITS,
+    isFontSizePx,
+    isFontSizeTarget,
+} from '../shared/font-size.ts';
 import { calculateAutoSettings } from '../shared/schedule.ts';
 import {
     createDefaultUiScaleSettings,
@@ -238,6 +243,28 @@ export class AppController {
                 settings.uiScale = createDefaultUiScaleSettings();
             });
             this.#state.succeed('快速设置面板和详细设置面板 UI 缩放已重置为 100%');
+            return 'update-settings';
+        });
+    }
+
+    resetFontSize(): Promise<void> {
+        return this.#executeCommand(() => {
+            this.#state.commit((settings) => {
+                settings.fontSize = createDefaultFontSizeSettings();
+            });
+            this.#state.succeed('默认文字和提示文字大小已重置');
+            return 'update-settings';
+        });
+    }
+
+    resetPanelStyles(): Promise<void> {
+        return this.#executeCommand(() => {
+            this.#state.commit((settings) => {
+                settings.uiScale = createDefaultUiScaleSettings();
+                settings.fontSize = createDefaultFontSizeSettings();
+                settings.controlWindowBounds = null;
+            });
+            this.#state.succeed('面板样式已重置：缩放、文字大小、宽高和位置均已恢复默认');
             return 'update-settings';
         });
     }

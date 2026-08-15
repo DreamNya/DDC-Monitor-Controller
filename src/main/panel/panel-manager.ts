@@ -85,6 +85,20 @@ export class PanelManager {
         this.#nativeShell.closeWindow();
     }
 
+    resetControlWindowLayout(): void {
+        if (this.#applicationExiting || this.#page !== 'control') {
+            return;
+        }
+
+        const page = PANEL_PAGES.control;
+        this.#nativeShell.openWindow({
+            id: 'control',
+            ...page,
+            uiScalePercent: this.#appController.getState().settings.uiScale.control,
+            initialBounds: null,
+        });
+    }
+
     pushState(change: AppStateChange): void {
         const page = this.#page;
 

@@ -41,7 +41,9 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
         setAutoInterval: (intervalMinutes: IntervalMinutes | null) => record('setAutoInterval', intervalMinutes),
         setTargetMonitor: (monitorId: MonitorTarget) => record('setTargetMonitor', monitorId),
         setUiScale: (target: UiScaleTarget, percent: UiScalePercent) => record('setUiScale', target, percent),
+        resetUiScale: () => record('resetUiScale'),
         setFontSize: (target: FontSizeTarget, pixels: FontSizePx) => record('setFontSize', target, pixels),
+        resetFontSize: () => record('resetFontSize'),
         setActiveScheduleProfile: (profileId: string) => record('setActiveScheduleProfile', profileId),
         createScheduleProfile: (name: string, schedule: SchedulePoint[]) =>
             record('createScheduleProfile', name, schedule),
@@ -72,11 +74,15 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     assert.equal(await bridge.getState(), state);
     assert.equal(await bridge.setAutoInterval({ intervalMinutes: 15 }), null);
     assert.equal(await bridge.setUiScale({ target: 'quick', percent: 125 }), null);
+    assert.equal(await bridge.resetUiScale(), null);
     assert.equal(await bridge.setFontSize({ target: 'hint', pixels: 13 }), null);
+    assert.equal(await bridge.resetFontSize(), null);
     assert.deepEqual(calls, [
         { name: 'setAutoInterval', args: [15] },
         { name: 'setUiScale', args: ['quick', 125] },
+        { name: 'resetUiScale', args: [] },
         { name: 'setFontSize', args: ['hint', 13] },
+        { name: 'resetFontSize', args: [] },
     ]);
 
     assert.equal(await bridge.startControlWindowDrag(), null);

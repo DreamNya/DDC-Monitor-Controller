@@ -65,8 +65,11 @@ export class TrayController {
                 runBackground('重新检测显示器', () => this.#appController.refreshMonitors());
                 break;
 
-            case 'reset-ui-scale':
-                runBackground('重置面板缩放比例', () => this.#appController.resetUiScale());
+            case 'reset-panel-styles':
+                runBackground('重置面板所有样式', async () => {
+                    await this.#appController.resetPanelStyles();
+                    this.#panelManager.resetControlWindowLayout();
+                });
                 break;
 
             case 'open-webview':
@@ -87,7 +90,7 @@ function createTrayMenu(autoEnabled: boolean): NativeTrayMenuItem[] {
         { type: 'item', id: 'toggle-auto', label: autoEnabled ? '关闭自动调节' : '开启自动调节' },
         { type: 'item', id: 'apply-auto', label: '立即应用自动设置' },
         { type: 'item', id: 'refresh', label: '重新检测显示器' },
-        { type: 'item', id: 'reset-ui-scale', label: '重置面板缩放比例（100%）' },
+        { type: 'item', id: 'reset-panel-styles', label: '重置面板所有样式' },
         { type: 'separator' },
         { type: 'item', id: 'open-webview', label: '打开WebView目录' },
         { type: 'separator' },

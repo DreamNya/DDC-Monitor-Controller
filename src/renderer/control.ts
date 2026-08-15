@@ -73,10 +73,12 @@ const elements = {
     quickUiScaleValue: getElement<HTMLOutputElement>('#quick-ui-scale-value'),
     controlUiScaleSlider: getElement<HTMLInputElement>('#control-ui-scale-slider'),
     controlUiScaleValue: getElement<HTMLOutputElement>('#control-ui-scale-value'),
+    resetUiScaleButton: getElement<HTMLButtonElement>('#reset-ui-scale-button'),
     defaultFontSizeSlider: getElement<HTMLInputElement>('#default-font-size-slider'),
     defaultFontSizeValue: getElement<HTMLOutputElement>('#default-font-size-value'),
     hintFontSizeSlider: getElement<HTMLInputElement>('#hint-font-size-slider'),
     hintFontSizeValue: getElement<HTMLOutputElement>('#hint-font-size-value'),
+    resetFontSizeButton: getElement<HTMLButtonElement>('#reset-font-size-button'),
     navigationItems: [...document.querySelectorAll<HTMLButtonElement>('.nav-item[data-panel-target]')],
     subpanels: [...document.querySelectorAll<HTMLElement>('.subpanel')],
 };
@@ -121,6 +123,18 @@ function bindEvents(): void {
     bindUiScaleSlider('control', elements.controlUiScaleSlider, elements.controlUiScaleValue);
     bindFontSizeSlider('default', elements.defaultFontSizeSlider, elements.defaultFontSizeValue);
     bindFontSizeSlider('hint', elements.hintFontSizeSlider, elements.hintFontSizeValue);
+
+    elements.resetUiScaleButton.addEventListener('click', () => {
+        void actions.run(async () => {
+            await bridge.resetUiScale();
+        });
+    });
+
+    elements.resetFontSizeButton.addEventListener('click', () => {
+        void actions.run(async () => {
+            await bridge.resetFontSize();
+        });
+    });
 
     elements.liveAdjustToggle.addEventListener('change', () => {
         if (!elements.liveAdjustToggle.checked) {

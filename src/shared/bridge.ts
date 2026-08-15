@@ -27,7 +27,9 @@ export interface MonitorBridge {
     setLogEnabled(options: { enabled: boolean }): Promise<null>;
     setTargetMonitor(options: { monitorId: MonitorTarget }): Promise<null>;
     setUiScale(options: { target: UiScaleTarget; percent: UiScalePercent }): Promise<null>;
+    resetUiScale(): Promise<null>;
     setFontSize(options: { target: FontSizeTarget; pixels: FontSizePx }): Promise<null>;
+    resetFontSize(): Promise<null>;
     setActiveScheduleProfile(options: { profileId: string }): Promise<null>;
     createScheduleProfile(options: { name: string; schedule: SchedulePoint[] }): Promise<null>;
     renameScheduleProfile(options: { profileId: string; name: string }): Promise<null>;
