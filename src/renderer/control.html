@@ -5,6 +5,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>显示器控制器</title>
+        <script charset="UTF-8" src="./theme-bootstrap.js"></script>
         <link rel="stylesheet" href="./control.css" />
         <script charset="UTF-8" defer src="./control.js"></script>
     </head>
@@ -44,6 +45,15 @@
                             <span class="nav-icon" aria-hidden="true">⚙</span>
                             <span>设置</span>
                         </button>
+                        <div class="theme-toggle">
+                            <input
+                                id="theme-toggle"
+                                class="theme-toggle-input"
+                                type="checkbox"
+                                data-allow-while-busy
+                                aria-label="切换明亮或夜间主题" />
+                            <label class="theme-toggle-button" for="theme-toggle" title="切换明亮或夜间主题"></label>
+                        </div>
                     </nav>
                 </aside>
 

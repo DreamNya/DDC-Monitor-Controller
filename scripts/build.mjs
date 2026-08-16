@@ -33,20 +33,12 @@ await build({
 });
 
 await build({
-    entryPoints: [path.resolve(root, 'src/renderer/control.ts')],
-    outfile: path.resolve(outputRoot, 'renderer/control.js'),
-    bundle: true,
-    platform: 'browser',
-    format: 'iife',
-    target: 'es2023',
-    sourcemap: development ? 'inline' : false,
-    minify: !development,
-    charset: 'utf8',
-});
-
-await build({
-    entryPoints: [path.resolve(root, 'src/renderer/quick.ts')],
-    outfile: path.resolve(outputRoot, 'renderer/quick.js'),
+    entryPoints: {
+        control: path.resolve(root, 'src/renderer/control.ts'),
+        quick: path.resolve(root, 'src/renderer/quick.ts'),
+        'theme-bootstrap': path.resolve(root, 'src/renderer/theme-bootstrap.ts'),
+    },
+    outdir: path.resolve(outputRoot, 'renderer'),
     bundle: true,
     platform: 'browser',
     format: 'iife',

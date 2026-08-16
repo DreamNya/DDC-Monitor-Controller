@@ -124,6 +124,25 @@ export class AppController {
         });
     }
 
+    setTheme(theme: AppState['settings']['theme']): Promise<void> {
+        return this.#executeCommand(() => {
+            if (theme !== 'light' && theme !== 'dark') {
+                throw new RangeError(`不支持的界面主题：${String(theme)}`);
+            }
+
+            if (this.#state.settings.theme === theme) {
+                return null;
+            }
+
+            this.#state.commit((settings) => {
+                settings.theme = theme;
+            });
+
+            this.#state.succeed(theme === 'dark' ? '已切换为夜间主题' : '已切换为明亮主题');
+            return 'update-settings';
+        });
+    }
+
     getControlWindowBounds(): ControlWindowBounds | null {
         return this.#state.getControlWindowBounds();
     }

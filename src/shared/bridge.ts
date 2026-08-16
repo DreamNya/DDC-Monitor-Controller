@@ -25,6 +25,7 @@ export interface MonitorBridge {
     applyAutoNow(): Promise<null>;
     setAutoInterval(options: { intervalMinutes: IntervalMinutes | null }): Promise<null>;
     setLogEnabled(options: { enabled: boolean }): Promise<null>;
+    setTheme(options: { theme: AppState['settings']['theme'] }): Promise<null>;
     openLogFolder(): Promise<null>;
     setTargetMonitor(options: { monitorId: MonitorTarget }): Promise<null>;
     setUiScale(options: { target: UiScaleTarget; percent: UiScalePercent }): Promise<null>;

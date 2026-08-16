@@ -57,6 +57,7 @@ export interface ControlWindowBounds {
 export interface AppSettings {
     autoEnabled: boolean;
     logEnabled: boolean;
+    theme: 'light' | 'dark';
     intervalMinutes: IntervalMinutes;
     targetMonitorId: MonitorTarget;
     uiScale: UiScaleSettings;

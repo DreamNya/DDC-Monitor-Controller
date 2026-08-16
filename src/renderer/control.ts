@@ -28,6 +28,7 @@ import {
     waitForBridge,
     type ManualAdjustment,
 } from './common';
+import { applyAndCacheTheme } from './theme';
 
 type RenderOptions = {
     syncManualValues?: boolean;
@@ -68,6 +69,7 @@ const elements = {
     toast: getElement<HTMLElement>('#toast'),
     closeButton: getElement<HTMLButtonElement>('#close-button'),
     windowDragRegion: getElement<HTMLElement>('#window-drag-region'),
+    themeToggle: getElement<HTMLInputElement>('#theme-toggle'),
     logToggle: getElement<HTMLInputElement>('#log-toggle'),
     openLogFolderButton: getElement<HTMLButtonElement>('#open-log-folder-button'),
     quickUiScaleSlider: getElement<HTMLInputElement>('#quick-ui-scale-slider'),
@@ -134,6 +136,16 @@ function bindEvents(): void {
     elements.resetFontSizeButton.addEventListener('click', () => {
         void actions.run(async () => {
             await bridge.resetFontSize();
+        });
+    });
+
+    elements.themeToggle.addEventListener('change', () => {
+        const theme: AppState['settings']['theme'] = elements.themeToggle.checked ? 'dark' : 'light';
+        applyAndCacheTheme(theme);
+
+        void bridge.setTheme({ theme }).catch((error: unknown) => {
+            showToast(getErrorMessage(error));
+            renderTheme(currentState?.settings.theme ?? 'light');
         });
     });
 
@@ -261,6 +273,11 @@ function showSubpanel(target: ControlSubpanelId): void {
         panel.hidden = !isActive;
         panel.classList.toggle('active', isActive);
     }
+}
+
+function renderTheme(theme: AppState['settings']['theme']): void {
+    elements.themeToggle.checked = theme === 'dark';
+    applyAndCacheTheme(theme);
 }
 
 function parseAutoInterval(value: string): IntervalMinutes | null {
@@ -471,6 +488,7 @@ function render(state: AppState, options: RenderOptions = {}): void {
     elements.autoIntervalSelect.value = state.settings.autoEnabled ? String(state.settings.intervalMinutes) : 'off';
     updateAutoIntervalDisplay();
     elements.logToggle.checked = state.settings.logEnabled;
+    renderTheme(state.settings.theme);
     elements.openLogFolderButton.disabled = !state.settings.logEnabled;
     setRangeValue(elements.quickUiScaleSlider, elements.quickUiScaleValue, state.settings.uiScale.quick);
     setRangeValue(elements.controlUiScaleSlider, elements.controlUiScaleValue, state.settings.uiScale.control);

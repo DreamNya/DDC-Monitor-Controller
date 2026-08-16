@@ -162,6 +162,7 @@ export function createDefaultSettings(): AppSettings {
     return {
         autoEnabled: true,
         logEnabled: false,
+        theme: 'light',
         intervalMinutes: 30,
         targetMonitorId: 'all',
         uiScale: createDefaultUiScaleSettings(),
@@ -192,6 +193,7 @@ function normalizeSettings(value: unknown): AppSettings {
 
     return {
         logEnabled: typeof source.logEnabled === 'boolean' ? source.logEnabled : false,
+        theme: source.theme === 'dark' ? 'dark' : 'light',
         autoEnabled: typeof source.autoEnabled === 'boolean' ? source.autoEnabled : true,
         controlWindowBounds: normalizeControlWindowBounds(source.controlWindowBounds),
         intervalMinutes,

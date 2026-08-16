@@ -33,6 +33,7 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
         deleteScheduleProfile: ({ profileId }) => runCommand(() => appController.deleteScheduleProfile(profileId)),
         saveSchedule: ({ profileId, schedule }) => runCommand(() => appController.saveSchedule(profileId, schedule)),
         setLogEnabled: ({ enabled }) => runCommand(() => appController.setLogEnabled(enabled)),
+        setTheme: ({ theme }) => runCommand(() => appController.setTheme(theme)),
         openLogFolder: async () => {
             await runBridgeCall(() => dependencies.openLogFolder());
             return null;

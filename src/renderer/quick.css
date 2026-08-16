@@ -1,5 +1,5 @@
 :root {
-    color-scheme: light dark;
+    color-scheme: light;
     font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
     color: #202526;
     background: #f2faf7;
@@ -486,43 +486,42 @@ input[type='range']::-moz-range-thumb {
    深色模式
    ============================== */
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        color: #edf3f1;
-        background: #121b1a;
+:root[data-theme='dark'] {
+    color-scheme: dark;
+    color: #edf3f1;
+    background: #121b1a;
 
-        --track: #667170;
-        --surface: rgb(34 45 43 / 80%);
-        --border: rgb(255 255 255 / 9%);
-        --footer-border: rgb(255 255 255 / 10%);
-        --muted: #aeb8b6;
-        --error: #ff929c;
+    --track: #667170;
+    --surface: rgb(34 45 43 / 80%);
+    --border: rgb(255 255 255 / 9%);
+    --footer-border: rgb(255 255 255 / 10%);
+    --muted: #aeb8b6;
+    --error: #ff929c;
 
-        --value-surface: rgb(9 133 210 / 16%);
-        --value-border: rgb(74 174 236 / 22%);
-    }
+    --value-surface: rgb(9 133 210 / 16%);
+    --value-border: rgb(74 174 236 / 22%);
+}
 
-    body {
-        background:
-            radial-gradient(circle at 22% 5%, rgb(47 73 67 / 36%), transparent 25rem),
-            linear-gradient(135deg, #14201e, #101817);
-    }
+:root[data-theme='dark'] body {
+    background:
+        radial-gradient(circle at 22% 5%, rgb(47 73 67 / 36%), transparent 25rem),
+        linear-gradient(135deg, #14201e, #101817);
+}
 
-    input[type='range']::-webkit-slider-thumb,
-    input[type='range']::-moz-range-thumb {
-        border-color: #e8efed;
-    }
+:root[data-theme='dark'] input[type='range']::-webkit-slider-thumb,
+:root[data-theme='dark'] input[type='range']::-moz-range-thumb {
+    border-color: #e8efed;
+}
 
-    .footer-button {
-        color: #e6eeec;
-    }
+:root[data-theme='dark'] .footer-button {
+    color: #e6eeec;
+}
 
-    .monitor-switch:hover:not(:disabled),
-    .footer-button:hover:not(:disabled) {
-        background: rgb(255 255 255 / 6%);
-    }
+:root[data-theme='dark'] .monitor-switch:hover:not(:disabled),
+:root[data-theme='dark'] .footer-button:hover:not(:disabled) {
+    background: rgb(255 255 255 / 6%);
+}
 
-    .footer-button:active:not(:disabled) {
-        background: rgb(255 255 255 / 10%);
-    }
+:root[data-theme='dark'] .footer-button:active:not(:disabled) {
+    background: rgb(255 255 255 / 10%);
 }

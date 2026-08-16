@@ -60,6 +60,7 @@ const rendererCtx = await context({
     entryPoints: {
         control: path.resolve(rendererSource, 'control.ts'),
         quick: path.resolve(rendererSource, 'quick.ts'),
+        'theme-bootstrap': path.resolve(rendererSource, 'theme-bootstrap.ts'),
     },
     outdir: rendererOutput,
     bundle: true,
