@@ -70,14 +70,6 @@ namespace {
         return MulDiv(value, static_cast<int>(dpi), 96);
     }
 
-    DWORD window_style(const WindowOpenOptions& options) {
-        DWORD style = WS_POPUP;
-        if (options.resizable) {
-            style |= WS_THICKFRAME;
-        }
-        return style;
-    }
-
     DWORD window_extended_style(const WindowOpenOptions& options) {
         DWORD extended_style = 0;
         if (options.always_on_top) {
@@ -158,10 +150,36 @@ namespace {
         return std::clamp(value, minimum, maximum);
     }
 
+    bool has_resize_frame(const HWND window) {
+        return window &&
+            (GetWindowLongPtrW(window, GWL_STYLE) & WS_THICKFRAME) != 0;
+    }
+
+    COREWEBVIEW2_COLOR to_webview_color(const WindowBackgroundColor& color) {
+        COREWEBVIEW2_COLOR result{};
+        result.A = 255;
+        result.R = color.red;
+        result.G = color.green;
+        result.B = color.blue;
+        return result;
+    }
+
+    void set_controller_background_color(ICoreWebView2Controller* controller,
+        const WindowBackgroundColor& color) {
+        if (!controller) {
+            return;
+        }
+
+        ComPtr<ICoreWebView2Controller> base_controller = controller;
+        ComPtr<ICoreWebView2Controller2> controller2;
+        if (SUCCEEDED(base_controller.As(&controller2)) && controller2) {
+            controller2->put_DefaultBackgroundColor(to_webview_color(color));
+        }
+    }
+
     void configure_window_frame(const HWND window) {
         // DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2.
-        // Keep the numeric values here so VS2019 can still build when paired with an
-        // older Windows SDK header.
+        // Keep the numeric values so older Windows SDK headers can still build.
         constexpr auto corner_attribute = static_cast<DWMWINDOWATTRIBUTE>(33);
         constexpr int round_preference = 2;
         DwmSetWindowAttribute(window, corner_attribute, &round_preference,
@@ -180,8 +198,10 @@ struct NativeShell::WebViewState {
     ComPtr<ICoreWebView2> webview;
     EventRegistrationToken web_message_token{};
     EventRegistrationToken navigation_start_token{};
+    EventRegistrationToken navigation_completed_token{};
     bool web_message_registered = false;
     bool navigation_start_registered = false;
+    bool navigation_completed_registered = false;
 };
 
 NativeShell::NativeShell(Napi::ThreadSafeFunction event_callback)
@@ -446,7 +466,10 @@ bool NativeShell::register_window_class() {
     window_class.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     window_class.hIcon = window_icon_large_;
     window_class.hIconSm = window_icon_small_;
-    window_class.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    // The host window paints its own theme-aware background in WM_ERASEBKGND.
+    // Leaving the class brush unset prevents COLOR_WINDOW from flashing white
+    // before the WebView2 composition surface is presented.
+    window_class.hbrBackground = nullptr;
     window_class.lpszClassName = kWindowClassName;
 
     if (RegisterClassExW(&window_class) == 0 &&
@@ -472,7 +495,10 @@ bool NativeShell::register_window_class() {
 }
 
 HWND NativeShell::create_host_window(const WindowOpenOptions& options) {
-    const DWORD style = window_style(options);
+    // A resizable frame is added only after WebView2 has produced its first
+    // visible frame. Creating WS_THICKFRAME here can expose an intermediate DWM
+    // surface during cold startup.
+    const DWORD style = WS_POPUP;
     const DWORD extended_style = window_extended_style(options);
     const int initial_width =
         scale_dimension(options.base_width, options.ui_scale_percent);
@@ -630,7 +656,8 @@ void NativeShell::handle_tray_message(const LPARAM lparam) {
 }
 
 void NativeShell::create_resize_hit_windows() {
-    if (!host_window_ || !window_options_.resizable || resize_hit_windows_[0]) {
+    if (!host_window_ || !window_options_.resizable ||
+        !has_resize_frame(host_window_) || resize_hit_windows_[0]) {
         return;
     }
 
@@ -719,6 +746,9 @@ void NativeShell::open_window_on_ui(WindowOpenOptions options) {
         window_options_.anchor_margin = options.anchor_margin;
         window_options_.close_on_deactivate = options.close_on_deactivate;
         window_options_.emit_bounds_changes = options.emit_bounds_changes;
+        window_options_.background_color = options.background_color;
+        set_controller_background_color(webview_state_->controller.Get(),
+        window_options_.background_color);
         apply_window_scale(options.ui_scale_percent);
         position_window();
         show_and_focus_window();
@@ -735,11 +765,6 @@ void NativeShell::open_window_on_ui(WindowOpenOptions options) {
     }
 
     configure_window_frame(host_window_);
-    if (window_options_.resizable) {
-        SetWindowPos(host_window_, nullptr, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
-            SWP_FRAMECHANGED);
-    }
     position_window();
 
     const auto generation = ++generation_;
@@ -752,6 +777,16 @@ void NativeShell::close_window_on_ui(const bool emit_closed) {
         return;
     }
 
+    // Hide the native host before tearing down WebView2. Closing the
+    // controller first can briefly expose the host window background and
+    // cause a white flash while the window is still visible.
+    if (host_window_) {
+        ShowWindow(host_window_, SW_HIDE);
+    }
+    if (webview_state_->controller) {
+        webview_state_->controller->put_IsVisible(FALSE);
+    }
+
     const std::string closed_id = window_options_.id;
     ++generation_;
     if (webview_state_->webview && webview_state_->web_message_registered) {
@@ -762,8 +797,14 @@ void NativeShell::close_window_on_ui(const bool emit_closed) {
         webview_state_->webview->remove_NavigationStarting(
             webview_state_->navigation_start_token);
     }
+    if (webview_state_->webview &&
+        webview_state_->navigation_completed_registered) {
+        webview_state_->webview->remove_NavigationCompleted(
+            webview_state_->navigation_completed_token);
+    }
     webview_state_->web_message_registered = false;
     webview_state_->navigation_start_registered = false;
+    webview_state_->navigation_completed_registered = false;
 
     destroy_resize_hit_windows();
 
@@ -804,31 +845,62 @@ void NativeShell::begin_webview_creation(const std::uint64_t generation) {
                         close_window_on_ui(true);
                         return S_OK;
                     }
+
                     webview_state_->environment = environment;
-                    const HRESULT controller_result =
-                        environment->CreateCoreWebView2Controller(
-                            host_window_,
-                            Callback<
-                            ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
-                                [this, generation](
-                                    HRESULT create_result,
-                                    ICoreWebView2Controller* controller) -> HRESULT {
-                                        if (generation != generation_ || !host_window_) {
-                                            return S_OK;
-                                        }
-                                        if (FAILED(create_result) || !controller) {
-                                            emit_error("创建 WebView2 Controller 失败：" +
-                                                hresult_message(create_result));
-                                            close_window_on_ui(true);
-                                            return S_OK;
-                                        }
-                                        webview_state_->controller = controller;
-                                        controller->get_CoreWebView2(
-                                            &webview_state_->webview);
-                                        configure_webview(generation);
-                                        return S_OK;
-                                })
-                            .Get());
+                    const auto controller_handler = Callback<
+                        ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                        [this, generation](HRESULT create_result,
+                            ICoreWebView2Controller* controller) -> HRESULT {
+                                if (generation != generation_ || !host_window_) {
+                                    return S_OK;
+                                }
+                                if (FAILED(create_result) || !controller) {
+                                    emit_error("创建 WebView2 Controller 失败：" +
+                                        hresult_message(create_result));
+                                    close_window_on_ui(true);
+                                    return S_OK;
+                                }
+
+                                webview_state_->controller = controller;
+                                // Keep this fallback for older runtimes that do not
+                                // support ControllerOptions3. On current runtimes the
+                                // same color was already applied before controller
+                                // creation, which prevents the initial white surface.
+                                set_controller_background_color(controller,
+                                    window_options_.background_color);
+                                controller->get_CoreWebView2(
+                                    &webview_state_->webview);
+                                configure_webview(generation);
+                                return S_OK;
+                        });
+
+                    HRESULT controller_result = E_NOINTERFACE;
+                    ComPtr<ICoreWebView2Environment> base_environment = environment;
+                    ComPtr<ICoreWebView2Environment10> environment10;
+                    if (SUCCEEDED(base_environment.As(&environment10)) &&
+                        environment10) {
+                        ComPtr<ICoreWebView2ControllerOptions> controller_options;
+                        if (SUCCEEDED(environment10->CreateCoreWebView2ControllerOptions(
+                                &controller_options)) &&
+                            controller_options) {
+                            ComPtr<ICoreWebView2ControllerOptions3> controller_options3;
+                            if (SUCCEEDED(controller_options.As(&controller_options3)) &&
+                                controller_options3 &&
+                                SUCCEEDED(controller_options3->put_DefaultBackgroundColor(
+                                    to_webview_color(window_options_.background_color)))) {
+                                controller_result =
+                                    environment10->CreateCoreWebView2ControllerWithOptions(
+                                        host_window_, controller_options.Get(),
+                                        controller_handler.Get());
+                            }
+                        }
+                    }
+
+                    if (FAILED(controller_result)) {
+                        controller_result = environment->CreateCoreWebView2Controller(
+                            host_window_, controller_handler.Get());
+                    }
+
                     if (FAILED(controller_result)) {
                         emit_error("请求创建 WebView2 Controller 失败：" +
                             hresult_message(controller_result));
@@ -937,11 +1009,49 @@ void NativeShell::configure_webview(const std::uint64_t generation) {
             &webview_state_->web_message_token);
     webview_state_->web_message_registered = SUCCEEDED(web_message_event_result);
 
+    const HRESULT navigation_completed_event_result =
+        webview_state_->webview->add_NavigationCompleted(
+            Callback<ICoreWebView2NavigationCompletedEventHandler>(
+                [this, generation](
+                    ICoreWebView2*,
+                    ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
+                        if (generation != generation_ || !host_window_) {
+                            return S_OK;
+                        }
+
+                        if (webview_state_->webview &&
+                            webview_state_->navigation_completed_registered) {
+                            webview_state_->webview->remove_NavigationCompleted(
+                                webview_state_->navigation_completed_token);
+                            webview_state_->navigation_completed_registered = false;
+                        }
+
+                        BOOL is_success = FALSE;
+                        if (!args || FAILED(args->get_IsSuccess(&is_success)) ||
+                            !is_success) {
+                            emit_error("WebView 页面导航失败");
+                            close_window_on_ui(true);
+                            return S_OK;
+                        }
+
+                        show_and_focus_window();
+                        return S_OK;
+                })
+            .Get(),
+            &webview_state_->navigation_completed_token);
+    webview_state_->navigation_completed_registered =
+        SUCCEEDED(navigation_completed_event_result);
+    if (!webview_state_->navigation_completed_registered) {
+        emit_error("注册 WebView 页面加载完成事件失败：" +
+            hresult_message(navigation_completed_event_result));
+        close_window_on_ui(true);
+        return;
+    }
+
     resize_webview();
     webview_state_->controller->put_ZoomFactor(
         static_cast<double>(ui_scale_percent_) / 100.0);
     webview_state_->controller->put_IsVisible(TRUE);
-    create_resize_hit_windows();
 
     const std::wstring url =
         std::wstring(kVirtualOriginPrefix) + window_options_.pathname;
@@ -952,7 +1062,6 @@ void NativeShell::configure_webview(const std::uint64_t generation) {
         close_window_on_ui(true);
         return;
     }
-    show_and_focus_window();
 }
 
 void NativeShell::handle_web_message(const std::wstring& message) {
@@ -976,7 +1085,27 @@ void NativeShell::show_and_focus_window() {
     if (!host_window_) {
         return;
     }
-    ShowWindow(host_window_, SW_SHOWNORMAL);
+
+    // Make the loaded host visible without activation, then wait for one DWM
+    // present before enabling a resizable non-client frame. Enabling
+    // WS_THICKFRAME earlier can expose an intermediate surface before WebView2's
+    // first visible frame and cause a startup flash.
+    ShowWindow(host_window_, SW_SHOWNOACTIVATE);
+    DwmFlush();
+
+    if (window_options_.resizable && !has_resize_frame(host_window_)) {
+        const LONG_PTR style = GetWindowLongPtrW(host_window_, GWL_STYLE);
+        SetWindowLongPtrW(host_window_, GWL_STYLE, style | WS_THICKFRAME);
+        SetWindowPos(host_window_, nullptr, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
+            SWP_FRAMECHANGED);
+
+        // WM_NCCALCSIZE can change the client rect when the sizing frame becomes
+        // active. Re-apply WebView bounds before installing resize-hit children.
+        resize_webview();
+        create_resize_hit_windows();
+    }
+
     SetForegroundWindow(host_window_);
     SetFocus(host_window_);
     if (webview_state_->controller) {
@@ -1337,8 +1466,23 @@ LRESULT NativeShell::handle_window_message(HWND window, UINT message,
 
     if (window == host_window_) {
         switch (message) {
+        case WM_ERASEBKGND: {
+            const auto& color = window_options_.background_color;
+            const HBRUSH brush = CreateSolidBrush(
+                RGB(color.red, color.green, color.blue));
+            if (!brush) {
+                break;
+            }
+
+            RECT client{};
+            GetClientRect(window, &client);
+            FillRect(reinterpret_cast<HDC>(wparam), &client, brush);
+            DeleteObject(brush);
+            return 1;
+        }
         case WM_NCCALCSIZE:
-            if (window_options_.resizable && wparam != 0) {
+            if (window_options_.resizable &&
+                has_resize_frame(window) && wparam != 0) {
                 return 0;
             }
             break;

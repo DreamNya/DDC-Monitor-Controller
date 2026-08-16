@@ -57,6 +57,29 @@ namespace {
         return value.As<Napi::Number>().Int32Value();
     }
 
+    std::uint8_t get_color_channel(const Napi::Object& object, const char* key) {
+        const int value = get_int(object, key);
+        if (value < 0 || value > 255) {
+            throw Napi::RangeError::New(object.Env(),
+                std::string(key) + " 必须在 0 到 255 之间");
+        }
+        return static_cast<std::uint8_t>(value);
+    }
+
+    WindowBackgroundColor parse_background_color(const Napi::Object& options) {
+        const auto value = options.Get("backgroundColor");
+        if (!value.IsObject()) {
+            throw Napi::TypeError::New(options.Env(), "backgroundColor 必须是对象");
+        }
+
+        const auto color = value.As<Napi::Object>();
+        return WindowBackgroundColor{
+            get_color_channel(color, "red"),
+            get_color_channel(color, "green"),
+            get_color_channel(color, "blue"),
+        };
+    }
+
     bool get_bool(const Napi::Object& object, const char* key,
         bool fallback = false) {
         const auto value = object.Get(key);
@@ -152,6 +175,7 @@ namespace {
             window.min_width = get_int(options, "minWidth");
             window.min_height = get_int(options, "minHeight");
             window.ui_scale_percent = get_int(options, "uiScalePercent", 100);
+            window.background_color = parse_background_color(options);
             window.anchor_margin = get_int(options, "anchorMargin");
             window.resizable = get_bool(options, "resizable");
             window.always_on_top = get_bool(options, "alwaysOnTop");

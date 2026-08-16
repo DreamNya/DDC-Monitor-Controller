@@ -10,6 +10,12 @@ export interface NativeWindowBounds {
     height: number;
 }
 
+export interface NativeWindowBackgroundColor {
+    red: number;
+    green: number;
+    blue: number;
+}
+
 export type NativeShellEvent =
     | { type: 'tray-primary-click'; x: number; y: number }
     | { type: 'tray-command'; id: string }
@@ -35,6 +41,7 @@ export interface NativeWindowOpenOptions {
     minWidth: number;
     minHeight: number;
     uiScalePercent: number;
+    backgroundColor: NativeWindowBackgroundColor;
     anchorMargin: number;
     resizable: boolean;
     alwaysOnTop: boolean;

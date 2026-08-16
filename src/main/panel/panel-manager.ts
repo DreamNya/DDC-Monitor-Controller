@@ -1,7 +1,7 @@
 import type { MonitorBridge } from '../../shared/bridge';
-import type { AppStateChange, ControlWindowBounds } from '../../shared/model';
+import type { AppState, AppStateChange, ControlWindowBounds } from '../../shared/model';
 import type { AppController } from '../app-controller';
-import type { NativeShell, NativeWindowBounds } from '../native-shell';
+import type { NativeShell, NativeWindowBackgroundColor, NativeWindowBounds } from '../native-shell';
 import { runBackground } from '../utils/run-background';
 import { createPanelBridge } from './panel-bridge';
 import { PANEL_PAGES, type PanelPage } from './panel-config';
@@ -11,6 +11,17 @@ type RpcRequest = {
     method: keyof MonitorBridge;
     args: unknown[];
 };
+
+const PANEL_BACKGROUND_COLORS = {
+    quick: {
+        light: { red: 0xf2, green: 0xfa, blue: 0xf7 },
+        dark: { red: 0x12, green: 0x1b, blue: 0x1a },
+    },
+    control: {
+        light: { red: 0xee, green: 0xf1, blue: 0xf5 },
+        dark: { red: 0x11, green: 0x15, blue: 0x1b },
+    },
+} satisfies Record<PanelPage, Record<AppState['settings']['theme'], NativeWindowBackgroundColor>>;
 
 const STYLESHEET_RELOAD_SCRIPT = `
 (() => {
@@ -174,6 +185,7 @@ export class PanelManager {
             id: page,
             ...PANEL_PAGES[page],
             uiScalePercent: refreshedState.settings.uiScale[page],
+            backgroundColor: PANEL_BACKGROUND_COLORS[page][refreshedState.settings.theme],
             ...(x !== undefined && y !== undefined ? { x, y } : {}),
             ...(page === 'control' ? { initialBounds: this.#appController.getControlWindowBounds() } : {}),
         });

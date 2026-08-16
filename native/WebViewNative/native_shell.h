@@ -25,6 +25,12 @@ struct WindowBounds {
     int height = 0;
 };
 
+struct WindowBackgroundColor {
+    std::uint8_t red = 255;
+    std::uint8_t green = 255;
+    std::uint8_t blue = 255;
+};
+
 struct NativeShellConfig {
     std::wstring renderer_root;
     std::wstring webview_data_directory;
@@ -48,6 +54,7 @@ struct WindowOpenOptions {
     int min_width = 0;
     int min_height = 0;
     int ui_scale_percent = 100;
+    WindowBackgroundColor background_color{};
     int anchor_margin = 0;
     bool resizable = false;
     bool always_on_top = false;
