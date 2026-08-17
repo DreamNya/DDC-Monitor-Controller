@@ -32,14 +32,14 @@ export interface MonitorSnapshot {
     error?: string;
 }
 
-/** Capabilities String 中声明的单个 VCP Code。 */
+/** Capabilities String 中声明的单个 VCP Code */
 export interface VcpCapability {
     code: number;
-    /** 非连续型 VCP 声明的支持值；未声明时为 null。 */
+    /** 非连续型 VCP 声明的支持值；未声明时为 null */
     supportedValues: number[] | null;
 }
 
-/** 单台显示器的 DDC/CI Capabilities 查询结果。 */
+/** 单台显示器的 DDC/CI Capabilities 查询结果 */
 export interface MonitorCapabilities {
     monitorId: string;
     monitorName: string;
@@ -47,12 +47,60 @@ export interface MonitorCapabilities {
     vcpCodes: VcpCapability[];
 }
 
-/** 单个 VCP Code 的批量读取结果；失败项保留错误文本而不中断整批读取。 */
+/** 单个 VCP Code 的批量读取结果；失败项保留错误文本而不中断整批读取 */
 export interface MonitorVcpReadResult {
     code: number;
     current: number | null;
     maximum: number | null;
     error?: string;
+}
+
+export type AdvancedVcpDirection = 'increase' | 'decrease';
+
+/** 高级 VCP 页面可执行并可保存为快捷命令的原子操作 */
+export type AdvancedVcpAction =
+    | { type: 'adjust-percent'; code: number; direction: AdvancedVcpDirection; percent: number }
+    | { type: 'write'; code: number; value: number }
+    | { type: 'read'; code: number };
+
+export interface AdvancedVcpExecuteRequest {
+    monitorId: string;
+    action: AdvancedVcpAction;
+    /** 仅在写入成功后由界面层销毁当前 WebView */
+    closeWebViewAfter?: boolean;
+}
+
+export interface AdvancedVcpExecutionResult {
+    monitorId: string;
+    code: number;
+    operation: 'read' | 'write';
+    current?: number;
+    maximum?: number;
+    previous?: number;
+    value?: number;
+}
+
+export interface AdvancedVcpExecutionOutcome extends AdvancedVcpExecutionResult {
+    closeWebViewAfter: boolean;
+}
+
+/** 持久化的高级 VCP 快捷命令；绑定到单个物理显示器标识 */
+export interface AdvancedVcpShortcutCommand {
+    id: string;
+    name: string;
+    monitorId: string;
+    monitorName: string;
+    action: AdvancedVcpAction;
+    shortcut: string | null;
+    closeWebViewAfter: boolean;
+}
+
+export interface AdvancedVcpShortcutDraft {
+    name: string;
+    monitorId: string;
+    action: AdvancedVcpAction;
+    shortcut: string | null;
+    closeWebViewAfter?: boolean;
 }
 
 /** 显示器标识；保留字符串 `all` 表示全部显示器 */
@@ -88,6 +136,7 @@ export interface AppSettings {
     activeScheduleProfileId: string;
     scheduleProfiles: ScheduleProfile[];
     controlWindowBounds: ControlWindowBounds | null;
+    advancedVcpCommands: AdvancedVcpShortcutCommand[];
 }
 
 export interface AppState {
@@ -106,7 +155,8 @@ export type AppStateChangeReason =
     | 'apply-live'
     | 'apply-auto'
     | 'update-settings'
-    | 'update-schedule';
+    | 'update-schedule'
+    | 'execute-vcp-command';
 
 /** 主进程向所有界面广播的唯一状态变更消息 */
 export interface AppStateChange {

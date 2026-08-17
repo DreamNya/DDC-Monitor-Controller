@@ -1,6 +1,6 @@
 /**
- * 将 MCCS Capabilities String 按括号层级格式化，便于在调试面板中阅读。
- * 不解释字段语义，只调整空白和换行。
+ * 将 MCCS Capabilities String 按括号层级格式化，便于在调试面板中阅读
+ * 不解释字段语义，只调整空白和换行
  */
 export function formatCapabilitiesString(raw: string): string {
     const source = raw.trim().replace(/\s+/g, ' ');

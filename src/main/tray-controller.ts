@@ -73,7 +73,7 @@ export class TrayController {
                 break;
 
             case 'open-webview':
-                // 路径策略仍由 TS 决定；Native Shell 只负责调用系统 Shell 打开传入目录。
+                // 路径策略仍由 TS 决定；Native Shell 只负责调用系统 Shell 打开传入目录
                 this.#nativeShell.openPath(path.dirname(this.#webviewDataDirectory));
                 break;
 

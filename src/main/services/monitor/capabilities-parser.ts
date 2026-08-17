@@ -1,10 +1,10 @@
 import type { VcpCapability } from '../../../shared/model.ts';
 
 /**
- * 从 MCCS Capabilities String 的 vcp(...) 段中提取 VCP Code。
+ * 从 MCCS Capabilities String 的 vcp(...) 段中提取 VCP Code
  *
  * 不能用简单的 /vcp\((.*?)\)/ 正则，因为非连续型 VCP 会包含嵌套括号，
- * 例如 vcp(10 12 60(01 03 0F 11) D6(01 04 05))。
+ * 例如 vcp(10 12 60(01 03 0F 11) D6(01 04 05))
  */
 export function parseVcpCapabilities(raw: string): VcpCapability[] {
     const section = extractNamedSection(raw, 'vcp');
@@ -58,10 +58,7 @@ function extractNamedSection(source: string, name: string): string | null {
     return extractBalancedGroup(source, openIndex)?.content ?? null;
 }
 
-function extractBalancedGroup(
-    source: string,
-    openIndex: number,
-): { content: string; endIndex: number } | null {
+function extractBalancedGroup(source: string, openIndex: number): { content: string; endIndex: number } | null {
     if (source[openIndex] !== '(') {
         return null;
     }

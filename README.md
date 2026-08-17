@@ -43,7 +43,7 @@ GitHub: <https://github.com/DreamNya/DDC-Monitor-Controller>
 * Microsoft Edge WebView2 Runtime
 * Node.js >= v24 （*可选，Portable Release 已附带 Node.js Runtime，无需单独安装）
 
-> 不同品牌和型号的显示器对 DDC/CI 的支持程度可能存在差异。部分显示器需要在 OSD 菜单中手动开启 DDC/CI
+> 不同品牌和型号的显示器对 DDC/CI 的支持程度可能存在差异；部分显示器需要在 OSD 菜单中手动开启 DDC/CI
 
 ## 使用方法
 
@@ -108,7 +108,7 @@ https://wwbwh.lanzouw.com/b01d75e9of
 * 拖动窗口边缘改变窗口大小
 * 修改快速设置面板、详细设置面板缩放比例
 
-> 目前时间节点暂不支持手动排序。保存方案后，程序会按照时间自动排序
+> 目前时间节点暂不支持手动排序；保存方案后，程序会按照时间自动排序
 
 ### 数据存储
 

@@ -7,6 +7,7 @@ export interface PanelBridgeDependencies {
     closePanel(): void;
     startControlWindowDrag(): void;
     openLogFolder(): void;
+    setGlobalHotkeyCaptureActive(active: boolean): void;
 }
 
 export function createPanelBridge(dependencies: PanelBridgeDependencies) {
@@ -19,6 +20,29 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
             runBridgeCall(() => appController.getMonitorCapabilities(monitorId)),
         getMonitorVcpValues: ({ monitorId, codes }) =>
             runBridgeCall(() => appController.getMonitorVcpValues(monitorId, codes)),
+        executeAdvancedVcp: async (request) => {
+            const result = await runBridgeCall(() => appController.executeAdvancedVcp(request));
+            if (result.closeWebViewAfter) {
+                setImmediate(dependencies.closePanel);
+            }
+            return result;
+        },
+        setGlobalHotkeyCaptureActive: async ({ active }) => {
+            if (typeof active !== 'boolean') {
+                throw new TypeError('全局快捷键捕获状态必须是布尔值');
+            }
+            dependencies.setGlobalHotkeyCaptureActive(active);
+            return null;
+        },
+        saveAdvancedVcpCommand: ({ command }) => runCommand(() => appController.saveAdvancedVcpCommand(command)),
+        deleteAdvancedVcpCommand: ({ commandId }) => runCommand(() => appController.deleteAdvancedVcpCommand(commandId)),
+        executeAdvancedVcpCommand: async ({ commandId }) => {
+            const result = await runBridgeCall(() => appController.executeAdvancedVcpCommand(commandId));
+            if (result.closeWebViewAfter) {
+                setImmediate(dependencies.closePanel);
+            }
+            return result;
+        },
         applyManual: (request) => runCommand(() => appController.applyManual(request)),
         applyLive: (request) => runCommand(() => appController.applyLive(request)),
         applyAutoNow: () => runCommand(() => appController.applyAutoNow()),

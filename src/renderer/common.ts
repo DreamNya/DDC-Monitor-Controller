@@ -10,6 +10,7 @@ declare global {
     interface Window {
         chrome?: { webview?: WebViewHost };
         __monitorStateChanged?: (change: AppStateChange) => void;
+        __monitorToast?: (message: string) => void;
     }
 }
 
@@ -112,6 +113,14 @@ function handleNativeMessage(event: MessageEvent<unknown>): void {
         if (event.data.startsWith('state:')) {
             const change = JSON.parse(event.data.slice('state:'.length)) as AppStateChange;
             window.__monitorStateChanged?.(change);
+            return;
+        }
+
+        if (event.data.startsWith('toast:')) {
+            const message: unknown = JSON.parse(event.data.slice('toast:'.length));
+            if (typeof message === 'string') {
+                window.__monitorToast?.(message);
+            }
         }
     } catch (error) {
         console.error('处理 Native WebView 消息失败：', error);

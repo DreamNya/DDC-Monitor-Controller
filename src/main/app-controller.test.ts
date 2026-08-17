@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type {
+    AdvancedVcpAction,
+    AdvancedVcpExecutionResult,
     AppSettings,
     AppStateChange,
     LiveApplyRequest,
@@ -97,6 +99,50 @@ test('AppController resets panel display settings without touching unrelated set
     assert.equal(state.settings.logEnabled, true);
     assert.equal(state.settings.autoEnabled, false);
     assert.match(state.lastOperation, /面板样式已重置/);
+
+    await controller.dispose();
+});
+
+
+test('AppController saves monitor-bound advanced VCP commands and rejects execution when the monitor is offline', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const controller = createController(monitorController, settingsStore, scheduler);
+
+    await controller.initialize();
+    await controller.saveAdvancedVcpCommand({
+        name: '切换 HDMI',
+        monitorId: 'monitor-1',
+        action: { type: 'write', code: 0x60, value: 0x11 },
+        shortcut: 'shift+ctrl+f12',
+        closeWebViewAfter: true,
+    });
+
+    const [command] = controller.getState().settings.advancedVcpCommands;
+    assert.ok(command);
+    assert.equal(command.monitorId, 'monitor-1');
+    assert.equal(command.shortcut, 'Ctrl+Shift+F12');
+
+    const result = await controller.executeAdvancedVcpCommand(command.id);
+    assert.equal(result.operation, 'write');
+    assert.equal(result.value, 0x11);
+    assert.equal(result.closeWebViewAfter, true);
+
+    await assert.rejects(
+        controller.saveAdvancedVcpCommand({
+            name: '重复快捷键',
+            monitorId: 'monitor-1',
+            action: { type: 'read', code: 0x10 },
+            shortcut: 'Ctrl+Shift+F12',
+        }),
+        /已被快捷命令“切换 HDMI”.*占用/,
+    );
+
+    monitorController.disconnectAll();
+    await assert.rejects(controller.executeAdvancedVcpCommand(command.id), /当前离线/);
 
     await controller.dispose();
 });
@@ -211,6 +257,27 @@ class FakeMonitorController implements MonitorDependency {
         }
 
         return codes.map((code) => ({ code, current: 50, maximum: 100 }));
+    }
+
+    executeVcpAction(monitorId: string, action: AdvancedVcpAction): AdvancedVcpExecutionResult {
+        if (!this.#snapshots.some(({ id }) => id === monitorId)) {
+            throw new Error(`Unknown monitor: ${monitorId}`);
+        }
+
+        if (action.type === 'read') {
+            return { monitorId, code: action.code, operation: 'read', current: 50, maximum: 100 };
+        }
+        if (action.type === 'write') {
+            return { monitorId, code: action.code, operation: 'write', value: action.value };
+        }
+
+        const delta = Math.round((100 * action.percent) / 100);
+        const value = action.direction === 'increase' ? 50 + delta : 50 - delta;
+        return { monitorId, code: action.code, operation: 'write', previous: 50, maximum: 100, value };
+    }
+
+    disconnectAll(): void {
+        this.#snapshots = [];
     }
 
     async apply(request: ManualApplyRequest) {

@@ -1,4 +1,18 @@
+import { randomUUID } from 'node:crypto';
+import { MAX_ADVANCED_VCP_COMMANDS, validateAdvancedVcpAction } from '../shared/advanced-vcp.ts';
+import {
+    createDefaultFontSizeSettings,
+    FONT_SIZE_LIMITS,
+    isFontSizePx,
+    isFontSizeTarget,
+} from '../shared/font-size.ts';
+import { parseGlobalShortcut } from '../shared/global-shortcut.ts';
 import type {
+    AdvancedVcpExecuteRequest,
+    AdvancedVcpExecutionOutcome,
+    AdvancedVcpExecutionResult,
+    AdvancedVcpShortcutCommand,
+    AdvancedVcpShortcutDraft,
     AppState,
     AppStateChange,
     AppStateChangeReason,
@@ -15,12 +29,6 @@ import type {
     UiScalePercent,
     UiScaleTarget,
 } from '../shared/model.ts';
-import {
-    createDefaultFontSizeSettings,
-    FONT_SIZE_LIMITS,
-    isFontSizePx,
-    isFontSizeTarget,
-} from '../shared/font-size.ts';
 import { calculateAutoSettings } from '../shared/schedule.ts';
 import {
     createDefaultUiScaleSettings,
@@ -46,7 +54,14 @@ import { createDefaultSettings, SettingsStore } from './services/settings-store.
 
 type MonitorController = Pick<
     DDCMonitorController,
-    'getSnapshots' | 'getCachedSnapshots' | 'getCapabilities' | 'getVcpValues' | 'apply' | 'applyLive' | 'dispose'
+    | 'getSnapshots'
+    | 'getCachedSnapshots'
+    | 'getCapabilities'
+    | 'getVcpValues'
+    | 'executeVcpAction'
+    | 'apply'
+    | 'applyLive'
+    | 'dispose'
 >;
 type AutoScheduler = Pick<AutoAdjustmentScheduler, 'nextRunAt' | 'schedule' | 'stop' | 'dispose'>;
 
@@ -172,6 +187,98 @@ export class AppController {
         return this.#commands.run(() => this.#monitorController.getVcpValues(monitorId, codes));
     }
 
+    executeAdvancedVcp(request: AdvancedVcpExecuteRequest): Promise<AdvancedVcpExecutionOutcome> {
+        return this.#executeAdvancedVcpRequest(request, '执行高级 VCP 操作失败');
+    }
+
+    saveAdvancedVcpCommand(draft: AdvancedVcpShortcutDraft): Promise<void> {
+        return this.#executeCommand(() => {
+            const monitor = this.#monitorController.getCachedSnapshots().find(({ id }) => id === draft.monitorId);
+
+            if (!monitor) {
+                throw new Error(`无法为离线或不存在的显示器保存快捷命令：${draft.monitorId}`);
+            }
+
+            if (this.#state.settings.advancedVcpCommands.length >= MAX_ADVANCED_VCP_COMMANDS) {
+                throw new Error(`高级 VCP 快捷命令最多保存 ${MAX_ADVANCED_VCP_COMMANDS} 个`);
+            }
+
+            const name = normalizeAdvancedCommandName(draft.name);
+            const action = validateAdvancedVcpAction(draft.action);
+            const shortcut = normalizeOptionalShortcut(draft.shortcut);
+
+            const shortcutOwner = shortcut
+                ? this.#state.settings.advancedVcpCommands.find((command) => command.shortcut === shortcut)
+                : undefined;
+
+            if (shortcutOwner) {
+                throw new Error(
+                    `全局快捷键 ${shortcut} 已被快捷命令“${shortcutOwner.name}”（${shortcutOwner.monitorName}）占用`,
+                );
+            }
+
+            const command: AdvancedVcpShortcutCommand = {
+                id: randomUUID(),
+                name,
+                monitorId: monitor.id,
+                monitorName: monitor.name || monitor.id,
+                action,
+                shortcut,
+                closeWebViewAfter: draft.closeWebViewAfter === true,
+            };
+
+            this.#state.commit((settings) => {
+                settings.advancedVcpCommands.push(command);
+            });
+            this.#state.succeed(`已保存高级 VCP 快捷命令“${command.name}”`);
+            return 'update-settings';
+        });
+    }
+
+    deleteAdvancedVcpCommand(commandId: string): Promise<void> {
+        return this.#executeCommand(() => {
+            const command = this.#state.settings.advancedVcpCommands.find(({ id }) => id === commandId);
+
+            if (!command) {
+                throw new Error(`找不到高级 VCP 快捷命令：${commandId}`);
+            }
+
+            this.#state.commit((settings) => {
+                settings.advancedVcpCommands = settings.advancedVcpCommands.filter(({ id }) => id !== commandId);
+            });
+            this.#state.succeed(`已删除高级 VCP 快捷命令“${command.name}”`);
+            return 'update-settings';
+        });
+    }
+
+    executeAdvancedVcpCommand(commandId: string): Promise<AdvancedVcpExecutionOutcome> {
+        return this.#commands.run(async () => {
+            const command = this.#state.settings.advancedVcpCommands.find(({ id }) => id === commandId);
+
+            if (!command) {
+                throw new Error(`找不到高级 VCP 快捷命令：${commandId}`);
+            }
+
+            try {
+                // 全局快捷键可能在面板关闭很久后触发，因此执行前重新枚举物理显示器
+                await this.#monitorController.getSnapshots();
+
+                if (!this.#monitorController.getCachedSnapshots().some(({ id }) => id === command.monitorId)) {
+                    throw new Error(`目标显示器“${command.monitorName}”当前离线，快捷命令不可用`);
+                }
+
+                const result = this.#monitorController.executeVcpAction(command.monitorId, command.action);
+                this.#state.succeed(formatAdvancedVcpSuccess(`快捷命令“${command.name}”`, result));
+                this.#state.publish('execute-vcp-command');
+                return { ...result, closeWebViewAfter: command.closeWebViewAfter };
+            } catch (error) {
+                this.#state.setError(`执行快捷命令“${command.name}”失败`, error);
+                this.#state.publish('execute-vcp-command');
+                throw error;
+            }
+        });
+    }
+
     applyManual(request: ManualApplyRequest): Promise<void> {
         return this.#executeCommand(async () => {
             await this.#attempt(
@@ -185,19 +292,23 @@ export class AppController {
 
     applyLive(request: LiveApplyRequest): Promise<void> {
         return this.#executeCommand(async () => {
-            await this.#attempt('实时调节失败', () => this.#monitorController.applyLive(request), (result) => {
-                const changes: string[] = [];
+            await this.#attempt(
+                '实时调节失败',
+                () => this.#monitorController.applyLive(request),
+                (result) => {
+                    const changes: string[] = [];
 
-                if (result.brightness !== undefined) {
-                    changes.push(`亮度 ${result.brightness}`);
-                }
+                    if (result.brightness !== undefined) {
+                        changes.push(`亮度 ${result.brightness}`);
+                    }
 
-                if (result.contrast !== undefined) {
-                    changes.push(`对比度 ${result.contrast}`);
-                }
+                    if (result.contrast !== undefined) {
+                        changes.push(`对比度 ${result.contrast}`);
+                    }
 
-                return `已实时调节：${changes.join('，')}`;
-            });
+                    return `已实时调节：${changes.join('，')}`;
+                },
+            );
             return 'apply-live' as const;
         });
     }
@@ -436,6 +547,27 @@ export class AppController {
         }
     }
 
+    #executeAdvancedVcpRequest(
+        request: AdvancedVcpExecuteRequest,
+        context: string,
+    ): Promise<AdvancedVcpExecutionOutcome> {
+        return this.#commands.run(() => {
+            try {
+                const result = this.#monitorController.executeVcpAction(
+                    request.monitorId,
+                    validateAdvancedVcpAction(request.action),
+                );
+                this.#state.succeed(formatAdvancedVcpSuccess('高级 VCP', result));
+                this.#state.publish('execute-vcp-command');
+                return { ...result, closeWebViewAfter: request.closeWebViewAfter === true };
+            } catch (error) {
+                this.#state.setError(context, error);
+                this.#state.publish('execute-vcp-command');
+                throw error;
+            }
+        });
+    }
+
     async #setAutoInterval(intervalMinutes: IntervalMinutes | null): Promise<AppStateChangeReason | null> {
         const wasEnabled = this.#state.settings.autoEnabled;
         const previousInterval = this.#state.settings.intervalMinutes;
@@ -470,7 +602,9 @@ export class AppController {
             reason = 'apply-auto';
 
             if (this.#state.lastError === null) {
-                this.#state.setOperation(`自动调节已开启，每 ${intervalMinutes} 分钟运行；${this.#state.lastOperation}`);
+                this.#state.setOperation(
+                    `自动调节已开启，每 ${intervalMinutes} 分钟运行；${this.#state.lastOperation}`,
+                );
             }
         } else {
             this.#state.succeed(`自动调节间隔已设置为 ${intervalMinutes} 分钟`);
@@ -572,4 +706,36 @@ export class AppController {
             this.#state.setError(context, error);
         }
     }
+}
+
+function normalizeAdvancedCommandName(value: string): string {
+    const name = value.trim().replace(/\s+/g, ' ').slice(0, 60);
+
+    if (!name) {
+        throw new Error('快捷命令名称不能为空');
+    }
+
+    return name;
+}
+
+function normalizeOptionalShortcut(value: string | null): string | null {
+    if (!value?.trim()) {
+        return null;
+    }
+
+    return parseGlobalShortcut(value).normalized;
+}
+
+function formatAdvancedVcpSuccess(prefix: string, result: AdvancedVcpExecutionResult): string {
+    const code = `0x${result.code.toString(16).toUpperCase().padStart(2, '0')}`;
+
+    if (result.operation === 'read') {
+        return `${prefix} 已读取 ${code}：${result.current ?? '?'} / ${result.maximum ?? '?'}`;
+    }
+
+    if (result.previous !== undefined) {
+        return `${prefix} 已写入 ${code}：${result.previous} → ${result.value}`;
+    }
+
+    return `${prefix} 已写入 ${code}：${result.value}`;
 }

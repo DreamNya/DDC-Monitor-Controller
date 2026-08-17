@@ -15,6 +15,7 @@ import type {
 import { INTERVAL_MINUTES_OPTIONS } from '../shared/model';
 import { formatTime, parseTime } from '../shared/schedule';
 import { isUiScalePercent } from '../shared/ui-scale';
+import { createAdvancedVcpPanel } from './advanced-vcp-panel';
 import {
     applyFontSizeSettings,
     createActionController,
@@ -36,7 +37,7 @@ type RenderOptions = {
     syncManualValues?: boolean;
 };
 
-type ControlSubpanelId = 'control-panel' | 'vcp-panel' | 'settings-panel';
+type ControlSubpanelId = 'control-panel' | 'vcp-panel' | 'advanced-vcp-panel' | 'settings-panel';
 
 let bridge: MonitorBridge;
 let currentState: AppState | undefined;
@@ -115,12 +116,21 @@ const actions = createActionController({
     onError: (error) => showToast(getErrorMessage(error)),
 });
 
+const advancedVcpPanel = createAdvancedVcpPanel({
+    getBridge: () => bridge,
+    runAction: (action) => {
+        void actions.run(action);
+    },
+    showToast,
+});
+
 void initialize();
 
 async function initialize(): Promise<void> {
     try {
         bridge = await waitForBridge();
         window.__monitorStateChanged = renderStateChange;
+        window.__monitorToast = showToast;
         bindEvents();
 
         await actions.run(async () => {
@@ -138,6 +148,7 @@ async function initialize(): Promise<void> {
 
 function bindEvents(): void {
     bindPanelNavigation();
+    advancedVcpPanel.bind();
     elements.brightnessSlider.addEventListener('input', handleSliderInput);
     elements.contrastSlider.addEventListener('input', handleSliderInput);
     bindUiScaleSlider('quick', elements.quickUiScaleSlider, elements.quickUiScaleValue);
@@ -341,7 +352,12 @@ function bindPanelNavigation(): void {
         item.addEventListener('click', () => {
             const target = item.dataset.panelTarget;
 
-            if (target === 'control-panel' || target === 'vcp-panel' || target === 'settings-panel') {
+            if (
+                target === 'control-panel' ||
+                target === 'vcp-panel' ||
+                target === 'advanced-vcp-panel' ||
+                target === 'settings-panel'
+            ) {
                 showSubpanel(target);
             }
         });
@@ -593,6 +609,7 @@ function render(state: AppState, options: RenderOptions = {}): void {
 
     renderMonitorOptions(state);
     renderVcpMonitorOptions(state);
+    advancedVcpPanel.render(state);
     renderScheduleProfileOptions(state);
 
     if (options.syncManualValues || previousTarget === undefined || previousTarget !== state.settings.targetMonitorId) {
@@ -708,7 +725,7 @@ async function handleVcpCellCopy(event: MouseEvent): Promise<void> {
 
     const text = cell.textContent?.trim() ?? '';
 
-    if (!text) {
+    if (!text || text == '—') {
         return;
     }
 
@@ -727,7 +744,7 @@ async function copyTextToClipboard(text: string): Promise<void> {
             await navigator.clipboard.writeText(text);
             return;
         } catch {
-            // WebView 安全上下文或剪贴板权限可能阻止 Clipboard API，继续尝试兼容回退方案。
+            // WebView 安全上下文或剪贴板权限可能阻止 Clipboard API，继续尝试兼容回退方案
         }
     }
 
@@ -801,7 +818,7 @@ function renderVcpReadResults(results: Awaited<ReturnType<MonitorBridge['getMoni
     }
 }
 
-function clearVcpResults(message = '选择一台显示器后按需读取 Capabilities；不会扫描 0x00–0xFF。'): void {
+function clearVcpResults(message = '选择一台显示器后按需读取 Capabilities'): void {
     lastCapabilities = undefined;
     elements.vcpBody.replaceChildren();
     elements.vcpRawOutput.textContent = '枚举完成后显示显示器返回的 Capabilities String';
@@ -953,18 +970,25 @@ function updateControlStates(): void {
         !elements.vcpMonitorSelect.value ||
         lastCapabilities?.monitorId !== elements.vcpMonitorSelect.value ||
         lastCapabilities.vcpCodes.length === 0;
+    advancedVcpPanel.refreshControlStates();
 }
 
 function showToast(message: string): void {
     elements.toast.textContent = message;
-    elements.toast.classList.add('visible');
+
+    // 如果已经打开，重新加入 top layer，这样即使期间又打开了一个 modal dialog，Toast 也会重新成为更新的 top-layer 元素
+    if (elements.toast.matches(':popover-open')) {
+        elements.toast.hidePopover();
+    }
+    elements.toast.showPopover();
 
     if (toastTimer !== undefined) {
         clearTimeout(toastTimer);
     }
-
     toastTimer = setTimeout(() => {
-        elements.toast.classList.remove('visible');
+        if (elements.toast.matches(':popover-open')) {
+            elements.toast.hidePopover();
+        }
     }, 5000);
 }
 

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type {
+    AdvancedVcpExecuteRequest,
+    AdvancedVcpShortcutDraft,
     AppState,
     FontSizePx,
     FontSizeTarget,
@@ -48,6 +50,28 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
             calls.push({ name: 'getMonitorVcpValues', args: [monitorId, codes] });
             return codes.map((code) => ({ code, current: 50, maximum: 100 }));
         },
+        executeAdvancedVcp: async (request: AdvancedVcpExecuteRequest) => {
+            calls.push({ name: 'executeAdvancedVcp', args: [request] });
+            return {
+                monitorId: request.monitorId,
+                code: request.action.code,
+                operation: request.action.type === 'read' ? 'read' as const : 'write' as const,
+                ...(request.action.type === 'read' ? { current: 50, maximum: 100 } : { value: 'value' in request.action ? request.action.value : 55 }),
+                closeWebViewAfter: request.closeWebViewAfter === true,
+            };
+        },
+        saveAdvancedVcpCommand: (command: AdvancedVcpShortcutDraft) => record('saveAdvancedVcpCommand', command),
+        deleteAdvancedVcpCommand: (commandId: string) => record('deleteAdvancedVcpCommand', commandId),
+        executeAdvancedVcpCommand: async (commandId: string) => {
+            calls.push({ name: 'executeAdvancedVcpCommand', args: [commandId] });
+            return {
+                monitorId: 'monitor-1',
+                code: 0x60,
+                operation: 'write' as const,
+                value: 0x11,
+                closeWebViewAfter: false,
+            };
+        },
         applyManual: (request: ManualApplyRequest) => record('applyManual', request),
         applyLive: (request: LiveApplyRequest) => record('applyLive', request),
         applyAutoNow: () => record('applyAutoNow'),
@@ -72,6 +96,7 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     let closed = false;
     let dragStarted = false;
     let logFolderOpened = false;
+    let globalHotkeyCaptureActive = false;
     const bridge = createPanelBridge({
         appController: appController as unknown as AppController,
         openControlPanel: () => {
@@ -86,6 +111,9 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
         openLogFolder: () => {
             logFolderOpened = true;
         },
+        setGlobalHotkeyCaptureActive: (active) => {
+            globalHotkeyCaptureActive = active;
+        },
     });
 
     assert.equal(await bridge.getState(), state);
@@ -99,6 +127,33 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
         { code: 0x10, current: 50, maximum: 100 },
         { code: 0xfd, current: 50, maximum: 100 },
     ]);
+    assert.deepEqual(
+        await bridge.executeAdvancedVcp({
+            monitorId: 'monitor-1',
+            action: { type: 'write', code: 0x60, value: 0x11 },
+            closeWebViewAfter: false,
+        }),
+        { monitorId: 'monitor-1', code: 0x60, operation: 'write', value: 0x11, closeWebViewAfter: false },
+    );
+    const shortcutDraft: AdvancedVcpShortcutDraft = {
+        name: 'HDMI',
+        monitorId: 'monitor-1',
+        action: { type: 'write', code: 0x60, value: 0x11 },
+        shortcut: 'Ctrl+Alt+H',
+    };
+    assert.equal(await bridge.setGlobalHotkeyCaptureActive({ active: true }), null);
+    assert.equal(globalHotkeyCaptureActive, true);
+    assert.equal(await bridge.setGlobalHotkeyCaptureActive({ active: false }), null);
+    assert.equal(globalHotkeyCaptureActive, false);
+    assert.equal(await bridge.saveAdvancedVcpCommand({ command: shortcutDraft }), null);
+    assert.deepEqual(await bridge.executeAdvancedVcpCommand({ commandId: 'command-1' }), {
+        monitorId: 'monitor-1',
+        code: 0x60,
+        operation: 'write',
+        value: 0x11,
+        closeWebViewAfter: false,
+    });
+    assert.equal(await bridge.deleteAdvancedVcpCommand({ commandId: 'command-1' }), null);
     assert.equal(await bridge.setAutoInterval({ intervalMinutes: 15 }), null);
     assert.equal(await bridge.setUiScale({ target: 'quick', percent: 125 }), null);
     assert.equal(await bridge.resetUiScale(), null);
@@ -107,6 +162,13 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     assert.deepEqual(calls, [
         { name: 'getMonitorCapabilities', args: ['monitor-1'] },
         { name: 'getMonitorVcpValues', args: ['monitor-1', [0x10, 0xfd]] },
+        {
+            name: 'executeAdvancedVcp',
+            args: [{ monitorId: 'monitor-1', action: { type: 'write', code: 0x60, value: 0x11 }, closeWebViewAfter: false }],
+        },
+        { name: 'saveAdvancedVcpCommand', args: [shortcutDraft] },
+        { name: 'executeAdvancedVcpCommand', args: ['command-1'] },
+        { name: 'deleteAdvancedVcpCommand', args: ['command-1'] },
         { name: 'setAutoInterval', args: [15] },
         { name: 'setUiScale', args: ['quick', 125] },
         { name: 'resetUiScale', args: [] },

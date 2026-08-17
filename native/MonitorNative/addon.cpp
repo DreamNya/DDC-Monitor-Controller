@@ -308,7 +308,7 @@ namespace {
         std::vector<char> buffer(static_cast<std::size_t>(length) + 1, '\0');
 
         // Windows Monitor Configuration API 内部完成 DDC/CI
-        // Capabilities Request (0xF3) / Capabilities Reply (0xE3) 交互。
+        // Capabilities Request (0xF3) / Capabilities Reply (0xE3) 交互
         if (!CapabilitiesRequestAndCapabilitiesReply(
             monitor->handle, buffer.data(), length)) {
             throw_win32_error(env, "读取显示器 Capabilities",

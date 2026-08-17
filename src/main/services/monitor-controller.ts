@@ -1,4 +1,7 @@
+import { validateAdvancedVcpAction } from '../../shared/advanced-vcp.ts';
 import type {
+    AdvancedVcpAction,
+    AdvancedVcpExecutionResult,
     LiveApplyRequest,
     ManualApplyRequest,
     MonitorCapabilities,
@@ -57,7 +60,7 @@ export class DDCMonitorController {
         return structuredClone(this.#snapshots);
     }
 
-    /** 按需读取单台显示器的 MCCS Capabilities String，并解析其中声明的 VCP Code。 */
+    /** 按需读取单台显示器的 MCCS Capabilities String，并解析其中声明的 VCP Code */
     getCapabilities(monitorId: string): MonitorCapabilities {
         const monitor = resolveSingleMonitor(this.#monitors, monitorId);
         const raw = this.#client.getCapabilities(monitor.index);
@@ -71,10 +74,10 @@ export class DDCMonitorController {
     }
 
     /**
-     * 尽力批量读取 VCP Code。
+     * 尽力批量读取 VCP Code
      *
      * Capabilities 中出现某个 Code 并不保证显示器实现了通用 Get VCP Feature；
-     * 因此单项失败只记录到结果中，不中断其余 Code 的读取。
+     * 因此单项失败只记录到结果中，不中断其余 Code 的读取
      */
     getVcpValues(monitorId: string, codes: readonly number[]): MonitorVcpReadResult[] {
         const monitor = resolveSingleMonitor(this.#monitors, monitorId);
@@ -104,6 +107,54 @@ export class DDCMonitorController {
                 } satisfies MonitorVcpReadResult;
             }
         });
+    }
+
+    /**
+     * 执行高级 VCP 原子操作
+     *
+     * 普通写入只做协议层数值校验；相对百分比调节会限制到 0～maximum
+     */
+    executeVcpAction(monitorId: string, requestedAction: AdvancedVcpAction): AdvancedVcpExecutionResult {
+        const monitor = resolveSingleMonitor(this.#monitors, monitorId);
+        const action = validateAdvancedVcpAction(requestedAction);
+
+        if (action.type === 'read') {
+            const result = this.#client.readVcpValue(monitor.index, action.code);
+            return {
+                monitorId: monitor.id,
+                code: action.code,
+                operation: 'read',
+                current: result.current,
+                maximum: result.maximum,
+            };
+        }
+
+        if (action.type === 'write') {
+            this.#client.writeVcpValue(monitor.index, action.code, action.value);
+            return {
+                monitorId: monitor.id,
+                code: action.code,
+                operation: 'write',
+                value: action.value,
+            };
+        }
+
+        const current = this.#client.readVcpValue(monitor.index, action.code);
+        const delta = Math.round((current.maximum * action.percent) / 100);
+        const requestedValue = action.direction === 'increase' ? current.current + delta : current.current - delta;
+        const value = Math.min(current.maximum, Math.max(0, requestedValue));
+
+        // 相对调节始终执行一次写入，包括已经处于 0 / maximum 边界时
+        this.#client.writeVcpValue(monitor.index, action.code, value);
+
+        return {
+            monitorId: monitor.id,
+            code: action.code,
+            operation: 'write',
+            previous: current.current,
+            maximum: current.maximum,
+            value,
+        };
     }
 
     /**

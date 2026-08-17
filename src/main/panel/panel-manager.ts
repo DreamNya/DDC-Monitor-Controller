@@ -42,12 +42,14 @@ export interface PanelManagerOptions {
     appController: AppController;
     nativeShell: NativeShell;
     openLogFolder(): void;
+    setGlobalHotkeyCaptureActive(active: boolean): void;
 }
 
 export class PanelManager {
     readonly #appController: AppController;
     readonly #nativeShell: NativeShell;
     readonly #bridge: MonitorBridge;
+    readonly #setGlobalHotkeyCaptureActive: (active: boolean) => void;
 
     #page: PanelPage | undefined;
     #opening: Promise<void> | undefined;
@@ -56,12 +58,14 @@ export class PanelManager {
     constructor(options: PanelManagerOptions) {
         this.#appController = options.appController;
         this.#nativeShell = options.nativeShell;
+        this.#setGlobalHotkeyCaptureActive = options.setGlobalHotkeyCaptureActive;
         this.#bridge = createPanelBridge({
             appController: options.appController,
             openControlPanel: () => this.requestOpen('control'),
             closePanel: () => this.destroy(),
             startControlWindowDrag: () => this.#nativeShell.startWindowDrag(),
             openLogFolder: options.openLogFolder,
+            setGlobalHotkeyCaptureActive: options.setGlobalHotkeyCaptureActive,
         });
     }
 
@@ -94,6 +98,7 @@ export class PanelManager {
             return;
         }
 
+        this.#setGlobalHotkeyCaptureActive(false);
         this.#page = undefined;
         this.#nativeShell.closeWindow();
     }
@@ -104,10 +109,12 @@ export class PanelManager {
         }
 
         const page = PANEL_PAGES.control;
+        const state = this.#appController.getState();
         this.#nativeShell.openWindow({
             id: 'control',
             ...page,
-            uiScalePercent: this.#appController.getState().settings.uiScale.control,
+            uiScalePercent: state.settings.uiScale.control,
+            backgroundColor: PANEL_BACKGROUND_COLORS.control[state.settings.theme],
             initialBounds: null,
         });
     }
@@ -121,6 +128,14 @@ export class PanelManager {
 
         this.#nativeShell.setWindowScale(change.state.settings.uiScale[page]);
         this.#nativeShell.postWebMessage(`state:${JSON.stringify(change)}`);
+    }
+
+    pushToast(message: string): void {
+        if (this.#applicationExiting || !this.#page) {
+            return;
+        }
+
+        this.#nativeShell.postWebMessage(`toast:${JSON.stringify(message)}`);
     }
 
     reloadPageForDevelopment(): void {
@@ -154,6 +169,7 @@ export class PanelManager {
 
     handleWindowClosed(id: string): void {
         if (this.#page === id) {
+            this.#setGlobalHotkeyCaptureActive(false);
             this.#page = undefined;
         }
     }

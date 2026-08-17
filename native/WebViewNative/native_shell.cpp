@@ -25,6 +25,7 @@ namespace {
     constexpr wchar_t kVirtualOriginPrefix[] = L"https://app.local/";
     constexpr UINT kTrayIconId = 1;
     constexpr UINT kFirstTrayMenuCommand = 1000;
+    constexpr int kFirstGlobalHotkeyId = 0x4000;
     constexpr int kResizeBorderDip = 8;
     constexpr std::array<WPARAM, 8> kResizeHitTests = {
         HTLEFT,    HTRIGHT,    HTTOP,        HTBOTTOM,
@@ -35,7 +36,7 @@ namespace {
 
     TaskbarSide detect_taskbar_side(const MONITORINFO& info, const POINT anchor) {
         // 托盘点击点通常位于 rcMonitor 与 rcWork
-        // 的差集内，因此无需查询或枚举任务栏窗口。
+        // 的差集内，因此无需查询或枚举任务栏窗口
         if (anchor.y >= info.rcWork.bottom && anchor.y < info.rcMonitor.bottom)
             return TaskbarSide::Bottom;
         if (anchor.y < info.rcWork.top && anchor.y >= info.rcMonitor.top)
@@ -45,7 +46,7 @@ namespace {
         if (anchor.x >= info.rcWork.right && anchor.x < info.rcMonitor.right)
             return TaskbarSide::Right;
 
-        // 自动隐藏任务栏不会稳定缩小 rcWork；此时用点击点距离屏幕边缘作为回退。
+        // 自动隐藏任务栏不会稳定缩小 rcWork；此时用点击点距离屏幕边缘作为回退
         const LONG left_distance = std::abs(anchor.x - info.rcMonitor.left);
         const LONG right_distance = std::abs(info.rcMonitor.right - anchor.x);
         const LONG top_distance = std::abs(anchor.y - info.rcMonitor.top);
@@ -292,6 +293,70 @@ void NativeShell::set_tray_menu(std::vector<TrayMenuItem> items) {
         });
 }
 
+void NativeShell::set_global_hotkeys(std::vector<GlobalHotkeyBinding> bindings) {
+    post_command([this, bindings = std::move(bindings)]() mutable {
+        replace_global_hotkeys_on_ui(std::move(bindings));
+        });
+}
+
+void NativeShell::replace_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> bindings) {
+    clear_global_hotkeys_on_ui();
+
+    if (!message_window_) {
+        return;
+    }
+
+    for (std::size_t index = 0; index < bindings.size(); ++index) {
+        const int native_id = kFirstGlobalHotkeyId + static_cast<int>(index);
+        auto binding = std::move(bindings[index]);
+        constexpr UINT kModNoRepeat = 0x4000;
+        const UINT modifiers = binding.modifiers | kModNoRepeat;
+
+        if (!RegisterHotKey(message_window_, native_id, modifiers, binding.virtual_key)) {
+            const DWORD error = GetLastError();
+            if (error == ERROR_HOTKEY_ALREADY_REGISTERED) {
+                emit_error(
+                    "注册全局快捷键“" + wide_to_utf8(binding.label) +
+                    "”失败：该组合键已被 Windows 或其他应用占用；Win32 不提供具体占用方信息");
+            }
+            else {
+                emit_error(
+                    "注册全局快捷键“" + wide_to_utf8(binding.label) +
+                    "”失败（Win32 错误码 " + std::to_string(error) + "）");
+            }
+            continue;
+        }
+
+        global_hotkeys_.emplace_back(native_id, std::move(binding));
+    }
+}
+
+void NativeShell::clear_global_hotkeys_on_ui() {
+    if (message_window_) {
+        for (const auto& [native_id, binding] : global_hotkeys_) {
+            (void)binding;
+            UnregisterHotKey(message_window_, native_id);
+        }
+    }
+    global_hotkeys_.clear();
+}
+
+void NativeShell::handle_global_hotkey(const WPARAM wparam) {
+    const int native_id = static_cast<int>(wparam);
+    const auto it = std::find_if(
+        global_hotkeys_.begin(), global_hotkeys_.end(),
+        [native_id](const auto& item) { return item.first == native_id; });
+
+    if (it == global_hotkeys_.end()) {
+        return;
+    }
+
+    NativeEvent event{};
+    event.kind = NativeEventKind::GlobalHotkey;
+    event.id = it->second.id;
+    emit(std::move(event));
+}
+
 void NativeShell::open_path(std::wstring path) {
     post_command([this, path = std::move(path)] {
         const auto result = reinterpret_cast<std::intptr_t>(
@@ -309,7 +374,7 @@ void NativeShell::shutdown() {
         if (shutting_down_) {
             if (ui_thread_.joinable() &&
                 ui_thread_.get_id() != std::this_thread::get_id()) {
-                // 已进入退出流程时只等待已有 UI 线程结束。
+                // 已进入退出流程时只等待已有 UI 线程结束
             }
             else {
                 return;
@@ -320,6 +385,7 @@ void NativeShell::shutdown() {
             commands_.push_back([this] {
                 close_window_on_ui(false);
                 delete_tray_icon();
+                clear_global_hotkeys_on_ui();
                 if (message_window_) {
                     DestroyWindow(message_window_);
                     message_window_ = nullptr;
@@ -435,6 +501,7 @@ void NativeShell::drain_commands() {
 void NativeShell::cleanup_ui_thread() {
     close_window_on_ui(false);
     delete_tray_icon();
+    clear_global_hotkeys_on_ui();
     if (message_window_) {
         DestroyWindow(message_window_);
         message_window_ = nullptr;
@@ -933,8 +1000,8 @@ void NativeShell::configure_webview(const std::uint64_t generation) {
 
     if (config_.development) {
         // resource-server.ts 原本通过 Cache-Control: no-store
-        // 保证热重载读取最新静态资源。 Virtual Host Mapping 后直接关闭开发 WebView
-        // 的 HTTP cache，避免 HTML 刷新后仍复用旧 JS/CSS。
+        // 保证热重载读取最新静态资源； Virtual Host Mapping 后直接关闭开发 WebView
+        // 的 HTTP cache，避免 HTML 刷新后仍复用旧 JS/CSS
         webview_state_->webview->CallDevToolsProtocolMethod(
             L"Network.setCacheDisabled", L"{\"cacheDisabled\":true}",
             Callback<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler>(
@@ -1327,6 +1394,10 @@ void NativeShell::emit(NativeEvent event) {
                 result.Set("type", "tray-command");
                 result.Set("id", event->id);
                 break;
+            case NativeEventKind::GlobalHotkey:
+                result.Set("type", "global-hotkey");
+                result.Set("id", event->id);
+                break;
             case NativeEventKind::WebMessage:
                 result.Set("type", "web-message");
                 result.Set("message", event->text);
@@ -1459,6 +1530,10 @@ LRESULT NativeShell::handle_window_message(HWND window, UINT message,
         }
         if (message == kTrayMessage) {
             handle_tray_message(lparam);
+            return 0;
+        }
+        if (message == WM_HOTKEY) {
+            handle_global_hotkey(wparam);
             return 0;
         }
         return DefWindowProcW(window, message, wparam, lparam);

@@ -342,6 +342,56 @@ namespace {
         return env.Undefined();
     }
 
+    Napi::Value set_global_hotkeys(const Napi::CallbackInfo& info) {
+        const Napi::Env env = info.Env();
+        try {
+            require_shell(env);
+            if (info.Length() < 1 || !info[0].IsArray()) {
+                throw Napi::TypeError::New(env, "bindings 必须是数组");
+            }
+
+            const Napi::Array array = info[0].As<Napi::Array>();
+            if (array.Length() > 128) {
+                throw Napi::RangeError::New(env, "全局快捷键最多注册 128 个");
+            }
+            std::vector<GlobalHotkeyBinding> bindings;
+            bindings.reserve(array.Length());
+
+            for (std::uint32_t index = 0; index < array.Length(); ++index) {
+                const auto value = array.Get(index);
+                if (!value.IsObject()) {
+                    throw Napi::TypeError::New(env, "全局快捷键项必须是对象");
+                }
+                const auto object = value.As<Napi::Object>();
+                const int modifiers = get_int(object, "modifiers");
+                const int virtual_key = get_int(object, "virtualKey");
+
+                if (modifiers <= 0 || modifiers > 0x000f) {
+                    throw Napi::RangeError::New(env, "modifiers 必须包含有效的 Win32 修饰键");
+                }
+                if (virtual_key <= 0 || virtual_key > 0xff) {
+                    throw Napi::RangeError::New(env, "virtualKey 必须位于 1 到 255");
+                }
+
+                GlobalHotkeyBinding binding{};
+                binding.id = get_string(object, "id");
+                binding.label = utf8_to_wide(get_string(object, "label"));
+                binding.modifiers = static_cast<UINT>(modifiers);
+                binding.virtual_key = static_cast<UINT>(virtual_key);
+                bindings.push_back(std::move(binding));
+            }
+
+            g_shell->set_global_hotkeys(std::move(bindings));
+        }
+        catch (const Napi::Error& error) {
+            error.ThrowAsJavaScriptException();
+        }
+        catch (const std::exception& error) {
+            Napi::Error::New(env, error.what()).ThrowAsJavaScriptException();
+        }
+        return env.Undefined();
+    }
+
     Napi::Value open_path(const Napi::CallbackInfo& info) {
         const Napi::Env env = info.Env();
         try {
@@ -391,6 +441,7 @@ namespace {
         exports.Set("reload", Napi::Function::New(env, reload));
         exports.Set("executeScript", Napi::Function::New(env, execute_script));
         exports.Set("setTrayMenu", Napi::Function::New(env, set_tray_menu));
+        exports.Set("setGlobalHotkeys", Napi::Function::New(env, set_global_hotkeys));
         exports.Set("openPath", Napi::Function::New(env, open_path));
         exports.Set("shutdown", Napi::Function::New(env, shutdown));
         return exports;

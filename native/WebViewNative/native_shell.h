@@ -66,6 +66,14 @@ struct WindowOpenOptions {
     std::optional<WindowBounds> initial_bounds;
 };
 
+
+struct GlobalHotkeyBinding {
+    std::string id;
+    std::wstring label;
+    UINT modifiers = 0;
+    UINT virtual_key = 0;
+};
+
 struct TrayMenuItem {
     enum class Kind {
         Item,
@@ -82,6 +90,7 @@ struct TrayMenuItem {
 enum class NativeEventKind {
     TrayPrimaryClick,
     TrayCommand,
+    GlobalHotkey,
     WebMessage,
     WindowClosed,
     WindowBoundsChanged,
@@ -114,6 +123,7 @@ public:
     void reload();
     void execute_script(std::string script);
     void set_tray_menu(std::vector<TrayMenuItem> items);
+    void set_global_hotkeys(std::vector<GlobalHotkeyBinding> bindings);
     void open_path(std::wstring path);
     void shutdown();
 
@@ -134,6 +144,9 @@ private:
     void delete_window_icons();
     void show_tray_menu();
     void handle_tray_message(LPARAM lparam);
+    void replace_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> bindings);
+    void clear_global_hotkeys_on_ui();
+    void handle_global_hotkey(WPARAM wparam);
 
     void create_resize_hit_windows();
     void destroy_resize_hit_windows();
@@ -190,6 +203,7 @@ private:
     NOTIFYICONDATAW tray_data_{};
     bool tray_added_ = false;
     std::vector<TrayMenuItem> tray_menu_items_;
+    std::vector<std::pair<int, GlobalHotkeyBinding>> global_hotkeys_;
     ULONGLONG last_tray_primary_click_tick_ = 0;
     int ui_scale_percent_ = 100;
     std::uint64_t generation_ = 0;

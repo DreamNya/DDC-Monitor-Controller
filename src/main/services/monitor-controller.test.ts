@@ -128,6 +128,86 @@ describe('DDCMonitorController cache policy', () => {
         assert.throws(() => controller.getVcpValues('monitor-1', [0x100]), /0x00 到 0xFF/);
         await controller.dispose();
     });
+
+
+    test('advanced VCP actions clamp relative percentage adjustment while always sending the boundary write', async () => {
+        const client = new FakeDdcClient();
+        const controller = new DDCMonitorController(client);
+
+        await controller.getSnapshots();
+        const read = controller.executeVcpAction('monitor-1', { type: 'read', code: VCP_BRIGHTNESS });
+        assert.deepEqual(read, {
+            monitorId: 'monitor-1',
+            code: VCP_BRIGHTNESS,
+            operation: 'read',
+            current: 40,
+            maximum: 100,
+        });
+
+        const adjusted = controller.executeVcpAction('monitor-1', {
+            type: 'adjust-percent',
+            code: VCP_BRIGHTNESS,
+            direction: 'increase',
+            percent: 15,
+        });
+        assert.deepEqual(adjusted, {
+            monitorId: 'monitor-1',
+            code: VCP_BRIGHTNESS,
+            operation: 'write',
+            previous: 40,
+            maximum: 100,
+            value: 55,
+        });
+        assert.deepEqual(client.writes.at(-1), { index: 0, code: VCP_BRIGHTNESS, value: 55 });
+
+        const written = controller.executeVcpAction('monitor-1', { type: 'write', code: 0x60, value: 0x11 });
+        assert.deepEqual(written, { monitorId: 'monitor-1', code: 0x60, operation: 'write', value: 0x11 });
+        assert.deepEqual(client.writes.at(-1), { index: 0, code: 0x60, value: 0x11 });
+
+        client.setCurrent(VCP_BRIGHTNESS, 4);
+        const lowerBound = controller.executeVcpAction('monitor-1', {
+            type: 'adjust-percent',
+            code: VCP_BRIGHTNESS,
+            direction: 'decrease',
+            percent: 5,
+        });
+        assert.equal(lowerBound.value, 0);
+        assert.deepEqual(client.writes.at(-1), { index: 0, code: VCP_BRIGHTNESS, value: 0 });
+
+        const writesAtLowerBound = client.writes.length;
+        const repeatedLowerBound = controller.executeVcpAction('monitor-1', {
+            type: 'adjust-percent',
+            code: VCP_BRIGHTNESS,
+            direction: 'decrease',
+            percent: 5,
+        });
+        assert.equal(repeatedLowerBound.value, 0);
+        assert.equal(client.writes.length, writesAtLowerBound + 1);
+        assert.deepEqual(client.writes.at(-1), { index: 0, code: VCP_BRIGHTNESS, value: 0 });
+
+        client.setCurrent(VCP_BRIGHTNESS, 98);
+        const upperBound = controller.executeVcpAction('monitor-1', {
+            type: 'adjust-percent',
+            code: VCP_BRIGHTNESS,
+            direction: 'increase',
+            percent: 5,
+        });
+        assert.equal(upperBound.value, 100);
+        assert.deepEqual(client.writes.at(-1), { index: 0, code: VCP_BRIGHTNESS, value: 100 });
+
+        const writesAtUpperBound = client.writes.length;
+        const repeatedUpperBound = controller.executeVcpAction('monitor-1', {
+            type: 'adjust-percent',
+            code: VCP_BRIGHTNESS,
+            direction: 'increase',
+            percent: 5,
+        });
+        assert.equal(repeatedUpperBound.value, 100);
+        assert.equal(client.writes.length, writesAtUpperBound + 1);
+        assert.deepEqual(client.writes.at(-1), { index: 0, code: VCP_BRIGHTNESS, value: 100 });
+
+        await controller.dispose();
+    });
 });
 
 class FakeDdcClient implements DdcClient {

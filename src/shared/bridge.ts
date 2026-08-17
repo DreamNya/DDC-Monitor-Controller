@@ -1,4 +1,7 @@
 import type {
+    AdvancedVcpExecuteRequest,
+    AdvancedVcpExecutionOutcome,
+    AdvancedVcpShortcutDraft,
     AppState,
     FontSizePx,
     FontSizeTarget,
@@ -24,6 +27,11 @@ export interface MonitorBridge {
     refreshMonitors(): Promise<null>;
     getMonitorCapabilities(options: { monitorId: string }): Promise<MonitorCapabilities>;
     getMonitorVcpValues(options: { monitorId: string; codes: number[] }): Promise<MonitorVcpReadResult[]>;
+    executeAdvancedVcp(request: AdvancedVcpExecuteRequest): Promise<AdvancedVcpExecutionOutcome>;
+    setGlobalHotkeyCaptureActive(options: { active: boolean }): Promise<null>;
+    saveAdvancedVcpCommand(options: { command: AdvancedVcpShortcutDraft }): Promise<null>;
+    deleteAdvancedVcpCommand(options: { commandId: string }): Promise<null>;
+    executeAdvancedVcpCommand(options: { commandId: string }): Promise<AdvancedVcpExecutionOutcome>;
     applyManual(request: ManualApplyRequest): Promise<null>;
     applyLive(request: LiveApplyRequest): Promise<null>;
     applyAutoNow(): Promise<null>;

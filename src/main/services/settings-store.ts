@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import type {
+    AdvancedVcpShortcutCommand,
     AppSettings,
     ControlWindowBounds,
     IntervalMinutes,
@@ -10,6 +11,8 @@ import type {
 } from '../../shared/model.ts';
 import { INTERVAL_MINUTES_OPTIONS, MAX_SCHEDULE_PROFILE_NAME_LENGTH } from '../../shared/model.ts';
 import { createDefaultFontSizeSettings, normalizeFontSizeSettings } from '../../shared/font-size.ts';
+import { MAX_ADVANCED_VCP_COMMANDS, normalizeAdvancedVcpAction } from '../../shared/advanced-vcp.ts';
+import { parseGlobalShortcut } from '../../shared/global-shortcut.ts';
 import { cloneDefaultSchedule, normalizeSchedule } from '../../shared/schedule.ts';
 import { createDefaultUiScaleSettings, normalizeUiScaleSettings } from '../../shared/ui-scale.ts';
 
@@ -170,6 +173,7 @@ export function createDefaultSettings(): AppSettings {
         activeScheduleProfileId: DEFAULT_PROFILE_ID,
         scheduleProfiles: [createDefaultScheduleProfile()],
         controlWindowBounds: null,
+        advancedVcpCommands: [],
     };
 }
 
@@ -202,6 +206,7 @@ function normalizeSettings(value: unknown): AppSettings {
         fontSize: normalizeFontSizeSettings(source.fontSize),
         activeScheduleProfileId,
         scheduleProfiles,
+        advancedVcpCommands: normalizeAdvancedVcpCommands(source.advancedVcpCommands),
     };
 }
 
@@ -326,4 +331,64 @@ function normalizeControlWindowBounds(value: unknown): ControlWindowBounds | nul
         width: Math.round(width),
         height: Math.round(height),
     };
+}
+
+function normalizeAdvancedVcpCommands(value: unknown): AdvancedVcpShortcutCommand[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    const commands: AdvancedVcpShortcutCommand[] = [];
+    const usedIds = new Set<string>();
+    const usedShortcuts = new Set<string>();
+
+    for (const [index, item] of value.slice(0, MAX_ADVANCED_VCP_COMMANDS).entries()) {
+        if (!isRecord(item)) {
+            continue;
+        }
+
+        const monitorId = typeof item.monitorId === 'string' ? item.monitorId.trim() : '';
+        const monitorName = typeof item.monitorName === 'string' ? item.monitorName.trim() : '';
+        const name = typeof item.name === 'string' ? item.name.trim().replace(/\s+/g, ' ').slice(0, 60) : '';
+        const action = normalizeAdvancedVcpAction(item.action);
+
+        if (!monitorId || !name || !action) {
+            continue;
+        }
+
+        let shortcut: string | null = null;
+        if (typeof item.shortcut === 'string' && item.shortcut.trim()) {
+            try {
+                shortcut = parseGlobalShortcut(item.shortcut).normalized;
+            } catch {
+                continue;
+            }
+            if (usedShortcuts.has(shortcut)) {
+                continue;
+            }
+        }
+
+        const requestedId = typeof item.id === 'string' ? item.id.trim() : '';
+        let id = requestedId || `advanced-vcp-${index + 1}`;
+        let suffix = 2;
+        while (usedIds.has(id)) {
+            id = `${requestedId || `advanced-vcp-${index + 1}`}-${suffix++}`;
+        }
+
+        usedIds.add(id);
+        if (shortcut) {
+            usedShortcuts.add(shortcut);
+        }
+        commands.push({
+            id,
+            name,
+            monitorId,
+            monitorName: monitorName || monitorId,
+            action,
+            shortcut,
+            closeWebViewAfter: item.closeWebViewAfter === true,
+        });
+    }
+
+    return commands;
 }

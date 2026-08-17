@@ -1,4 +1,6 @@
 import path from 'node:path';
+import { parseGlobalShortcut } from '../shared/global-shortcut';
+import type { AppState } from '../shared/model';
 import { AppController } from './app-controller';
 import { registerDevelopmentMessageHandler } from './development';
 import { NativeShell, type NativeShellEvent } from './native-shell';
@@ -7,6 +9,7 @@ import type { RuntimePaths } from './runtime-paths';
 import type { FileLogger } from './services/file-logger';
 import type { SingleInstanceLock } from './single-instance';
 import { TrayController } from './tray-controller';
+import { runBackground } from './utils/run-background';
 
 export interface DesktopApplicationOptions {
     paths: RuntimePaths;
@@ -26,6 +29,8 @@ export class DesktopApplication {
     #desktopReady = false;
     #requestedOpen = false;
     #quitting = false;
+    #globalHotkeySignature = '';
+    #globalHotkeyCaptureActive = false;
 
     constructor(options: DesktopApplicationOptions) {
         this.#paths = options.paths;
@@ -48,6 +53,7 @@ export class DesktopApplication {
                 const logDirectory = path.resolve(this.#paths.distributionRoot, 'log');
                 this.#nativeShell.openPath(logDirectory);
             },
+            setGlobalHotkeyCaptureActive: (active) => this.#setGlobalHotkeyCaptureActive(active),
         });
 
         const trayController = new TrayController({
@@ -72,11 +78,14 @@ export class DesktopApplication {
             (event) => this.#handleNativeShellEvent(event),
         );
 
+        this.#syncGlobalHotkeys(initialState);
+
         trayController.updateAutoEnabled(initialState.settings.autoEnabled);
 
         this.#appController.setStateListener((change) => {
             const { state } = change;
             trayController.updateAutoEnabled(state.settings.autoEnabled);
+            this.#syncGlobalHotkeys(state);
             panelManager.pushState(change);
         });
 
@@ -155,6 +164,63 @@ export class DesktopApplication {
         }
     }
 
+    #setGlobalHotkeyCaptureActive(active: boolean): void {
+        if (this.#globalHotkeyCaptureActive === active) {
+            return;
+        }
+
+        this.#globalHotkeyCaptureActive = active;
+
+        if (active) {
+            // 已注册的 RegisterHotKey 会先于 WebView 输入框收到组合键
+            // 录制快捷键期间临时注销本程序快捷键，使已被本程序命令占用的组合键仍能进入输入框并由 Renderer 检测重复
+            this.#nativeShell.setGlobalHotkeys([]);
+            return;
+        }
+
+        // 捕获期间设置可能发生变化（例如刚保存了新命令），强制用最新状态重建注册
+        this.#globalHotkeySignature = '';
+        this.#syncGlobalHotkeys(this.#appController.getState());
+    }
+
+    #syncGlobalHotkeys(state: AppState): void {
+        if (this.#globalHotkeyCaptureActive) {
+            return;
+        }
+
+        const signature = JSON.stringify(
+            state.settings.advancedVcpCommands.map(({ id, name, shortcut }) => [id, name, shortcut]),
+        );
+
+        if (signature === this.#globalHotkeySignature) {
+            return;
+        }
+
+        const bindings = state.settings.advancedVcpCommands.flatMap((command) => {
+            if (!command.shortcut) {
+                return [];
+            }
+
+            try {
+                const parsed = parseGlobalShortcut(command.shortcut);
+                return [
+                    {
+                        id: command.id,
+                        label: `${command.name} (${parsed.normalized})`,
+                        modifiers: parsed.modifiers,
+                        virtualKey: parsed.virtualKey,
+                    },
+                ];
+            } catch (error) {
+                console.error(`忽略无效全局快捷键“${command.shortcut}”：`, error);
+                return [];
+            }
+        });
+
+        this.#globalHotkeySignature = signature;
+        this.#nativeShell.setGlobalHotkeys(bindings);
+    }
+
     #handleNativeShellEvent(event: NativeShellEvent): void {
         switch (event.type) {
             case 'tray-primary-click':
@@ -163,6 +229,15 @@ export class DesktopApplication {
 
             case 'tray-command':
                 this.#trayController?.handleMenuClick(event.id);
+                break;
+
+            case 'global-hotkey':
+                runBackground('执行高级 VCP 全局快捷命令', async () => {
+                    const result = await this.#appController.executeAdvancedVcpCommand(event.id);
+                    if (result.closeWebViewAfter) {
+                        this.#panelManager?.destroy();
+                    }
+                });
                 break;
 
             case 'web-message':
@@ -179,6 +254,9 @@ export class DesktopApplication {
 
             case 'error':
                 console.error(`Native Shell：${event.message}`);
+                if (event.message.includes('全局快捷键')) {
+                    this.#panelManager?.pushToast(event.message);
+                }
                 break;
         }
     }

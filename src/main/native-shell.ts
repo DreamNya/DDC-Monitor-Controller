@@ -19,6 +19,7 @@ export interface NativeWindowBackgroundColor {
 export type NativeShellEvent =
     | { type: 'tray-primary-click'; x: number; y: number }
     | { type: 'tray-command'; id: string }
+    | { type: 'global-hotkey'; id: string }
     | { type: 'web-message'; message: string }
     | { type: 'window-closed'; id: string }
     | { type: 'window-bounds'; id: string; bounds: NativeWindowBounds }
@@ -54,6 +55,14 @@ export interface NativeWindowOpenOptions {
     initialBounds?: NativeWindowBounds | null;
 }
 
+
+export interface NativeGlobalHotkeyBinding {
+    id: string;
+    label: string;
+    modifiers: number;
+    virtualKey: number;
+}
+
 export type NativeTrayMenuItem =
     | {
           type: 'item';
@@ -74,6 +83,7 @@ interface WebViewNativeAddon {
     reload(): void;
     executeScript(script: string): void;
     setTrayMenu(items: NativeTrayMenuItem[]): void;
+    setGlobalHotkeys(bindings: NativeGlobalHotkeyBinding[]): void;
     openPath(targetPath: string): void;
     shutdown(): void;
 }
@@ -115,6 +125,9 @@ export class NativeShell {
     }
     setTrayMenu(items: NativeTrayMenuItem[]): void {
         this.#addon.setTrayMenu(items);
+    }
+    setGlobalHotkeys(bindings: NativeGlobalHotkeyBinding[]): void {
+        this.#addon.setGlobalHotkeys(bindings);
     }
     openPath(targetPath: string): void {
         this.#addon.openPath(targetPath);

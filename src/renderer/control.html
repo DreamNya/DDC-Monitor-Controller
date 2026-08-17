@@ -38,6 +38,16 @@
                         <button
                             class="nav-item"
                             type="button"
+                            data-panel-target="settings-panel"
+                            data-allow-while-busy
+                            aria-controls="settings-panel"
+                            aria-selected="false">
+                            <span class="nav-icon" aria-hidden="true">⚙</span>
+                            <span>设置</span>
+                        </button>
+                        <button
+                            class="nav-item"
+                            type="button"
                             data-panel-target="vcp-panel"
                             data-allow-while-busy
                             aria-controls="vcp-panel"
@@ -48,12 +58,12 @@
                         <button
                             class="nav-item"
                             type="button"
-                            data-panel-target="settings-panel"
+                            data-panel-target="advanced-vcp-panel"
                             data-allow-while-busy
-                            aria-controls="settings-panel"
+                            aria-controls="advanced-vcp-panel"
                             aria-selected="false">
-                            <span class="nav-icon" aria-hidden="true">⚙</span>
-                            <span>设置</span>
+                            <span class="nav-icon" aria-hidden="true">↯</span>
+                            <span>高级 VCP</span>
                         </button>
                         <div class="theme-toggle">
                             <input
@@ -247,54 +257,6 @@
                         </div>
                     </section>
 
-                    <section id="vcp-panel" class="subpanel" aria-label="枚举 VCP" hidden>
-                        <div class="vcp-workspace">
-                            <section class="card vcp-card">
-                                <div class="section-heading">
-                                    <div>
-                                        <span class="label">DDC/CI INSPECTOR</span>
-                                        <h2>枚举 VCP Code</h2>
-                                    </div>
-                                </div>
-
-                                <div class="vcp-toolbar">
-                                    <select id="vcp-monitor-select" aria-label="VCP 枚举目标显示器"></select>
-                                    <div class="vcp-toolbar-actions">
-                                        <button id="enumerate-vcp-button" class="primary" type="button">
-                                            枚举 VCP
-                                        </button>
-                                        <button id="read-vcp-button" class="secondary" type="button" disabled>
-                                            读取 VCP
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <p id="vcp-summary" class="vcp-summary hint">
-                                    选择一台显示器后按需读取 Capabilities；不会扫描 0x00–0xFF。
-                                </p>
-
-                                <div class="table-wrap vcp-table-wrap">
-                                    <table class="vcp-table">
-                                        <thead>
-                                            <tr>
-                                                <th>VCP</th>
-                                                <th>功能</th>
-                                                <th>支持值</th>
-                                                <th>当前值</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="vcp-body"></tbody>
-                                    </table>
-                                </div>
-
-                                <details class="vcp-raw-details">
-                                    <summary>Raw Capabilities</summary>
-                                    <pre id="vcp-raw-output" aria-label="格式化后的原始 Capabilities String">枚举完成后显示显示器返回的 Capabilities String</pre>
-                                </details>
-                            </section>
-                        </div>
-                    </section>
-
                     <section id="settings-panel" class="subpanel" aria-label="设置" hidden>
                         <div class="settings-workspace">
                             <section class="card settings-card">
@@ -416,10 +378,319 @@
                             </section>
                         </div>
                     </section>
+
+                    <section id="vcp-panel" class="subpanel" aria-label="枚举 VCP" hidden>
+                        <div class="vcp-workspace">
+                            <section class="card vcp-card">
+                                <div class="section-heading">
+                                    <div>
+                                        <span class="label">DDC/CI INSPECTOR</span>
+                                        <h2>枚举 VCP Code</h2>
+                                    </div>
+                                </div>
+
+                                <div class="vcp-toolbar">
+                                    <select id="vcp-monitor-select" aria-label="VCP 枚举目标显示器"></select>
+                                    <div class="vcp-toolbar-actions">
+                                        <button id="enumerate-vcp-button" class="primary" type="button">
+                                            枚举 VCP
+                                        </button>
+                                        <button id="read-vcp-button" class="secondary" type="button" disabled>
+                                            读取 VCP
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <p id="vcp-summary" class="vcp-summary hint">选择一台显示器后按需读取 Capabilities</p>
+
+                                <div class="table-wrap vcp-table-wrap">
+                                    <table class="vcp-table">
+                                        <thead>
+                                            <tr>
+                                                <th>VCP</th>
+                                                <th>功能</th>
+                                                <th>支持值</th>
+                                                <th>当前值</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="vcp-body"></tbody>
+                                    </table>
+                                </div>
+
+                                <details class="vcp-raw-details">
+                                    <summary>Raw Capabilities</summary>
+                                    <pre id="vcp-raw-output" aria-label="格式化后的原始 Capabilities String">
+枚举完成后显示显示器返回的 Capabilities String</pre
+                                    >
+                                </details>
+                            </section>
+                        </div>
+                    </section>
+
+                    <section id="advanced-vcp-panel" class="subpanel" aria-label="高级 VCP" hidden>
+                        <div class="advanced-vcp-workspace">
+                            <section class="card advanced-vcp-header-card">
+                                <div class="advanced-warning" role="note">
+                                    <strong>⚠️仅限高级用户</strong>
+                                    <span
+                                        >错误的 VCP
+                                        参数配置可能会造成显示器运行异常或故障，请务必确认您清楚每一项指令的技术逻辑</span
+                                    >
+                                    <span>执行此操作的所有后果由用户自行承担，本程序不提供容错机制与任何责任担保</span>
+                                </div>
+                                <div class="advanced-monitor-row">
+                                    <div>
+                                        <span class="label">操作目标</span>
+                                        <h2>选择特定显示器</h2>
+                                    </div>
+                                    <select id="advanced-vcp-monitor-select" aria-label="高级 VCP 目标显示器"></select>
+                                </div>
+                                <p class="hint">
+                                    亮度 / 对比度的相对百分比调节会限制在 0 到显示器返回的 maximum；其余 Value 不做
+                                    0–100 或显示器范围兜底；VCP Code 可自行修改，数值支持十进制或 0x 前缀十六进制
+                                </p>
+                            </section>
+
+                            <div class="advanced-action-grid">
+                                <section class="card advanced-action-card advanced-preset-card">
+                                    <div class="advanced-action-heading">
+                                        <div>
+                                            <span class="label">预设功能</span>
+                                            <h2>高级 VCP 预设操作</h2>
+                                        </div>
+                                    </div>
+
+                                    <div class="advanced-field-grid advanced-preset-selector">
+                                        <label class="advanced-field-span"
+                                            >功能类型
+                                            <select id="advanced-preset-mode">
+                                                <option value="relative">亮度 / 对比度增减百分比</option>
+                                                <option value="absolute">亮度 / 对比度绝对值</option>
+                                                <option value="input">切换输入源</option>
+                                                <option value="power">切换电源模式</option>
+                                            </select>
+                                        </label>
+                                    </div>
+
+                                    <div class="advanced-preset-section" data-preset-mode="relative">
+                                        <div class="advanced-field-grid">
+                                            <label
+                                                >功能
+                                                <select id="advanced-relative-target">
+                                                    <option value="brightness">亮度</option>
+                                                    <option value="contrast">对比度</option>
+                                                </select>
+                                            </label>
+                                            <label
+                                                >VCP Code
+                                                <input
+                                                    id="advanced-relative-code"
+                                                    type="text"
+                                                    value="0x10"
+                                                    spellcheck="false" />
+                                            </label>
+                                            <label
+                                                >方向
+                                                <select id="advanced-relative-direction">
+                                                    <option value="increase">增加</option>
+                                                    <option value="decrease">减少</option>
+                                                </select>
+                                            </label>
+                                            <label
+                                                >百分比
+                                                <input
+                                                    id="advanced-relative-percent"
+                                                    type="number"
+                                                    step="any"
+                                                    placeholder="自行填写" />
+                                            </label>
+                                        </div>
+                                        <p class="hint">
+                                            按显示器返回的 maximum 计算百分比增减量，并将最终写入值限制在
+                                            0～maximum，即使当前值已在边界，执行或快捷键仍会发送一次写入
+                                        </p>
+                                    </div>
+
+                                    <div class="advanced-preset-section" data-preset-mode="absolute" hidden>
+                                        <div class="advanced-field-grid">
+                                            <label
+                                                >功能
+                                                <select id="advanced-absolute-target">
+                                                    <option value="brightness">亮度</option>
+                                                    <option value="contrast">对比度</option>
+                                                </select>
+                                            </label>
+                                            <label
+                                                >VCP Code
+                                                <input
+                                                    id="advanced-absolute-code"
+                                                    type="text"
+                                                    value="0x10"
+                                                    spellcheck="false" />
+                                            </label>
+                                            <label class="advanced-field-span"
+                                                >Value
+                                                <input
+                                                    id="advanced-absolute-value"
+                                                    type="text"
+                                                    placeholder="自行填写，例如 50 或 0x32"
+                                                    spellcheck="false" />
+                                            </label>
+                                        </div>
+                                        <p class="hint">Value 将原样转换为整数后发送，无最大值最小值兜底</p>
+                                    </div>
+
+                                    <div class="advanced-preset-section" data-preset-mode="input" hidden>
+                                        <div class="advanced-field-grid">
+                                            <label
+                                                >VCP Code
+                                                <input
+                                                    id="advanced-input-code"
+                                                    type="text"
+                                                    value="0x60"
+                                                    spellcheck="false" />
+                                            </label>
+                                            <label
+                                                >Value
+                                                <input
+                                                    id="advanced-input-value"
+                                                    type="text"
+                                                    placeholder="自行填写"
+                                                    spellcheck="false" />
+                                            </label>
+                                        </div>
+                                        <div class="setting-row advanced-close-setting">
+                                            <div>
+                                                <strong>切换后关闭 UI 面板</strong>
+                                                <small>写入成功后销毁 WebView 释放内存</small>
+                                            </div>
+                                            <label class="switch small-switch" title="切换输入源后关闭当前 WebView">
+                                                <input id="advanced-input-close-toggle" type="checkbox" />
+                                                <span></span>
+                                            </label>
+                                        </div>
+                                        <p class="hint">默认 VCP Code 为 0x60；具体输入源 Value 由显示器决定</p>
+                                    </div>
+
+                                    <div class="advanced-preset-section" data-preset-mode="power" hidden>
+                                        <div class="advanced-field-grid">
+                                            <label
+                                                >VCP Code
+                                                <input
+                                                    id="advanced-power-code"
+                                                    type="text"
+                                                    value="0xD6"
+                                                    spellcheck="false" />
+                                            </label>
+                                            <label
+                                                >Value
+                                                <input
+                                                    id="advanced-power-value"
+                                                    type="text"
+                                                    placeholder="自行填写"
+                                                    spellcheck="false" />
+                                            </label>
+                                        </div>
+                                        <p class="hint">默认 VCP Code 为 0xD6；具体电源模式 Value 由显示器决定</p>
+                                    </div>
+
+                                    <div class="advanced-action-buttons">
+                                        <button id="advanced-preset-run" class="primary" type="button">执行</button>
+                                        <button id="advanced-preset-save" class="secondary" type="button">
+                                            保存为快捷命令
+                                        </button>
+                                    </div>
+                                </section>
+
+                                <section class="card advanced-action-card advanced-custom-card">
+                                    <div class="advanced-action-heading">
+                                        <div>
+                                            <span class="label">RAW VCP</span>
+                                            <h2>自定义读取 / 写入</h2>
+                                        </div>
+                                    </div>
+                                    <div class="advanced-field-grid advanced-custom-fields">
+                                        <label
+                                            >操作
+                                            <select id="advanced-custom-mode">
+                                                <option value="read">读取</option>
+                                                <option value="write">写入</option>
+                                            </select>
+                                        </label>
+                                        <label
+                                            >VCP Code
+                                            <input
+                                                id="advanced-custom-code"
+                                                type="text"
+                                                placeholder="例如 0x10"
+                                                spellcheck="false" />
+                                        </label>
+                                        <label id="advanced-custom-value-field" class="advanced-field-span" hidden
+                                            >Value
+                                            <input
+                                                id="advanced-custom-value"
+                                                type="text"
+                                                placeholder="自行填写"
+                                                spellcheck="false" />
+                                        </label>
+                                    </div>
+                                    <p id="advanced-custom-result" class="advanced-result hint">
+                                        读取会返回 current / maximum；写入会直接尝试 Set VCP Feature
+                                    </p>
+                                    <div class="advanced-action-buttons">
+                                        <button id="advanced-custom-run" class="primary" type="button">执行</button>
+                                        <button id="advanced-custom-save" class="secondary" type="button">
+                                            保存为快捷命令
+                                        </button>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <section class="card advanced-shortcuts-card">
+                                <div class="section-heading">
+                                    <div>
+                                        <span class="label">快捷命令</span>
+                                        <h2>已保存命令 / 全局快捷键</h2>
+                                    </div>
+                                </div>
+                                <p class="hint">
+                                    命令按显示器进行分组，显示器离线时点击执行会禁用；全局快捷键触发时也会先重新检测显示器，离线则拒绝写入
+                                </p>
+                                <div id="advanced-command-groups" class="advanced-command-groups"></div>
+                            </section>
+                        </div>
+                    </section>
                 </div>
             </div>
         </main>
 
-        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+        <dialog id="advanced-command-dialog" class="advanced-command-dialog">
+            <form id="advanced-command-form" method="dialog">
+                <div>
+                    <span class="label">快捷命令</span>
+                    <h2>保存高级 VCP 命令</h2>
+                </div>
+                <label
+                    >命令名称
+                    <input id="advanced-command-name" type="text" maxlength="60" autocomplete="off" />
+                </label>
+                <label
+                    >全局快捷键（可选）
+                    <input
+                        id="advanced-command-shortcut"
+                        type="text"
+                        readonly
+                        placeholder="点击后按组合键；Backspace 清除"
+                        autocomplete="off" />
+                </label>
+                <p class="hint">至少包含 Ctrl / Alt / Shift / Win 中一个修饰键</p>
+                <div class="advanced-dialog-actions">
+                    <button id="advanced-command-cancel" class="secondary" type="button">取消</button>
+                    <button id="advanced-command-confirm" class="primary" type="submit">保存</button>
+                </div>
+            </form>
+        </dialog>
+
+        <div id="toast" class="toast" popover="manual" role="status" aria-live="polite"></div>
     </body>
 </html>
