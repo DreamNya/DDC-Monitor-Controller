@@ -278,6 +278,47 @@ namespace {
         return result;
     }
 
+    Napi::Value get_capabilities(const Napi::CallbackInfo& info) {
+        const Napi::Env env = info.Env();
+        std::uint32_t index = 0;
+
+        if (!read_uint32_argument(info, 0, "index", index)) {
+            return env.Undefined();
+        }
+
+        std::lock_guard lock(g_mutex);
+        MonitorRecord* monitor = resolve_monitor(env, index);
+
+        if (monitor == nullptr) {
+            return env.Undefined();
+        }
+
+        DWORD length = 0;
+
+        if (!GetCapabilitiesStringLength(monitor->handle, &length)) {
+            throw_win32_error(env, "读取显示器 Capabilities 长度",
+                last_error_or(ERROR_GEN_FAILURE));
+            return env.Undefined();
+        }
+
+        if (length == 0) {
+            return Napi::String::New(env, "");
+        }
+
+        std::vector<char> buffer(static_cast<std::size_t>(length) + 1, '\0');
+
+        // Windows Monitor Configuration API 内部完成 DDC/CI
+        // Capabilities Request (0xF3) / Capabilities Reply (0xE3) 交互。
+        if (!CapabilitiesRequestAndCapabilitiesReply(
+            monitor->handle, buffer.data(), length)) {
+            throw_win32_error(env, "读取显示器 Capabilities",
+                last_error_or(ERROR_GEN_FAILURE));
+            return env.Undefined();
+        }
+
+        return Napi::String::New(env, buffer.data());
+    }
+
     Napi::Value set_vcp_value(const Napi::CallbackInfo& info) {
         const Napi::Env env = info.Env();
         std::uint32_t index = 0;
@@ -323,6 +364,7 @@ namespace {
 
         exports.Set("refreshMonitors", Napi::Function::New(env, refresh_monitors));
         exports.Set("getVcpValue", Napi::Function::New(env, get_vcp_value));
+        exports.Set("getCapabilities", Napi::Function::New(env, get_capabilities));
         exports.Set("setVcpValue", Napi::Function::New(env, set_vcp_value));
         exports.Set("shutdown", Napi::Function::New(env, shutdown));
         return exports;

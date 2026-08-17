@@ -17,6 +17,10 @@ export class NativeDdcClient {
         return getNativeAddon().getVcpValue(index, code);
     }
 
+    getCapabilities(index: number): string {
+        return getNativeAddon().getCapabilities(index);
+    }
+
     writeVcpValue(index: number, code: number, value: number): void {
         getNativeAddon().setVcpValue(index, code, value);
     }

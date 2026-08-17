@@ -1,4 +1,12 @@
-import type { LiveApplyRequest, ManualApplyRequest, MonitorSnapshot, MonitorTarget } from '../../shared/model';
+import type {
+    LiveApplyRequest,
+    ManualApplyRequest,
+    MonitorCapabilities,
+    MonitorSnapshot,
+    MonitorTarget,
+    MonitorVcpReadResult,
+} from '../../shared/model';
+import { parseVcpCapabilities } from './monitor/capabilities-parser.ts';
 import { NativeDdcClient, type NativeMonitor, type VcpValue } from './monitor/native-ddc-client.ts';
 
 const VCP_BRIGHTNESS = 0x10;
@@ -7,6 +15,7 @@ const VCP_CONTRAST = 0x12;
 export interface DdcClient {
     refreshMonitors(): NativeMonitor[];
     readVcpValue(index: number, code: number): VcpValue;
+    getCapabilities(index: number): string;
     writeVcpValue(index: number, code: number, value: number): void;
     dispose(): void;
 }
@@ -46,6 +55,55 @@ export class DDCMonitorController {
     /** 返回内存中的最后一份快照，不触发任何 DDC/CI 通信 */
     getCachedSnapshots(): MonitorSnapshot[] {
         return structuredClone(this.#snapshots);
+    }
+
+    /** 按需读取单台显示器的 MCCS Capabilities String，并解析其中声明的 VCP Code。 */
+    getCapabilities(monitorId: string): MonitorCapabilities {
+        const monitor = resolveSingleMonitor(this.#monitors, monitorId);
+        const raw = this.#client.getCapabilities(monitor.index);
+
+        return {
+            monitorId: monitor.id,
+            monitorName: monitor.name,
+            raw,
+            vcpCodes: parseVcpCapabilities(raw),
+        };
+    }
+
+    /**
+     * 尽力批量读取 VCP Code。
+     *
+     * Capabilities 中出现某个 Code 并不保证显示器实现了通用 Get VCP Feature；
+     * 因此单项失败只记录到结果中，不中断其余 Code 的读取。
+     */
+    getVcpValues(monitorId: string, codes: readonly number[]): MonitorVcpReadResult[] {
+        const monitor = resolveSingleMonitor(this.#monitors, monitorId);
+        const uniqueCodes = [...new Set(codes)];
+
+        for (const code of uniqueCodes) {
+            if (!Number.isInteger(code) || code < 0 || code > 0xff) {
+                throw new RangeError(`VCP Code 必须位于 0x00 到 0xFF：${String(code)}`);
+            }
+        }
+
+        return uniqueCodes.map((code) => {
+            try {
+                const value = this.#client.readVcpValue(monitor.index, code);
+
+                return {
+                    code,
+                    current: value.current,
+                    maximum: value.maximum,
+                } satisfies MonitorVcpReadResult;
+            } catch (error) {
+                return {
+                    code,
+                    current: null,
+                    maximum: null,
+                    error: toErrorMessage(error),
+                } satisfies MonitorVcpReadResult;
+            }
+        });
     }
 
     /**
@@ -259,6 +317,21 @@ function resolveTargets(monitors: readonly NativeMonitor[], target: MonitorTarge
     }
 
     return [monitor];
+}
+
+function resolveSingleMonitor(monitors: readonly NativeMonitor[], monitorId: string): NativeMonitor {
+    if (monitorId === 'all') {
+        throw new Error('VCP 枚举需要选择一台具体显示器');
+    }
+
+    const targets = resolveTargets(monitors, monitorId);
+    const monitor = targets[0];
+
+    if (!monitor) {
+        throw new Error(`目标显示器已断开或标识发生变化：${monitorId}`);
+    }
+
+    return monitor;
 }
 
 function clamp(value: number): number {

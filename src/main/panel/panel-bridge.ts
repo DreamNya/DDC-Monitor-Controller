@@ -15,6 +15,10 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
     return {
         getState: () => runBridgeCall(() => appController.getState()),
         refreshMonitors: () => runCommand(() => appController.refreshMonitors()),
+        getMonitorCapabilities: ({ monitorId }) =>
+            runBridgeCall(() => appController.getMonitorCapabilities(monitorId)),
+        getMonitorVcpValues: ({ monitorId, codes }) =>
+            runBridgeCall(() => appController.getMonitorVcpValues(monitorId, codes)),
         applyManual: (request) => runCommand(() => appController.applyManual(request)),
         applyLive: (request) => runCommand(() => appController.applyLive(request)),
         applyAutoNow: () => runCommand(() => appController.applyAutoNow()),

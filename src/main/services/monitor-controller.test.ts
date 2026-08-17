@@ -90,6 +90,44 @@ describe('DDCMonitorController cache policy', () => {
         assert.equal(client.refreshCount, 1);
         await controller.dispose();
     });
+
+    test('capabilities are queried on demand for one concrete monitor', async () => {
+        const client = new FakeDdcClient();
+        const controller = new DDCMonitorController(client);
+
+        await controller.getSnapshots();
+        const result = controller.getCapabilities('monitor-1');
+
+        assert.equal(client.capabilitiesCount, 1);
+        assert.equal(result.monitorId, 'monitor-1');
+        assert.equal(result.monitorName, 'Test Monitor');
+        assert.deepEqual(result.vcpCodes, [
+            { code: 0x10, supportedValues: null },
+            { code: 0x60, supportedValues: [0x01, 0x03] },
+        ]);
+
+        assert.throws(() => controller.getCapabilities('all'), /需要选择一台具体显示器/);
+        await controller.dispose();
+    });
+
+    test('batch VCP reads keep per-code failures without aborting the whole request', async () => {
+        const client = new FakeDdcClient();
+        const controller = new DDCMonitorController(client);
+
+        await controller.getSnapshots();
+        const results = controller.getVcpValues('monitor-1', [VCP_BRIGHTNESS, 0xfd, VCP_BRIGHTNESS]);
+
+        assert.deepEqual(results[0], { code: VCP_BRIGHTNESS, current: 40, maximum: 100 });
+        assert.deepEqual(results[1], {
+            code: 0xfd,
+            current: null,
+            maximum: null,
+            error: 'Unknown VCP code: 253',
+        });
+        assert.equal(results.length, 2);
+        assert.throws(() => controller.getVcpValues('monitor-1', [0x100]), /0x00 到 0xFF/);
+        await controller.dispose();
+    });
 });
 
 class FakeDdcClient implements DdcClient {
@@ -101,6 +139,7 @@ class FakeDdcClient implements DdcClient {
 
     refreshCount = 0;
     readCount = 0;
+    capabilitiesCount = 0;
     writes: Array<{ index: number; code: number; value: number }> = [];
 
     constructor(monitors: NativeMonitor[] = [{ id: 'monitor-1', name: 'Test Monitor', index: 0 }]) {
@@ -121,6 +160,11 @@ class FakeDdcClient implements DdcClient {
         }
 
         return { ...value };
+    }
+
+    getCapabilities(_index: number): string {
+        this.capabilitiesCount += 1;
+        return '(prot(monitor)vcp(10 60(01 03)))';
     }
 
     writeVcpValue(index: number, code: number, value: number): void {

@@ -8,7 +8,9 @@ import type {
     IntervalMinutes,
     LiveApplyRequest,
     ManualApplyRequest,
+    MonitorCapabilities,
     MonitorTarget,
+    MonitorVcpReadResult,
     SchedulePoint,
     UiScalePercent,
     UiScaleTarget,
@@ -44,7 +46,7 @@ import { createDefaultSettings, SettingsStore } from './services/settings-store.
 
 type MonitorController = Pick<
     DDCMonitorController,
-    'getSnapshots' | 'getCachedSnapshots' | 'apply' | 'applyLive' | 'dispose'
+    'getSnapshots' | 'getCachedSnapshots' | 'getCapabilities' | 'getVcpValues' | 'apply' | 'applyLive' | 'dispose'
 >;
 type AutoScheduler = Pick<AutoAdjustmentScheduler, 'nextRunAt' | 'schedule' | 'stop' | 'dispose'>;
 
@@ -160,6 +162,14 @@ export class AppController {
             await this.#refreshMonitors();
             return 'refresh-monitors' as const;
         });
+    }
+
+    getMonitorCapabilities(monitorId: string): Promise<MonitorCapabilities> {
+        return this.#commands.run(() => this.#monitorController.getCapabilities(monitorId));
+    }
+
+    getMonitorVcpValues(monitorId: string, codes: readonly number[]): Promise<MonitorVcpReadResult[]> {
+        return this.#commands.run(() => this.#monitorController.getVcpValues(monitorId, codes));
     }
 
     applyManual(request: ManualApplyRequest): Promise<void> {

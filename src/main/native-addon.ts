@@ -17,6 +17,7 @@ export interface VcpValue {
 interface MonitorNativeAddon {
     refreshMonitors(): NativeMonitor[];
     getVcpValue(index: number, code: number): VcpValue;
+    getCapabilities(index: number): string;
     setVcpValue(index: number, code: number, value: number): void;
     shutdown(): void;
 }

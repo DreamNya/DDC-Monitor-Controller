@@ -190,6 +190,29 @@ class FakeMonitorController implements MonitorDependency {
         return structuredClone(this.#snapshots);
     }
 
+    getCapabilities(monitorId: string) {
+        const monitor = this.#snapshots.find(({ id }) => id === monitorId);
+
+        if (!monitor) {
+            throw new Error(`Unknown monitor: ${monitorId}`);
+        }
+
+        return {
+            monitorId,
+            monitorName: monitor.name,
+            raw: '(vcp(10))',
+            vcpCodes: [{ code: 0x10, supportedValues: null }],
+        };
+    }
+
+    getVcpValues(monitorId: string, codes: readonly number[]) {
+        if (!this.#snapshots.some(({ id }) => id === monitorId)) {
+            throw new Error(`Unknown monitor: ${monitorId}`);
+        }
+
+        return codes.map((code) => ({ code, current: 50, maximum: 100 }));
+    }
+
     async apply(request: ManualApplyRequest) {
         if (this.#blockApply) {
             this.applyStarted.resolve();

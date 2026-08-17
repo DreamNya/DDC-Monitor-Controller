@@ -35,6 +35,19 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     const appController = {
         getState: () => state,
         refreshMonitors: () => record('refreshMonitors'),
+        getMonitorCapabilities: async (monitorId: string) => {
+            calls.push({ name: 'getMonitorCapabilities', args: [monitorId] });
+            return {
+                monitorId,
+                monitorName: 'Test Monitor',
+                raw: '(vcp(10))',
+                vcpCodes: [{ code: 0x10, supportedValues: null }],
+            };
+        },
+        getMonitorVcpValues: async (monitorId: string, codes: readonly number[]) => {
+            calls.push({ name: 'getMonitorVcpValues', args: [monitorId, codes] });
+            return codes.map((code) => ({ code, current: 50, maximum: 100 }));
+        },
         applyManual: (request: ManualApplyRequest) => record('applyManual', request),
         applyLive: (request: LiveApplyRequest) => record('applyLive', request),
         applyAutoNow: () => record('applyAutoNow'),
@@ -76,12 +89,24 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     });
 
     assert.equal(await bridge.getState(), state);
+    assert.deepEqual(await bridge.getMonitorCapabilities({ monitorId: 'monitor-1' }), {
+        monitorId: 'monitor-1',
+        monitorName: 'Test Monitor',
+        raw: '(vcp(10))',
+        vcpCodes: [{ code: 0x10, supportedValues: null }],
+    });
+    assert.deepEqual(await bridge.getMonitorVcpValues({ monitorId: 'monitor-1', codes: [0x10, 0xfd] }), [
+        { code: 0x10, current: 50, maximum: 100 },
+        { code: 0xfd, current: 50, maximum: 100 },
+    ]);
     assert.equal(await bridge.setAutoInterval({ intervalMinutes: 15 }), null);
     assert.equal(await bridge.setUiScale({ target: 'quick', percent: 125 }), null);
     assert.equal(await bridge.resetUiScale(), null);
     assert.equal(await bridge.setFontSize({ target: 'hint', pixels: 13 }), null);
     assert.equal(await bridge.resetFontSize(), null);
     assert.deepEqual(calls, [
+        { name: 'getMonitorCapabilities', args: ['monitor-1'] },
+        { name: 'getMonitorVcpValues', args: ['monitor-1', [0x10, 0xfd]] },
         { name: 'setAutoInterval', args: [15] },
         { name: 'setUiScale', args: ['quick', 125] },
         { name: 'resetUiScale', args: [] },

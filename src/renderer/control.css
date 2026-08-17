@@ -1112,6 +1112,136 @@ td:last-child {
     display: none !important;
 }
 
+.vcp-workspace {
+    height: 100%;
+    min-height: 0;
+    padding: 0 20px 20px;
+    overflow: hidden;
+}
+
+.vcp-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.vcp-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(8px, 1vw, 12px);
+    margin-top: clamp(10px, 1.5vh, 16px);
+}
+
+.vcp-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 10px);
+}
+
+.vcp-toolbar-actions > button {
+    flex: 0 0 auto;
+}
+
+.vcp-summary {
+    flex: 0 0 auto;
+}
+
+.vcp-table-wrap {
+    flex: 1 1 auto;
+    min-height: 120px;
+}
+
+.vcp-table th,
+.vcp-table td {
+    font-size: var(--font-size-default);
+}
+
+.vcp-table th:first-child {
+    width: 14%;
+}
+
+.vcp-table th:nth-child(2) {
+    width: 18%;
+}
+
+.vcp-table th:nth-child(3) {
+    width: 38%;
+}
+
+.vcp-table th:nth-child(4) {
+    width: 30%;
+}
+
+.vcp-table td {
+    vertical-align: middle;
+    cursor: copy;
+    transition:
+        background-color 120ms ease,
+        box-shadow 120ms ease;
+}
+
+.vcp-table td:hover {
+    background: var(--nav-hover-background);
+}
+
+.vcp-table td.vcp-cell-copied {
+    background: var(--badge-on-background);
+    box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.vcp-code,
+.vcp-supported-values,
+.vcp-current-value {
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.vcp-supported-values {
+    overflow-wrap: anywhere;
+}
+
+.vcp-current-value.vcp-read-error {
+    color: var(--danger-text);
+    font-family: inherit;
+    white-space: normal;
+}
+
+.vcp-raw-details {
+    flex: 0 0 auto;
+    margin-top: clamp(8px, 1.1vh, 12px);
+    border-top: 1px solid var(--input-border);
+    padding-top: clamp(7px, 1vh, 10px);
+}
+
+.vcp-raw-details summary {
+    width: max-content;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: calc(clamp(10px, 1.4vh, 13px) + var(--font-size-default-offset));
+    font-weight: 650;
+}
+
+#vcp-raw-output {
+    box-sizing: border-box;
+    width: 100%;
+    max-height: clamp(110px, 30vh, 280px);
+    margin-top: clamp(7px, 1vh, 10px);
+    margin-bottom: 0;
+    border: 1px solid var(--input-border);
+    border-radius: clamp(7px, 1vw, 10px);
+    padding: clamp(7px, 1vh, 10px);
+    background: var(--input-background);
+    color: inherit;
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    font-size: calc(clamp(9px, 1.2vh, 12px) + var(--font-size-hint-offset));
+    line-height: 1.45;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    overflow: auto;
+    user-select: text;
+}
+
 .settings-workspace {
     display: grid;
     grid-template-columns: minmax(0, 1fr);

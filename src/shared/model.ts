@@ -32,6 +32,29 @@ export interface MonitorSnapshot {
     error?: string;
 }
 
+/** Capabilities String 中声明的单个 VCP Code。 */
+export interface VcpCapability {
+    code: number;
+    /** 非连续型 VCP 声明的支持值；未声明时为 null。 */
+    supportedValues: number[] | null;
+}
+
+/** 单台显示器的 DDC/CI Capabilities 查询结果。 */
+export interface MonitorCapabilities {
+    monitorId: string;
+    monitorName: string;
+    raw: string;
+    vcpCodes: VcpCapability[];
+}
+
+/** 单个 VCP Code 的批量读取结果；失败项保留错误文本而不中断整批读取。 */
+export interface MonitorVcpReadResult {
+    code: number;
+    current: number | null;
+    maximum: number | null;
+    error?: string;
+}
+
 /** 显示器标识；保留字符串 `all` 表示全部显示器 */
 export type MonitorTarget = string;
 

@@ -5,7 +5,9 @@ import type {
     IntervalMinutes,
     LiveApplyRequest,
     ManualApplyRequest,
+    MonitorCapabilities,
     MonitorTarget,
+    MonitorVcpReadResult,
     SchedulePoint,
     UiScalePercent,
     UiScaleTarget,
@@ -20,6 +22,8 @@ import type {
 export interface MonitorBridge {
     getState(): Promise<AppState>;
     refreshMonitors(): Promise<null>;
+    getMonitorCapabilities(options: { monitorId: string }): Promise<MonitorCapabilities>;
+    getMonitorVcpValues(options: { monitorId: string; codes: number[] }): Promise<MonitorVcpReadResult[]>;
     applyManual(request: ManualApplyRequest): Promise<null>;
     applyLive(request: LiveApplyRequest): Promise<null>;
     applyAutoNow(): Promise<null>;

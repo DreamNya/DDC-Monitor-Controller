@@ -38,6 +38,16 @@
                         <button
                             class="nav-item"
                             type="button"
+                            data-panel-target="vcp-panel"
+                            data-allow-while-busy
+                            aria-controls="vcp-panel"
+                            aria-selected="false">
+                            <span class="nav-icon" aria-hidden="true">V</span>
+                            <span>枚举 VCP</span>
+                        </button>
+                        <button
+                            class="nav-item"
+                            type="button"
                             data-panel-target="settings-panel"
                             data-allow-while-busy
                             aria-controls="settings-panel"
@@ -234,6 +244,54 @@
                                     </div>
                                 </section>
                             </div>
+                        </div>
+                    </section>
+
+                    <section id="vcp-panel" class="subpanel" aria-label="枚举 VCP" hidden>
+                        <div class="vcp-workspace">
+                            <section class="card vcp-card">
+                                <div class="section-heading">
+                                    <div>
+                                        <span class="label">DDC/CI INSPECTOR</span>
+                                        <h2>枚举 VCP Code</h2>
+                                    </div>
+                                </div>
+
+                                <div class="vcp-toolbar">
+                                    <select id="vcp-monitor-select" aria-label="VCP 枚举目标显示器"></select>
+                                    <div class="vcp-toolbar-actions">
+                                        <button id="enumerate-vcp-button" class="primary" type="button">
+                                            枚举 VCP
+                                        </button>
+                                        <button id="read-vcp-button" class="secondary" type="button" disabled>
+                                            读取 VCP
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <p id="vcp-summary" class="vcp-summary hint">
+                                    选择一台显示器后按需读取 Capabilities；不会扫描 0x00–0xFF。
+                                </p>
+
+                                <div class="table-wrap vcp-table-wrap">
+                                    <table class="vcp-table">
+                                        <thead>
+                                            <tr>
+                                                <th>VCP</th>
+                                                <th>功能</th>
+                                                <th>支持值</th>
+                                                <th>当前值</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="vcp-body"></tbody>
+                                    </table>
+                                </div>
+
+                                <details class="vcp-raw-details">
+                                    <summary>Raw Capabilities</summary>
+                                    <pre id="vcp-raw-output" aria-label="格式化后的原始 Capabilities String">枚举完成后显示显示器返回的 Capabilities String</pre>
+                                </details>
+                            </section>
                         </div>
                     </section>
 

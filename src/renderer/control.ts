@@ -1,10 +1,12 @@
 import type { MonitorBridge } from '../shared/bridge';
+import { formatCapabilitiesString } from '../shared/capabilities-format';
 import { isFontSizePx } from '../shared/font-size';
 import type {
     AppState,
     AppStateChange,
     FontSizeTarget,
     IntervalMinutes,
+    MonitorCapabilities,
     MonitorTarget,
     SchedulePoint,
     ScheduleProfile,
@@ -34,11 +36,21 @@ type RenderOptions = {
     syncManualValues?: boolean;
 };
 
-type ControlSubpanelId = 'control-panel' | 'settings-panel';
+type ControlSubpanelId = 'control-panel' | 'vcp-panel' | 'settings-panel';
 
 let bridge: MonitorBridge;
 let currentState: AppState | undefined;
+let lastCapabilities: MonitorCapabilities | undefined;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+let copiedVcpCellTimer: ReturnType<typeof setTimeout> | undefined;
+let copiedVcpCell: HTMLTableCellElement | undefined;
+
+const VCP_CODE_NAMES = new Map<number, string>([
+    [0x10, '亮度'],
+    [0x12, '对比度'],
+    [0x60, '输入源'],
+    [0xd6, '电源模式'],
+]);
 
 const elements = {
     autoBadge: getElement<HTMLSpanElement>('#auto-badge'),
@@ -46,6 +58,12 @@ const elements = {
     lastError: getElement<HTMLElement>('#last-error'),
     refreshButton: getElement<HTMLButtonElement>('#refresh-button'),
     monitorSelect: getElement<HTMLSelectElement>('#monitor-select'),
+    vcpMonitorSelect: getElement<HTMLSelectElement>('#vcp-monitor-select'),
+    enumerateVcpButton: getElement<HTMLButtonElement>('#enumerate-vcp-button'),
+    readVcpButton: getElement<HTMLButtonElement>('#read-vcp-button'),
+    vcpSummary: getElement<HTMLElement>('#vcp-summary'),
+    vcpBody: getElement<HTMLTableSectionElement>('#vcp-body'),
+    vcpRawOutput: getElement<HTMLPreElement>('#vcp-raw-output'),
     brightnessSlider: getElement<HTMLInputElement>('#brightness-slider'),
     brightnessValue: getElement<HTMLOutputElement>('#brightness-value'),
     contrastSlider: getElement<HTMLInputElement>('#contrast-slider'),
@@ -173,6 +191,75 @@ function bindEvents(): void {
         });
     });
 
+    elements.vcpMonitorSelect.addEventListener('change', () => {
+        if (lastCapabilities?.monitorId !== elements.vcpMonitorSelect.value) {
+            clearVcpResults();
+        }
+
+        updateControlStates();
+    });
+
+    elements.enumerateVcpButton.addEventListener('click', () => {
+        const monitorId = elements.vcpMonitorSelect.value;
+
+        void actions.run(async () => {
+            if (!monitorId) {
+                throw new Error('请先选择一台显示器');
+            }
+
+            elements.vcpSummary.textContent = '正在读取显示器 Capabilities…';
+
+            try {
+                const result = await bridge.getMonitorCapabilities({ monitorId });
+                renderVcpCapabilities(result);
+                showToast(`已枚举 ${result.vcpCodes.length} 个 VCP Code`);
+            } catch (error) {
+                elements.vcpSummary.textContent = `枚举失败：${getErrorMessage(error)}`;
+                throw error;
+            }
+        });
+    });
+
+    elements.vcpBody.addEventListener('click', (event) => {
+        void handleVcpCellCopy(event);
+    });
+
+    elements.readVcpButton.addEventListener('click', () => {
+        const monitorId = elements.vcpMonitorSelect.value;
+        const capabilities = lastCapabilities;
+
+        void actions.run(async () => {
+            if (!monitorId || !capabilities || capabilities.monitorId !== monitorId) {
+                throw new Error('请先枚举当前显示器的 VCP Code');
+            }
+
+            const codes = capabilities.vcpCodes.map(({ code }) => code);
+
+            if (codes.length === 0) {
+                throw new Error('当前 Capabilities 中没有可读取的 VCP Code');
+            }
+
+            markVcpValuesReading();
+            elements.vcpSummary.textContent = `正在批量读取 ${codes.length} 个 VCP Code…`;
+
+            const results = await bridge.getMonitorVcpValues({ monitorId, codes });
+
+            if (lastCapabilities?.monitorId !== monitorId) {
+                return;
+            }
+
+            renderVcpReadResults(results);
+
+            const successCount = results.filter(({ error }) => error === undefined).length;
+            const failedCount = results.length - successCount;
+            const monitorName = capabilities.monitorName || capabilities.monitorId;
+            elements.vcpSummary.textContent =
+                `${monitorName} 声明支持 ${capabilities.vcpCodes.length} 个 VCP Code；` +
+                `读取成功 ${successCount} 个${failedCount > 0 ? `，不可读取 ${failedCount} 个` : ''}`;
+            showToast(`VCP 读取完成：成功 ${successCount}，不可读取 ${failedCount}`);
+        });
+    });
+
     elements.applyButton.addEventListener('click', () => {
         liveAdjustment.cancelPending();
 
@@ -254,7 +341,7 @@ function bindPanelNavigation(): void {
         item.addEventListener('click', () => {
             const target = item.dataset.panelTarget;
 
-            if (target === 'control-panel' || target === 'settings-panel') {
+            if (target === 'control-panel' || target === 'vcp-panel' || target === 'settings-panel') {
                 showSubpanel(target);
             }
         });
@@ -505,6 +592,7 @@ function render(state: AppState, options: RenderOptions = {}): void {
     elements.nextRun.textContent = formatDateTime(state.nextRunAt, '--');
 
     renderMonitorOptions(state);
+    renderVcpMonitorOptions(state);
     renderScheduleProfileOptions(state);
 
     if (options.syncManualValues || previousTarget === undefined || previousTarget !== state.settings.targetMonitorId) {
@@ -544,6 +632,202 @@ function renderMonitorOptions(state: AppState): void {
 
     elements.monitorSelect.value =
         selected === 'all' || state.monitors.some(({ id }) => id === selected) ? selected : 'all';
+}
+
+function renderVcpMonitorOptions(state: AppState): void {
+    const previousSelection = elements.vcpMonitorSelect.value;
+    elements.vcpMonitorSelect.replaceChildren();
+
+    if (state.monitors.length === 0) {
+        elements.vcpMonitorSelect.add(new Option('未检测到支持 DDC/CI 的显示器', ''));
+        elements.vcpMonitorSelect.value = '';
+        clearVcpResults('未检测到可枚举的显示器');
+        return;
+    }
+
+    for (const monitor of state.monitors) {
+        elements.vcpMonitorSelect.add(new Option(monitor.name || `显示器 ${monitor.index + 1}`, monitor.id));
+    }
+
+    const preferredSelection = state.monitors.some(({ id }) => id === previousSelection)
+        ? previousSelection
+        : state.settings.targetMonitorId !== 'all' &&
+            state.monitors.some(({ id }) => id === state.settings.targetMonitorId)
+          ? state.settings.targetMonitorId
+          : (state.monitors[0]?.id ?? '');
+
+    elements.vcpMonitorSelect.value = preferredSelection;
+
+    if (lastCapabilities && lastCapabilities.monitorId !== preferredSelection) {
+        clearVcpResults();
+    }
+}
+
+function renderVcpCapabilities(result: MonitorCapabilities): void {
+    lastCapabilities = result;
+    elements.vcpRawOutput.textContent = formatCapabilitiesString(result.raw);
+    elements.vcpBody.replaceChildren();
+
+    const monitorName = result.monitorName || result.monitorId;
+    elements.vcpSummary.textContent =
+        result.vcpCodes.length > 0
+            ? `${monitorName} 声明支持 ${result.vcpCodes.length} 个 VCP Code`
+            : `${monitorName} 返回了 Capabilities，但未解析到 vcp(...) 项；可展开 Raw Capabilities 检查原始内容`;
+
+    for (const capability of result.vcpCodes) {
+        const row = document.createElement('tr');
+        const codeCell = document.createElement('td');
+        const nameCell = document.createElement('td');
+        const valuesCell = document.createElement('td');
+        const currentCell = document.createElement('td');
+
+        row.dataset.vcpCode = String(capability.code);
+        codeCell.className = 'vcp-code';
+        codeCell.textContent = formatHex(capability.code);
+        nameCell.textContent = getVcpCodeName(capability.code);
+        valuesCell.className = 'vcp-supported-values';
+        valuesCell.textContent = capability.supportedValues?.map(formatHex).join(' ') || '—';
+        currentCell.className = 'vcp-current-value';
+        currentCell.textContent = '—';
+
+        row.append(codeCell, nameCell, valuesCell, currentCell);
+        elements.vcpBody.append(row);
+    }
+}
+
+async function handleVcpCellCopy(event: MouseEvent): Promise<void> {
+    if (!(event.target instanceof Element)) {
+        return;
+    }
+
+    const cell = event.target.closest<HTMLTableCellElement>('td');
+
+    if (!cell || !elements.vcpBody.contains(cell)) {
+        return;
+    }
+
+    const text = cell.textContent?.trim() ?? '';
+
+    if (!text) {
+        return;
+    }
+
+    try {
+        await copyTextToClipboard(text);
+        showVcpCellCopiedFeedback(cell);
+        showToast(`已复制：${text}`);
+    } catch (error) {
+        showToast(`复制失败：${getErrorMessage(error)}`);
+    }
+}
+
+async function copyTextToClipboard(text: string): Promise<void> {
+    if (navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch {
+            // WebView 安全上下文或剪贴板权限可能阻止 Clipboard API，继续尝试兼容回退方案。
+        }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.append(textarea);
+    textarea.select();
+
+    const copied = document.execCommand('copy');
+    textarea.remove();
+
+    if (!copied) {
+        throw new Error('无法写入系统剪贴板');
+    }
+}
+
+function showVcpCellCopiedFeedback(cell: HTMLTableCellElement): void {
+    if (copiedVcpCellTimer !== undefined) {
+        clearTimeout(copiedVcpCellTimer);
+    }
+
+    copiedVcpCell?.classList.remove('vcp-cell-copied');
+    copiedVcpCell = cell;
+    cell.classList.add('vcp-cell-copied');
+
+    copiedVcpCellTimer = setTimeout(() => {
+        cell.classList.remove('vcp-cell-copied');
+
+        if (copiedVcpCell === cell) {
+            copiedVcpCell = undefined;
+        }
+
+        copiedVcpCellTimer = undefined;
+    }, 700);
+}
+
+function markVcpValuesReading(): void {
+    for (const cell of elements.vcpBody.querySelectorAll<HTMLTableCellElement>('.vcp-current-value')) {
+        cell.classList.remove('vcp-read-error');
+        cell.textContent = '读取中…';
+        cell.removeAttribute('title');
+    }
+}
+
+function renderVcpReadResults(results: Awaited<ReturnType<MonitorBridge['getMonitorVcpValues']>>): void {
+    const resultByCode = new Map(results.map((result) => [result.code, result]));
+
+    for (const row of elements.vcpBody.querySelectorAll<HTMLTableRowElement>('tr[data-vcp-code]')) {
+        const code = Number(row.dataset.vcpCode);
+        const currentCell = row.querySelector<HTMLTableCellElement>('.vcp-current-value');
+        const result = resultByCode.get(code);
+
+        if (!currentCell || !result) {
+            continue;
+        }
+
+        if (result.error !== undefined || result.current === null || result.maximum === null) {
+            currentCell.classList.add('vcp-read-error');
+            currentCell.textContent = isUnsupportedVcpReadError(result.error) ? '不支持读取' : '读取失败';
+            currentCell.title = result.error ?? '显示器未返回有效 VCP 值';
+            continue;
+        }
+
+        currentCell.classList.remove('vcp-read-error');
+        currentCell.textContent = `${result.current} / ${result.maximum} (${formatHex(result.current)})`;
+        currentCell.removeAttribute('title');
+    }
+}
+
+function clearVcpResults(message = '选择一台显示器后按需读取 Capabilities；不会扫描 0x00–0xFF。'): void {
+    lastCapabilities = undefined;
+    elements.vcpBody.replaceChildren();
+    elements.vcpRawOutput.textContent = '枚举完成后显示显示器返回的 Capabilities String';
+    elements.vcpSummary.textContent = message;
+}
+
+function getVcpCodeName(code: number): string {
+    const knownName = VCP_CODE_NAMES.get(code);
+
+    if (knownName) {
+        return knownName;
+    }
+
+    if (code >= 0xe0 && code <= 0xff) {
+        return '厂商私有';
+    }
+
+    return '—';
+}
+
+function isUnsupportedVcpReadError(error: string | undefined): boolean {
+    return error?.includes('不支持指定的 VCP 代码') === true;
+}
+
+function formatHex(value: number): string {
+    return `0x${Math.max(0, Math.trunc(value)).toString(16).toUpperCase().padStart(2, '0')}`;
 }
 
 function renderScheduleProfileOptions(state: AppState): void {
@@ -664,6 +948,11 @@ function setBusy(value: boolean): void {
 function updateControlStates(): void {
     elements.deleteProfileButton.disabled = (currentState?.settings.scheduleProfiles.length ?? 0) <= 1;
     elements.openLogFolderButton.disabled = !currentState?.settings.logEnabled;
+    elements.enumerateVcpButton.disabled = !elements.vcpMonitorSelect.value;
+    elements.readVcpButton.disabled =
+        !elements.vcpMonitorSelect.value ||
+        lastCapabilities?.monitorId !== elements.vcpMonitorSelect.value ||
+        lastCapabilities.vcpCodes.length === 0;
 }
 
 function showToast(message: string): void {
