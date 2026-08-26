@@ -164,6 +164,7 @@ export class SettingsStore {
 export function createDefaultSettings(): AppSettings {
     return {
         autoEnabled: true,
+        autoStartEnabled: false,
         logEnabled: false,
         theme: 'light',
         intervalMinutes: 30,
@@ -199,6 +200,7 @@ function normalizeSettings(value: unknown): AppSettings {
         logEnabled: typeof source.logEnabled === 'boolean' ? source.logEnabled : false,
         theme: source.theme === 'dark' ? 'dark' : 'light',
         autoEnabled: typeof source.autoEnabled === 'boolean' ? source.autoEnabled : true,
+        autoStartEnabled: typeof source.autoStartEnabled === 'boolean' ? source.autoStartEnabled : false,
         controlWindowBounds: normalizeControlWindowBounds(source.controlWindowBounds),
         intervalMinutes,
         targetMonitorId: typeof targetMonitorId === 'string' ? targetMonitorId : 'all',

@@ -207,7 +207,7 @@ namespace {
         g_state.startup_info.cb = sizeof(g_state.startup_info);
 
         if (!CreateProcessW(g_state.node, g_state.command, nullptr, nullptr, FALSE,
-            CREATE_NO_WINDOW, nullptr, working_directory,
+            CREATE_NO_WINDOW | NORMAL_PRIORITY_CLASS, nullptr, working_directory,
             &g_state.startup_info, &g_state.process_info)) {
             show_error(L"无法启动 Node.js 后端");
             return 4;

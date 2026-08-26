@@ -15,6 +15,12 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
 
     return {
         getState: () => runBridgeCall(() => appController.getState()),
+        setAutoStartEnabled: ({ enabled }) => {
+            if (typeof enabled !== 'boolean') {
+                return Promise.reject(new TypeError('自动启动状态必须是布尔值'));
+            }
+            return runCommand(() => appController.setAutoStartEnabled(enabled));
+        },
         refreshMonitors: () => runCommand(() => appController.refreshMonitors()),
         getMonitorCapabilities: ({ monitorId }) => runBridgeCall(() => appController.getMonitorCapabilities(monitorId)),
         getMonitorVcpValues: ({ monitorId, codes }) =>

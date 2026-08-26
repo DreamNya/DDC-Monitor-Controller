@@ -155,6 +155,76 @@ test('AppController saves monitor-bound advanced VCP commands and rejects execut
     await controller.dispose();
 });
 
+test('AppController persists auto-start preference only after the scheduled-task operation succeeds', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const registrations: boolean[] = [];
+    const controller = createController(monitorController, settingsStore, scheduler, async (enabled) => {
+        registrations.push(enabled);
+    });
+    const changes: AppStateChange[] = [];
+    controller.setStateListener((change) => changes.push(change));
+
+    await controller.initialize();
+    changes.length = 0;
+
+    await controller.setAutoStartEnabled(true);
+    assert.deepEqual(registrations, [true]);
+    assert.equal(controller.getState().settings.autoStartEnabled, true);
+    assert.equal(settingsStore.staged.at(-1)?.autoStartEnabled, true);
+    assert.deepEqual(
+        changes.map(({ reason }) => reason),
+        ['update-settings'],
+    );
+
+    await controller.setAutoStartEnabled(false);
+    assert.deepEqual(registrations, [true, false]);
+    assert.equal(controller.getState().settings.autoStartEnabled, false);
+    assert.equal(settingsStore.staged.at(-1)?.autoStartEnabled, false);
+
+    await controller.dispose();
+});
+
+test('AppController leaves auto-start preference unchanged when scheduled-task update fails', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const controller = createController(monitorController, settingsStore, scheduler, async () => {
+        throw new Error('task failed');
+    });
+
+    await controller.initialize();
+    await assert.rejects(controller.setAutoStartEnabled(true), /task failed/);
+    assert.equal(controller.getState().settings.autoStartEnabled, false);
+    assert.equal(settingsStore.staged.length, 0);
+
+    await controller.dispose();
+});
+
+test('AppController resetSettings preserves auto-start registration preference', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    settings.autoStartEnabled = true;
+    settings.logEnabled = true;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const controller = createController(monitorController, settingsStore, scheduler);
+
+    await controller.initialize();
+    await controller.resetSettings();
+
+    assert.equal(controller.getState().settings.autoStartEnabled, true);
+    assert.equal(settingsStore.staged.at(-1)?.autoStartEnabled, true);
+
+    await controller.dispose();
+});
+
 test('AppController serializes auto-enable and auto-disable side effects', async () => {
     const settings = createDefaultSettings();
     settings.autoEnabled = false;
@@ -190,11 +260,13 @@ function createController(
     monitorController: MonitorDependency,
     settingsStore: SettingsDependency,
     scheduler: FakeScheduler,
+    setAutoStartRegistration?: (enabled: boolean) => Promise<void>,
 ): AppController {
     return new AppController({
         monitorController,
         settingsStore,
         createAutoScheduler: (_options: AutoAdjustmentSchedulerOptions) => scheduler,
+        setAutoStartRegistration,
     });
 }
 

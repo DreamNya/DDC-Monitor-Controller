@@ -127,6 +127,8 @@ export interface ControlWindowBounds {
 
 export interface AppSettings {
     autoEnabled: boolean;
+    /** 是否为当前 Windows 用户启用登录自动启动；由 settings.json 作为 UI 状态来源 */
+    autoStartEnabled: boolean;
     logEnabled: boolean;
     theme: 'light' | 'dark';
     intervalMinutes: IntervalMinutes;

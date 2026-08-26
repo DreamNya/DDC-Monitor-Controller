@@ -202,6 +202,7 @@ private:
     HICON tray_icon_ = nullptr;
     NOTIFYICONDATAW tray_data_{};
     bool tray_added_ = false;
+    UINT taskbar_created_message_ = 0;
     std::vector<TrayMenuItem> tray_menu_items_;
     std::vector<std::pair<int, GlobalHotkeyBinding>> global_hotkeys_;
     ULONGLONG last_tray_primary_click_tick_ = 0;

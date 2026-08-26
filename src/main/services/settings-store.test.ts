@@ -76,3 +76,33 @@ test('SettingsStore flushes pending changes immediately on dispose', async () =>
         await fs.rm(directory, { recursive: true, force: true });
     }
 });
+
+test('SettingsStore defaults missing auto-start preference to false for existing settings files', async () => {
+    const directory = await fs.mkdtemp(path.join(tmpdir(), 'monitor-settings-autostart-default-'));
+    const settingsPath = path.join(directory, 'settings.json');
+    await fs.writeFile(settingsPath, JSON.stringify({ autoEnabled: false, logEnabled: true }), 'utf8');
+    const store = new SettingsStore({ settingsPath });
+
+    try {
+        const settings = await store.load();
+        assert.equal(settings.autoStartEnabled, false);
+    } finally {
+        await store.dispose();
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});
+
+test('SettingsStore restores persisted auto-start preference from settings.json', async () => {
+    const directory = await fs.mkdtemp(path.join(tmpdir(), 'monitor-settings-autostart-enabled-'));
+    const settingsPath = path.join(directory, 'settings.json');
+    await fs.writeFile(settingsPath, JSON.stringify({ autoStartEnabled: true }), 'utf8');
+    const store = new SettingsStore({ settingsPath });
+
+    try {
+        const settings = await store.load();
+        assert.equal(settings.autoStartEnabled, true);
+    } finally {
+        await store.dispose();
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});

@@ -7,6 +7,7 @@ import { NativeShell, type NativeShellEvent } from './native-shell';
 import { PanelManager } from './panel/panel-manager';
 import type { RuntimePaths } from './runtime-paths';
 import type { FileLogger } from './services/file-logger';
+import { AutoStartService } from './services/auto-start-service';
 import type { SingleInstanceLock } from './single-instance';
 import { TrayController } from './tray-controller';
 import { runBackground } from './utils/run-background';
@@ -35,17 +36,22 @@ export class DesktopApplication {
     constructor(options: DesktopApplicationOptions) {
         this.#paths = options.paths;
         this.#singleInstanceLock = options.singleInstanceLock;
+
+        const autoStartService = new AutoStartService({
+            launcherPath: this.#paths.launcherPath,
+        });
+
         this.#appController = new AppController({
             onLogEnabledChanged: (enabled) => {
                 options.fileLogger.setEnabled(enabled);
             },
+            setAutoStartRegistration: (enabled) => autoStartService.setEnabled(enabled),
         });
     }
 
     async start(): Promise<void> {
         await this.#appController.initialize();
         const initialState = this.#appController.getState();
-
         const panelManager = new PanelManager({
             appController: this.#appController,
             nativeShell: this.#nativeShell,

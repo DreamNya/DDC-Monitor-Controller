@@ -262,6 +262,29 @@
                             <section class="card settings-card">
                                 <div class="section-heading">
                                     <div>
+                                        <span class="label">WINDOWS 登录</span>
+                                        <h2>自动启动</h2>
+                                    </div>
+                                </div>
+
+                                <div class="setting-row settings-row">
+                                    <div>
+                                        <strong>登录后自动启动</strong>
+                                        <small>仅为当前 Windows 用户配置，不影响其他用户</small>
+                                    </div>
+
+                                    <label class="switch small-switch" title="登录后自动启动">
+                                        <input id="auto-start-toggle" type="checkbox" />
+                                        <span></span>
+                                    </label>
+                                </div>
+
+                                <p class="hint">程序会通过计划任务的方式实现自启动，以确保尽快自动调节</p>
+                            </section>
+
+                            <section class="card settings-card">
+                                <div class="section-heading">
+                                    <div>
                                         <span class="label">运行记录</span>
                                         <h2>文件日志</h2>
                                     </div>
@@ -429,15 +452,15 @@
 
                     <section id="advanced-vcp-panel" class="subpanel" aria-label="高级 VCP" hidden>
                         <div class="advanced-vcp-workspace">
+                            <div class="advanced-warning" role="note">
+                                <strong>⚠️仅限高级用户</strong>
+                                <span
+                                    >错误的 VCP
+                                    参数配置可能会造成显示器运行异常或故障，请务必确认您清楚每一项指令的技术逻辑</span
+                                >
+                                <span>执行此操作的所有后果由用户自行承担，本程序不提供容错机制与任何责任担保</span>
+                            </div>
                             <section class="card advanced-vcp-header-card">
-                                <div class="advanced-warning" role="note">
-                                    <strong>⚠️仅限高级用户</strong>
-                                    <span
-                                        >错误的 VCP
-                                        参数配置可能会造成显示器运行异常或故障，请务必确认您清楚每一项指令的技术逻辑</span
-                                    >
-                                    <span>执行此操作的所有后果由用户自行承担，本程序不提供容错机制与任何责任担保</span>
-                                </div>
                                 <div class="advanced-monitor-row">
                                     <div>
                                         <span class="label">操作目标</span>

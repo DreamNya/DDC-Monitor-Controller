@@ -90,6 +90,7 @@ const elements = {
     windowDragRegion: getElement<HTMLElement>('#window-drag-region'),
     themeToggle: getElement<HTMLInputElement>('#theme-toggle'),
     logToggle: getElement<HTMLInputElement>('#log-toggle'),
+    autoStartToggle: getElement<HTMLInputElement>('#auto-start-toggle'),
     openLogFolderButton: getElement<HTMLButtonElement>('#open-log-folder-button'),
     quickUiScaleSlider: getElement<HTMLInputElement>('#quick-ui-scale-slider'),
     quickUiScaleValue: getElement<HTMLOutputElement>('#quick-ui-scale-value'),
@@ -335,6 +336,20 @@ function bindEvents(): void {
             await bridge.setLogEnabled({
                 enabled: elements.logToggle.checked,
             });
+        });
+    });
+
+    elements.autoStartToggle.addEventListener('change', () => {
+        const enabled = elements.autoStartToggle.checked;
+
+        void actions.run(async () => {
+            try {
+                await bridge.setAutoStartEnabled({ enabled });
+                showToast(enabled ? '已为当前用户启用登录自动启动' : '登录自动启动已关闭');
+            } catch (error) {
+                elements.autoStartToggle.checked = currentState?.settings.autoStartEnabled ?? false;
+                throw error;
+            }
         });
     });
 
@@ -591,6 +606,7 @@ function render(state: AppState, options: RenderOptions = {}): void {
     elements.autoIntervalSelect.value = state.settings.autoEnabled ? String(state.settings.intervalMinutes) : 'off';
     updateAutoIntervalDisplay();
     elements.logToggle.checked = state.settings.logEnabled;
+    elements.autoStartToggle.checked = state.settings.autoStartEnabled;
     renderTheme(state.settings.theme);
     elements.openLogFolderButton.disabled = !state.settings.logEnabled;
     setRangeValue(elements.quickUiScaleSlider, elements.quickUiScaleValue, state.settings.uiScale.quick);

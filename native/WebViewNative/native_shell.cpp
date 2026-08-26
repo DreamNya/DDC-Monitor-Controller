@@ -468,6 +468,7 @@ void NativeShell::run_ui_thread() {
         return;
     }
 
+    taskbar_created_message_ = RegisterWindowMessageW(L"TaskbarCreated");
     create_tray_icon();
     {
         std::lock_guard lock(ready_mutex_);
@@ -588,10 +589,16 @@ HWND NativeShell::create_host_window(const WindowOpenOptions& options) {
 }
 
 void NativeShell::create_tray_icon() {
-    tray_icon_ = static_cast<HICON>(
-        LoadImageW(nullptr, config_.icon_path.c_str(), IMAGE_ICON,
-            GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
-            LR_LOADFROMFILE));
+    if (tray_added_) {
+        return;
+    }
+
+    if (!tray_icon_) {
+        tray_icon_ = static_cast<HICON>(
+            LoadImageW(nullptr, config_.icon_path.c_str(), IMAGE_ICON,
+                GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
+                LR_LOADFROMFILE));
+    }
     if (!tray_icon_) {
         emit_error("加载托盘图标失败：" + wide_to_utf8(config_.icon_path));
         return;
@@ -1524,6 +1531,12 @@ LRESULT NativeShell::handle_resize_hit_window_message(const HWND window,
 LRESULT NativeShell::handle_window_message(HWND window, UINT message,
     WPARAM wparam, LPARAM lparam) {
     if (window == message_window_) {
+        if (taskbar_created_message_ != 0 && message == taskbar_created_message_) {
+            // Explorer 重启或登录阶段稍后创建任务栏时，原托盘图标注册会失效
+            tray_added_ = false;
+            create_tray_icon();
+            return 0;
+        }
         if (message == kCommandMessage) {
             drain_commands();
             return 0;

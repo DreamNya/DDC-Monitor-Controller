@@ -70,6 +70,7 @@ export interface AppControllerOptions {
     settingsStore?: SettingsPersistence;
     createAutoScheduler?: (options: AutoAdjustmentSchedulerOptions) => AutoScheduler;
     onLogEnabledChanged?: (enabled: boolean) => void;
+    setAutoStartRegistration?: (enabled: boolean) => Promise<void>;
 }
 
 export class AppController {
@@ -78,12 +79,18 @@ export class AppController {
     readonly #state: AppStateManager;
     readonly #autoScheduler: AutoScheduler;
     readonly #onLogEnabledChanged: (enabled: boolean) => void;
+    readonly #setAutoStartRegistration: (enabled: boolean) => Promise<void>;
 
     #disposePromise: Promise<void> | undefined;
 
     constructor(options: AppControllerOptions = {}) {
         this.#monitorController = options.monitorController ?? new DDCMonitorController();
         this.#onLogEnabledChanged = options.onLogEnabledChanged ?? (() => undefined);
+        this.#setAutoStartRegistration =
+            options.setAutoStartRegistration ??
+            (async () => {
+                throw new Error('当前运行环境不支持配置登录自动启动');
+            });
 
         this.#state = new AppStateManager({
             settingsStore: options.settingsStore ?? new SettingsStore(),
@@ -123,6 +130,22 @@ export class AppController {
 
     getState(): AppState {
         return this.#state.getState();
+    }
+
+    setAutoStartEnabled(enabled: boolean): Promise<void> {
+        return this.#executeCommand(async () => {
+            if (this.#state.settings.autoStartEnabled === enabled) {
+                return null;
+            }
+
+            // 只有外部计划任务操作成功后才更新 settings.json，避免 UI 状态提前变化
+            await this.#setAutoStartRegistration(enabled);
+            this.#state.commit((settings) => {
+                settings.autoStartEnabled = enabled;
+            });
+            this.#state.succeed(enabled ? '已为当前用户启用登录自动启动' : '已关闭登录自动启动');
+            return 'update-settings';
+        });
     }
 
     setLogEnabled(enabled: boolean): Promise<void> {
@@ -501,7 +524,12 @@ export class AppController {
     resetSettings(): Promise<void> {
         return this.#executeCommand(async () => {
             this.#autoScheduler.stop();
-            this.#state.replace(createDefaultSettings());
+
+            // “恢复默认配置”不修改系统级自动启动注册，避免 settings.json 与计划任务失配
+            const autoStartEnabled = this.#state.settings.autoStartEnabled;
+            const defaults = createDefaultSettings();
+            defaults.autoStartEnabled = autoStartEnabled;
+            this.#state.replace(defaults);
             this.#onLogEnabledChanged(this.#state.settings.logEnabled);
             this.#state.succeed('已恢复默认配置');
 
