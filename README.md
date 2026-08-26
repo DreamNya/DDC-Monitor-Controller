@@ -256,8 +256,7 @@ npm install
 ### 类型/语法检查
 
 ```bash
-tsc --noEmit
-npx eslint .
+npm run check
 ```
 
 ### 编译 DDC/CI 原生模块

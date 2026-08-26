@@ -266,7 +266,7 @@ function createController(
         monitorController,
         settingsStore,
         createAutoScheduler: (_options: AutoAdjustmentSchedulerOptions) => scheduler,
-        setAutoStartRegistration,
+        ...(setAutoStartRegistration === undefined ? {} : { setAutoStartRegistration }),
     });
 }
 
