@@ -179,7 +179,9 @@ export class PanelManager {
             return;
         }
 
-        runBackground('保存控制窗口位置', () => this.#appController.saveControlWindowBounds(toControlWindowBounds(bounds)));
+        runBackground('保存控制窗口位置', () =>
+            this.#appController.saveControlWindowBounds(toControlWindowBounds(bounds)),
+        );
     }
 
     async #open(page: PanelPage, x?: number, y?: number): Promise<void> {

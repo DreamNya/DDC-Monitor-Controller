@@ -3,11 +3,7 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import {
-    createDefaultSettings,
-    SETTINGS_SAVE_THROTTLE_MS,
-    SettingsStore,
-} from './settings-store.ts';
+import { createDefaultSettings, SETTINGS_SAVE_THROTTLE_MS, SettingsStore } from './settings-store.ts';
 
 test('SettingsStore merges all changes in one 10-second window into one write', async () => {
     const directory = await fs.mkdtemp(path.join(tmpdir(), 'monitor-settings-'));

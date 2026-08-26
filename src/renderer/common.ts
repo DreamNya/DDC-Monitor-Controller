@@ -50,7 +50,6 @@ let monitorBridge: MonitorBridge | undefined;
 let nextRpcRequestId = 0;
 const pendingRpcRequests = new Map<number, PendingRpcRequest>();
 
-
 export function applyFontSizeSettings(settings: FontSizeSettings): void {
     const rootStyle = document.documentElement.style;
     rootStyle.setProperty('--font-size-default', `${settings.default}px`);

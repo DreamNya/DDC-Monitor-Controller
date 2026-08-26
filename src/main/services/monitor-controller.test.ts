@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import {
-    DDCMonitorController,
-    type DdcClient,
-} from './monitor-controller.ts';
+import { DDCMonitorController, type DdcClient } from './monitor-controller.ts';
 import type { NativeMonitor, VcpValue } from './monitor/native-ddc-client.ts';
 
 const VCP_BRIGHTNESS = 0x10;
@@ -128,7 +125,6 @@ describe('DDCMonitorController cache policy', () => {
         assert.throws(() => controller.getVcpValues('monitor-1', [0x100]), /0x00 到 0xFF/);
         await controller.dispose();
     });
-
 
     test('advanced VCP actions clamp relative percentage adjustment while always sending the boundary write', async () => {
         const client = new FakeDdcClient();

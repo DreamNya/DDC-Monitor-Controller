@@ -55,7 +55,6 @@ export interface NativeWindowOpenOptions {
     initialBounds?: NativeWindowBounds | null;
 }
 
-
 export interface NativeGlobalHotkeyBinding {
     id: string;
     label: string;

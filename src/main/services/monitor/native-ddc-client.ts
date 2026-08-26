@@ -1,9 +1,4 @@
-import {
-    getNativeAddon,
-    shutdownNativeAddon,
-    type NativeMonitor,
-    type VcpValue,
-} from '../../native-addon.ts';
+import { getNativeAddon, shutdownNativeAddon, type NativeMonitor, type VcpValue } from '../../native-addon.ts';
 
 export type { NativeMonitor, VcpValue } from '../../native-addon.ts';
 

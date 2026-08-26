@@ -12,7 +12,6 @@ test('parseGlobalShortcut normalizes modifiers and maps supported keys', () => {
     assert.equal(parseGlobalShortcut('Win+1').normalized, 'Win+1');
 });
 
-
 test('keyboardShortcutKey uses the physical digit key for Shift+number', () => {
     assert.equal(keyboardShortcutKey({ key: '!', code: 'Digit1' }), '1');
     assert.deepEqual(parseGlobalShortcut(`Shift+${keyboardShortcutKey({ key: '!', code: 'Digit1' })}`), {

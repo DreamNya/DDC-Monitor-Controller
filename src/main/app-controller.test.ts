@@ -27,14 +27,20 @@ test('AppController publishes each command once and commits settings atomically 
     controller.setStateListener((change) => changes.push(change));
 
     await controller.initialize();
-    assert.deepEqual(changes.map(({ reason }) => reason), ['initialize']);
+    assert.deepEqual(
+        changes.map(({ reason }) => reason),
+        ['initialize'],
+    );
 
     changes.length = 0;
     await controller.setUiScale('quick', 125);
 
     assert.equal(controller.getState().settings.uiScale.quick, 125);
     assert.equal(settingsStore.staged.length, 1);
-    assert.deepEqual(changes.map(({ reason }) => reason), ['update-settings']);
+    assert.deepEqual(
+        changes.map(({ reason }) => reason),
+        ['update-settings'],
+    );
 
     await controller.setUiScale('quick', 125);
     assert.equal(settingsStore.staged.length, 1);
@@ -47,7 +53,10 @@ test('AppController publishes each command once and commits settings atomically 
     await controller.setFontSize('default', 18);
     assert.equal(controller.getState().settings.fontSize.default, 18);
     assert.equal(settingsStore.staged.length, 2);
-    assert.deepEqual(changes.map(({ reason }) => reason), ['update-settings', 'update-settings']);
+    assert.deepEqual(
+        changes.map(({ reason }) => reason),
+        ['update-settings', 'update-settings'],
+    );
 
     await assert.rejects(controller.setFontSize('hint', 19), /文字大小必须/);
     assert.equal(controller.getState().settings.fontSize.hint, 11);
@@ -102,7 +111,6 @@ test('AppController resets panel display settings without touching unrelated set
 
     await controller.dispose();
 });
-
 
 test('AppController saves monitor-bound advanced VCP commands and rejects execution when the monitor is offline', async () => {
     const settings = createDefaultSettings();
@@ -169,7 +177,10 @@ test('AppController serializes auto-enable and auto-disable side effects', async
     assert.equal(controller.getState().settings.autoEnabled, false);
     assert.equal(scheduler.active, false);
     assert.equal(scheduler.scheduleCalls.length, 1);
-    assert.deepEqual(changes.map(({ reason }) => reason), ['apply-auto', 'update-settings']);
+    assert.deepEqual(
+        changes.map(({ reason }) => reason),
+        ['apply-auto', 'update-settings'],
+    );
     assert.equal(settingsStore.staged.at(-1)?.autoEnabled, false);
 
     await controller.dispose();

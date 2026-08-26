@@ -51,7 +51,12 @@ export function normalizeAdvancedVcpAction(value: unknown): AdvancedVcpAction | 
             return validateAdvancedVcpAction({
                 type: 'adjust-percent',
                 code,
-                direction: value.direction === 'decrease' ? 'decrease' : value.direction === 'increase' ? 'increase' : ('' as never),
+                direction:
+                    value.direction === 'decrease'
+                        ? 'decrease'
+                        : value.direction === 'increase'
+                          ? 'increase'
+                          : ('' as never),
                 percent: Number(value.percent),
             });
         }

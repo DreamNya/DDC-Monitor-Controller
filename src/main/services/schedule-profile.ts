@@ -22,11 +22,7 @@ export function getScheduleProfile(settings: AppSettings, profileId: string): Sc
     return profile;
 }
 
-export function createScheduleProfile(
-    settings: AppSettings,
-    name: string,
-    schedule: SchedulePoint[],
-): ScheduleProfile {
+export function createScheduleProfile(settings: AppSettings, name: string, schedule: SchedulePoint[]): ScheduleProfile {
     const normalizedName = normalizeScheduleProfileName(name);
     assertUniqueScheduleProfileName(settings, normalizedName);
 
@@ -67,9 +63,8 @@ export function deleteScheduleProfile(settings: AppSettings, profileId: string):
     const activeProfileDeleted = settings.activeScheduleProfileId === profileId;
 
     if (activeProfileDeleted) {
-        settings.activeScheduleProfileId = settings.scheduleProfiles[
-            Math.min(index, settings.scheduleProfiles.length - 1)
-        ]!.id;
+        settings.activeScheduleProfileId =
+            settings.scheduleProfiles[Math.min(index, settings.scheduleProfiles.length - 1)]!.id;
     }
 
     return { profile, activeProfileDeleted };

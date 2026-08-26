@@ -62,10 +62,7 @@ export class AppStateManager {
         return {
             settings: structuredClone(this.#settings),
             monitors: this.#getMonitors(),
-            calculatedValues: calculateAutoSettings(
-                new Date(),
-                getActiveScheduleProfile(this.#settings).schedule,
-            ),
+            calculatedValues: calculateAutoSettings(new Date(), getActiveScheduleProfile(this.#settings).schedule),
             nextRunAt: this.#getNextRunAt(),
             lastOperation: this.#lastOperation,
             lastError: this.#lastError,

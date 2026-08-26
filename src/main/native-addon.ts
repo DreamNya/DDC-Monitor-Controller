@@ -37,10 +37,7 @@ export function getNativeAddon(): MonitorNativeAddon {
 
     if (!fs.existsSync(addonPath)) {
         throw new Error(
-            [
-                `找不到原生模块：${addonPath}`,
-                '请先执行 npm run build:native，然后重新执行 npm run build',
-            ].join('\n'),
+            [`找不到原生模块：${addonPath}`, '请先执行 npm run build:native，然后重新执行 npm run build'].join('\n'),
         );
     }
 

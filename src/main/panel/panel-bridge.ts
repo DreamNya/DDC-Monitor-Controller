@@ -16,8 +16,7 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
     return {
         getState: () => runBridgeCall(() => appController.getState()),
         refreshMonitors: () => runCommand(() => appController.refreshMonitors()),
-        getMonitorCapabilities: ({ monitorId }) =>
-            runBridgeCall(() => appController.getMonitorCapabilities(monitorId)),
+        getMonitorCapabilities: ({ monitorId }) => runBridgeCall(() => appController.getMonitorCapabilities(monitorId)),
         getMonitorVcpValues: ({ monitorId, codes }) =>
             runBridgeCall(() => appController.getMonitorVcpValues(monitorId, codes)),
         executeAdvancedVcp: async (request) => {
@@ -35,7 +34,8 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
             return null;
         },
         saveAdvancedVcpCommand: ({ command }) => runCommand(() => appController.saveAdvancedVcpCommand(command)),
-        deleteAdvancedVcpCommand: ({ commandId }) => runCommand(() => appController.deleteAdvancedVcpCommand(commandId)),
+        deleteAdvancedVcpCommand: ({ commandId }) =>
+            runCommand(() => appController.deleteAdvancedVcpCommand(commandId)),
         executeAdvancedVcpCommand: async ({ commandId }) => {
             const result = await runBridgeCall(() => appController.executeAdvancedVcpCommand(commandId));
             if (result.closeWebViewAfter) {

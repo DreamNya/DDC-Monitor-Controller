@@ -55,8 +55,10 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
             return {
                 monitorId: request.monitorId,
                 code: request.action.code,
-                operation: request.action.type === 'read' ? 'read' as const : 'write' as const,
-                ...(request.action.type === 'read' ? { current: 50, maximum: 100 } : { value: 'value' in request.action ? request.action.value : 55 }),
+                operation: request.action.type === 'read' ? ('read' as const) : ('write' as const),
+                ...(request.action.type === 'read'
+                    ? { current: 50, maximum: 100 }
+                    : { value: 'value' in request.action ? request.action.value : 55 }),
                 closeWebViewAfter: request.closeWebViewAfter === true,
             };
         },
@@ -84,8 +86,7 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
         setActiveScheduleProfile: (profileId: string) => record('setActiveScheduleProfile', profileId),
         createScheduleProfile: (name: string, schedule: SchedulePoint[]) =>
             record('createScheduleProfile', name, schedule),
-        renameScheduleProfile: (profileId: string, name: string) =>
-            record('renameScheduleProfile', profileId, name),
+        renameScheduleProfile: (profileId: string, name: string) => record('renameScheduleProfile', profileId, name),
         deleteScheduleProfile: (profileId: string) => record('deleteScheduleProfile', profileId),
         saveSchedule: (profileId: string, schedule: SchedulePoint[]) => record('saveSchedule', profileId, schedule),
         setLogEnabled: (enabled: boolean) => record('setLogEnabled', enabled),
@@ -164,7 +165,13 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
         { name: 'getMonitorVcpValues', args: ['monitor-1', [0x10, 0xfd]] },
         {
             name: 'executeAdvancedVcp',
-            args: [{ monitorId: 'monitor-1', action: { type: 'write', code: 0x60, value: 0x11 }, closeWebViewAfter: false }],
+            args: [
+                {
+                    monitorId: 'monitor-1',
+                    action: { type: 'write', code: 0x60, value: 0x11 },
+                    closeWebViewAfter: false,
+                },
+            ],
         },
         { name: 'saveAdvancedVcpCommand', args: [shortcutDraft] },
         { name: 'executeAdvancedVcpCommand', args: ['command-1'] },
