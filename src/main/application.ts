@@ -67,6 +67,10 @@ export class DesktopApplication {
             panelManager,
             nativeShell: this.#nativeShell,
             webviewDataDirectory: this.#paths.webviewDataDirectory,
+            programDirectory:
+                process.env.NODE_ENV === 'development' || !this.#paths.launcherPath
+                    ? this.#paths.distributionRoot
+                    : path.dirname(this.#paths.launcherPath),
             quitApplication: () => this.quit(),
         });
 
@@ -86,11 +90,11 @@ export class DesktopApplication {
 
         this.#syncGlobalHotkeys(initialState);
 
-        trayController.updateAutoEnabled(initialState.settings.autoEnabled);
+        trayController.update(initialState);
 
         this.#appController.setStateListener((change) => {
             const { state } = change;
-            trayController.updateAutoEnabled(state.settings.autoEnabled);
+            trayController.update(state);
             this.#syncGlobalHotkeys(state);
             panelManager.pushState(change);
         });
@@ -234,7 +238,7 @@ export class DesktopApplication {
                 break;
 
             case 'tray-command':
-                this.#trayController?.handleMenuClick(event.id);
+                this.#trayController?.handleMenuClick(event.id, event.x, event.y);
                 break;
 
             case 'global-hotkey':

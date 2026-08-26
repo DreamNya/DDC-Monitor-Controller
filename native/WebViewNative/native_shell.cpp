@@ -664,23 +664,53 @@ void NativeShell::show_tray_menu() {
     std::vector<CommandMapping> mappings;
     UINT next_command = kFirstTrayMenuCommand;
 
-    for (const auto& item : tray_menu_items_) {
-        if (item.kind == TrayMenuItem::Kind::Separator) {
-            AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-            continue;
-        }
+    const std::function<bool(HMENU, const std::vector<TrayMenuItem>&)> append_items =
+        [&](const HMENU target, const std::vector<TrayMenuItem>& items) {
+            for (const auto& item : items) {
+                if (item.kind == TrayMenuItem::Kind::Separator) {
+                    if (!AppendMenuW(target, MF_SEPARATOR, 0, nullptr)) {
+                        return false;
+                    }
+                    continue;
+                }
 
-        UINT flags = MF_STRING;
-        if (!item.enabled) {
-            flags |= MF_GRAYED;
-        }
-        if (item.checked) {
-            flags |= MF_CHECKED;
-        }
+                UINT flags = MF_STRING;
+                if (!item.enabled) {
+                    flags |= MF_GRAYED;
+                }
 
-        const UINT command = next_command++;
-        AppendMenuW(menu, flags, command, item.label.c_str());
-        mappings.push_back(CommandMapping{ command, item.id });
+                if (item.kind == TrayMenuItem::Kind::Submenu) {
+                    HMENU submenu = CreatePopupMenu();
+                    if (!submenu) {
+                        return false;
+                    }
+                    if (!append_items(submenu, item.children) ||
+                        !AppendMenuW(target, flags | MF_POPUP,
+                            reinterpret_cast<UINT_PTR>(submenu),
+                            item.label.c_str())) {
+                        DestroyMenu(submenu);
+                        return false;
+                    }
+                    continue;
+                }
+
+                if (item.checked) {
+                    flags |= MF_CHECKED;
+                }
+
+                const UINT command = next_command++;
+                if (!AppendMenuW(target, flags, command, item.label.c_str())) {
+                    return false;
+                }
+                mappings.push_back(CommandMapping{ command, item.id });
+            }
+            return true;
+        };
+
+    if (!append_items(menu, tray_menu_items_)) {
+        DestroyMenu(menu);
+        emit_error("创建系统托盘菜单失败");
+        return;
     }
 
     POINT cursor{};
@@ -704,6 +734,8 @@ void NativeShell::show_tray_menu() {
     NativeEvent event{};
     event.kind = NativeEventKind::TrayCommand;
     event.id = match->id;
+    event.x = cursor.x;
+    event.y = cursor.y;
     emit(std::move(event));
 }
 
@@ -1400,6 +1432,8 @@ void NativeShell::emit(NativeEvent event) {
             case NativeEventKind::TrayCommand:
                 result.Set("type", "tray-command");
                 result.Set("id", event->id);
+                result.Set("x", event->x);
+                result.Set("y", event->y);
                 break;
             case NativeEventKind::GlobalHotkey:
                 result.Set("type", "global-hotkey");

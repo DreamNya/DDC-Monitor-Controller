@@ -1,14 +1,16 @@
 import path from 'node:path';
+import type { AppState, ScheduleProfile } from '../shared/model';
 import type { AppController } from './app-controller';
 import type { NativeShell, NativeTrayMenuItem } from './native-shell';
 import type { PanelManager } from './panel/panel-manager';
-import { runBackground } from './utils/run-background';
+import { runBackground } from './utils/run-background.ts';
 
 export interface TrayControllerOptions {
     appController: AppController;
     panelManager: PanelManager;
     nativeShell: NativeShell;
     webviewDataDirectory: string;
+    programDirectory: string;
     quitApplication(): void;
 }
 
@@ -17,36 +19,60 @@ export class TrayController {
     readonly #panelManager: PanelManager;
     readonly #nativeShell: NativeShell;
     readonly #webviewDataDirectory: string;
+    readonly #programDirectory: string;
     readonly #quitApplication: () => void;
 
     #stopped = false;
+    #menuSignature = '';
 
     constructor(options: TrayControllerOptions) {
         this.#appController = options.appController;
         this.#panelManager = options.panelManager;
         this.#nativeShell = options.nativeShell;
         this.#webviewDataDirectory = options.webviewDataDirectory;
+        this.#programDirectory = options.programDirectory;
         this.#quitApplication = options.quitApplication;
     }
 
-    updateAutoEnabled(autoEnabled: boolean): void {
+    update(state: AppState): void {
         if (this.#stopped) {
             return;
         }
-        this.#nativeShell.setTrayMenu(createTrayMenu(autoEnabled));
+
+        const signature = JSON.stringify([
+            state.settings.autoEnabled,
+            state.settings.activeScheduleProfileId,
+            state.settings.scheduleProfiles.map(({ id, name }) => [id, name]),
+        ]);
+        if (signature === this.#menuSignature) {
+            return;
+        }
+
+        this.#menuSignature = signature;
+        this.#nativeShell.setTrayMenu(createTrayMenu(state));
     }
 
     stop(): void {
         this.#stopped = true;
     }
 
-    handleMenuClick(id: string): void {
+    handleMenuClick(id: string, x?: number, y?: number): void {
         if (this.#stopped) {
             return;
         }
 
+        if (id.startsWith('select-profile:')) {
+            const profileId = decodeURIComponent(id.slice('select-profile:'.length));
+            runBackground('切换自动调节方案', () => this.#appController.setActiveScheduleProfile(profileId));
+            return;
+        }
+
         switch (id) {
-            case 'open':
+            case 'open-quick':
+                this.#panelManager.requestOpen('quick', x, y);
+                break;
+
+            case 'open-control':
                 this.#panelManager.requestOpen('control');
                 break;
 
@@ -77,6 +103,10 @@ export class TrayController {
                 this.#nativeShell.openPath(path.dirname(this.#webviewDataDirectory));
                 break;
 
+            case 'open-program-directory':
+                this.#nativeShell.openPath(this.#programDirectory);
+                break;
+
             case 'quit':
                 setImmediate(this.#quitApplication);
                 break;
@@ -84,16 +114,45 @@ export class TrayController {
     }
 }
 
-function createTrayMenu(autoEnabled: boolean): NativeTrayMenuItem[] {
+export function createTrayMenu(state: AppState): NativeTrayMenuItem[] {
+    const { autoEnabled, activeScheduleProfileId, scheduleProfiles } = state.settings;
+
     return [
-        { type: 'item', id: 'open', label: '打开控制面板' },
-        { type: 'item', id: 'toggle-auto', label: autoEnabled ? '关闭自动调节' : '开启自动调节' },
-        { type: 'item', id: 'apply-auto', label: '立即应用自动设置' },
-        { type: 'item', id: 'refresh', label: '重新检测显示器' },
-        { type: 'item', id: 'reset-panel-styles', label: '重置面板所有样式' },
+        { type: 'item', id: 'open-control', label: '详细设置面板' },
+        { type: 'item', id: 'open-quick', label: '快速设置面板' },
         { type: 'separator' },
-        { type: 'item', id: 'open-webview', label: '打开WebView目录' },
+        { type: 'item', id: 'toggle-auto', label: '自动调节', checked: autoEnabled },
+        { type: 'item', id: 'apply-auto', label: '立即应用当前方案' },
+        {
+            type: 'submenu',
+            label: '自动调节方案',
+            items: scheduleProfiles.map((profile) => createScheduleProfileMenuItem(profile, activeScheduleProfileId)),
+        },
+        { type: 'separator' },
+        { type: 'item', id: 'refresh', label: '重新检测显示器' },
+        {
+            type: 'submenu',
+            label: '工具',
+            items: [
+                { type: 'item', id: 'reset-panel-styles', label: '重置面板所有样式' },
+                { type: 'item', id: 'open-webview', label: '打开 WebView 目录' },
+                { type: 'item', id: 'open-program-directory', label: '打开程序目录' },
+            ],
+        },
         { type: 'separator' },
         { type: 'item', id: 'quit', label: '退出' },
     ];
+}
+
+function createScheduleProfileMenuItem(profile: ScheduleProfile, activeScheduleProfileId: string): NativeTrayMenuItem {
+    return {
+        type: 'item',
+        id: `select-profile:${encodeURIComponent(profile.id)}`,
+        label: escapeMenuLabel(profile.name),
+        checked: profile.id === activeScheduleProfileId,
+    };
+}
+
+function escapeMenuLabel(label: string): string {
+    return label.replaceAll('&', '&&');
 }

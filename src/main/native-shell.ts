@@ -18,7 +18,7 @@ export interface NativeWindowBackgroundColor {
 
 export type NativeShellEvent =
     | { type: 'tray-primary-click'; x: number; y: number }
-    | { type: 'tray-command'; id: string }
+    | { type: 'tray-command'; id: string; x: number; y: number }
     | { type: 'global-hotkey'; id: string }
     | { type: 'web-message'; message: string }
     | { type: 'window-closed'; id: string }
@@ -69,6 +69,12 @@ export type NativeTrayMenuItem =
           label: string;
           enabled?: boolean;
           checked?: boolean;
+      }
+    | {
+          type: 'submenu';
+          label: string;
+          enabled?: boolean;
+          items: NativeTrayMenuItem[];
       }
     | { type: 'separator' };
 

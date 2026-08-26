@@ -77,6 +77,7 @@ struct GlobalHotkeyBinding {
 struct TrayMenuItem {
     enum class Kind {
         Item,
+        Submenu,
         Separator,
     };
 
@@ -85,6 +86,7 @@ struct TrayMenuItem {
     std::wstring label;
     bool enabled = true;
     bool checked = false;
+    std::vector<TrayMenuItem> children;
 };
 
 enum class NativeEventKind {

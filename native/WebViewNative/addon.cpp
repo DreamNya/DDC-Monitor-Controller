@@ -114,6 +114,54 @@ namespace {
             "placement 必须是 center、anchor 或 bounds");
     }
 
+    std::vector<TrayMenuItem> parse_tray_menu_items(const Napi::Array& array,
+        const std::size_t depth = 0) {
+        if (depth > 8) {
+            throw Napi::RangeError::New(array.Env(), "托盘子菜单最多嵌套 8 层");
+        }
+
+        std::vector<TrayMenuItem> items;
+        items.reserve(array.Length());
+
+        for (std::uint32_t index = 0; index < array.Length(); ++index) {
+            const auto value = array.Get(index);
+            if (!value.IsObject()) {
+                throw Napi::TypeError::New(array.Env(), "托盘菜单项必须是对象");
+            }
+            const auto object = value.As<Napi::Object>();
+            const std::string type = get_string(object, "type");
+
+            TrayMenuItem item{};
+            if (type == "separator") {
+                item.kind = TrayMenuItem::Kind::Separator;
+            }
+            else if (type == "item") {
+                item.kind = TrayMenuItem::Kind::Item;
+                item.id = get_string(object, "id");
+                item.label = utf8_to_wide(get_string(object, "label"));
+                item.enabled = get_bool(object, "enabled", true);
+                item.checked = get_bool(object, "checked", false);
+            }
+            else if (type == "submenu") {
+                const auto children = object.Get("items");
+                if (!children.IsArray()) {
+                    throw Napi::TypeError::New(array.Env(), "托盘子菜单 items 必须是数组");
+                }
+                item.kind = TrayMenuItem::Kind::Submenu;
+                item.label = utf8_to_wide(get_string(object, "label"));
+                item.enabled = get_bool(object, "enabled", true);
+                item.children = parse_tray_menu_items(children.As<Napi::Array>(), depth + 1);
+            }
+            else {
+                throw Napi::TypeError::New(array.Env(),
+                    "托盘菜单项 type 必须是 item、submenu 或 separator");
+            }
+            items.push_back(std::move(item));
+        }
+
+        return items;
+    }
+
     Napi::Value initialize_shell(const Napi::CallbackInfo& info) {
         const Napi::Env env = info.Env();
         try {
@@ -301,37 +349,7 @@ namespace {
                 throw Napi::TypeError::New(env, "items 必须是数组");
             }
 
-            const Napi::Array array = info[0].As<Napi::Array>();
-            std::vector<TrayMenuItem> items;
-            items.reserve(array.Length());
-
-            for (std::uint32_t index = 0; index < array.Length(); ++index) {
-                const auto value = array.Get(index);
-                if (!value.IsObject()) {
-                    throw Napi::TypeError::New(env, "托盘菜单项必须是对象");
-                }
-                const auto object = value.As<Napi::Object>();
-                const std::string type = get_string(object, "type");
-
-                TrayMenuItem item{};
-                if (type == "separator") {
-                    item.kind = TrayMenuItem::Kind::Separator;
-                }
-                else if (type == "item") {
-                    item.kind = TrayMenuItem::Kind::Item;
-                    item.id = get_string(object, "id");
-                    item.label = utf8_to_wide(get_string(object, "label"));
-                    item.enabled = get_bool(object, "enabled", true);
-                    item.checked = get_bool(object, "checked", false);
-                }
-                else {
-                    throw Napi::TypeError::New(env,
-                        "托盘菜单项 type 必须是 item 或 separator");
-                }
-                items.push_back(std::move(item));
-            }
-
-            g_shell->set_tray_menu(std::move(items));
+            g_shell->set_tray_menu(parse_tray_menu_items(info[0].As<Napi::Array>()));
         }
         catch (const Napi::Error& error) {
             error.ThrowAsJavaScriptException();
