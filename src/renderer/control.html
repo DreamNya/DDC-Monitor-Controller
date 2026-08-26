@@ -372,9 +372,9 @@
                                 <div class="ui-scale-options font-size-options">
                                     <div class="ui-scale-option font-size-option">
                                         <label for="default-font-size-slider">默认文字</label>
-                                        <output id="default-font-size-value" for="default-font-size-slider"
-                                            >14 px</output
-                                        >
+                                        <output id="default-font-size-value" for="default-font-size-slider">
+                                            14 px
+                                        </output>
                                         <input
                                             id="default-font-size-slider"
                                             type="range"
@@ -443,8 +443,7 @@
                                 <details class="vcp-raw-details">
                                     <summary>Raw Capabilities</summary>
                                     <pre id="vcp-raw-output" aria-label="格式化后的原始 Capabilities String">
-枚举完成后显示显示器返回的 Capabilities String</pre
-                                    >
+枚举完成后显示显示器返回的 Capabilities String</pre>
                                 </details>
                             </section>
                         </div>
@@ -454,10 +453,9 @@
                         <div class="advanced-vcp-workspace">
                             <div class="advanced-warning" role="note">
                                 <strong>⚠️仅限高级用户</strong>
-                                <span
-                                    >错误的 VCP
-                                    参数配置可能会造成显示器运行异常或故障，请务必确认您清楚每一项指令的技术逻辑</span
-                                >
+                                <span>
+                                    错误的VCP参数配置可能会造成显示器运行异常或故障，请务必确认您清楚每一项指令的技术逻辑
+                                </span>
                                 <span>执行此操作的所有后果由用户自行承担，本程序不提供容错机制与任何责任担保</span>
                             </div>
                             <section class="card advanced-vcp-header-card">
@@ -484,8 +482,8 @@
                                     </div>
 
                                     <div class="advanced-field-grid advanced-preset-selector">
-                                        <label class="advanced-field-span"
-                                            >功能类型
+                                        <label class="advanced-field-span">
+                                            功能类型
                                             <select id="advanced-preset-mode">
                                                 <option value="relative">亮度 / 对比度增减百分比</option>
                                                 <option value="absolute">亮度 / 对比度绝对值</option>
@@ -497,30 +495,30 @@
 
                                     <div class="advanced-preset-section" data-preset-mode="relative">
                                         <div class="advanced-field-grid">
-                                            <label
-                                                >功能
+                                            <label>
+                                                功能
                                                 <select id="advanced-relative-target">
                                                     <option value="brightness">亮度</option>
                                                     <option value="contrast">对比度</option>
                                                 </select>
                                             </label>
-                                            <label
-                                                >VCP Code
+                                            <label>
+                                                VCP Code
                                                 <input
                                                     id="advanced-relative-code"
                                                     type="text"
                                                     value="0x10"
                                                     spellcheck="false" />
                                             </label>
-                                            <label
-                                                >方向
+                                            <label>
+                                                方向
                                                 <select id="advanced-relative-direction">
                                                     <option value="increase">增加</option>
                                                     <option value="decrease">减少</option>
                                                 </select>
                                             </label>
-                                            <label
-                                                >百分比
+                                            <label>
+                                                百分比
                                                 <input
                                                     id="advanced-relative-percent"
                                                     type="number"
@@ -536,23 +534,23 @@
 
                                     <div class="advanced-preset-section" data-preset-mode="absolute" hidden>
                                         <div class="advanced-field-grid">
-                                            <label
-                                                >功能
+                                            <label>
+                                                功能
                                                 <select id="advanced-absolute-target">
                                                     <option value="brightness">亮度</option>
                                                     <option value="contrast">对比度</option>
                                                 </select>
                                             </label>
-                                            <label
-                                                >VCP Code
+                                            <label>
+                                                VCP Code
                                                 <input
                                                     id="advanced-absolute-code"
                                                     type="text"
                                                     value="0x10"
                                                     spellcheck="false" />
                                             </label>
-                                            <label class="advanced-field-span"
-                                                >Value
+                                            <label class="advanced-field-span">
+                                                Value
                                                 <input
                                                     id="advanced-absolute-value"
                                                     type="text"
@@ -565,16 +563,16 @@
 
                                     <div class="advanced-preset-section" data-preset-mode="input" hidden>
                                         <div class="advanced-field-grid">
-                                            <label
-                                                >VCP Code
+                                            <label>
+                                                VCP Code
                                                 <input
                                                     id="advanced-input-code"
                                                     type="text"
                                                     value="0x60"
                                                     spellcheck="false" />
                                             </label>
-                                            <label
-                                                >Value
+                                            <label>
+                                                Value
                                                 <input
                                                     id="advanced-input-value"
                                                     type="text"
@@ -597,16 +595,16 @@
 
                                     <div class="advanced-preset-section" data-preset-mode="power" hidden>
                                         <div class="advanced-field-grid">
-                                            <label
-                                                >VCP Code
+                                            <label>
+                                                VCP Code
                                                 <input
                                                     id="advanced-power-code"
                                                     type="text"
                                                     value="0xD6"
                                                     spellcheck="false" />
                                             </label>
-                                            <label
-                                                >Value
+                                            <label>
+                                                Value
                                                 <input
                                                     id="advanced-power-value"
                                                     type="text"
@@ -633,23 +631,23 @@
                                         </div>
                                     </div>
                                     <div class="advanced-field-grid advanced-custom-fields">
-                                        <label
-                                            >操作
+                                        <label>
+                                            操作
                                             <select id="advanced-custom-mode">
                                                 <option value="read">读取</option>
                                                 <option value="write">写入</option>
                                             </select>
                                         </label>
-                                        <label
-                                            >VCP Code
+                                        <label>
+                                            VCP Code
                                             <input
                                                 id="advanced-custom-code"
                                                 type="text"
                                                 placeholder="例如 0x10"
                                                 spellcheck="false" />
                                         </label>
-                                        <label id="advanced-custom-value-field" class="advanced-field-span" hidden
-                                            >Value
+                                        <label id="advanced-custom-value-field" class="advanced-field-span" hidden>
+                                            Value
                                             <input
                                                 id="advanced-custom-value"
                                                 type="text"
@@ -693,12 +691,12 @@
                     <span class="label">快捷命令</span>
                     <h2>保存高级 VCP 命令</h2>
                 </div>
-                <label
-                    >命令名称
+                <label>
+                    命令名称
                     <input id="advanced-command-name" type="text" maxlength="60" autocomplete="off" />
                 </label>
-                <label
-                    >全局快捷键（可选）
+                <label>
+                    全局快捷键（可选）
                     <input
                         id="advanced-command-shortcut"
                         type="text"

@@ -1,4 +1,5 @@
 {
+    "endOfLine": "lf",
     "arrowParens": "always",
     "bracketSameLine": true,
     "bracketSpacing": true,
