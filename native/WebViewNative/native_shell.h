@@ -125,6 +125,7 @@ public:
     void reload();
     void execute_script(std::string script);
     void set_tray_menu(std::vector<TrayMenuItem> items);
+    void set_theme(bool dark);
     void set_global_hotkeys(std::vector<GlobalHotkeyBinding> bindings);
     void open_path(std::wstring path);
     void shutdown();
@@ -145,6 +146,7 @@ private:
     void delete_tray_icon();
     void delete_window_icons();
     void show_tray_menu();
+    void apply_native_theme(bool dark);
     void handle_tray_message(LPARAM lparam);
     void replace_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> bindings);
     void clear_global_hotkeys_on_ui();

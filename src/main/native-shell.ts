@@ -88,6 +88,7 @@ interface WebViewNativeAddon {
     reload(): void;
     executeScript(script: string): void;
     setTrayMenu(items: NativeTrayMenuItem[]): void;
+    setTheme(theme: 'light' | 'dark'): void;
     setGlobalHotkeys(bindings: NativeGlobalHotkeyBinding[]): void;
     openPath(targetPath: string): void;
     shutdown(): void;
@@ -130,6 +131,9 @@ export class NativeShell {
     }
     setTrayMenu(items: NativeTrayMenuItem[]): void {
         this.#addon.setTrayMenu(items);
+    }
+    setTheme(theme: 'light' | 'dark'): void {
+        this.#addon.setTheme(theme);
     }
     setGlobalHotkeys(bindings: NativeGlobalHotkeyBinding[]): void {
         this.#addon.setGlobalHotkeys(bindings);

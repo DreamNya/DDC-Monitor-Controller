@@ -27,6 +27,43 @@ namespace {
     constexpr UINT kFirstTrayMenuCommand = 1000;
     constexpr int kFirstGlobalHotkeyId = 0x4000;
     constexpr int kResizeBorderDip = 8;
+    enum class PreferredAppMode {
+        Default,
+        AllowDark,
+        ForceDark,
+        ForceLight,
+        Max,
+    };
+
+    using SetPreferredAppModeFn = PreferredAppMode(WINAPI*)(PreferredAppMode);
+    using FlushMenuThemesFn = void(WINAPI*)();
+
+    struct DarkModeFunctions {
+        HMODULE module = nullptr;
+        SetPreferredAppModeFn set_preferred_app_mode = nullptr;
+        FlushMenuThemesFn flush_menu_themes = nullptr;
+    };
+
+    const DarkModeFunctions& dark_mode_functions() {
+        static const DarkModeFunctions functions = [] {
+            DarkModeFunctions result{};
+            result.module = LoadLibraryExW(
+                L"uxtheme.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+            if (!result.module) {
+                return result;
+            }
+
+            result.set_preferred_app_mode =
+                reinterpret_cast<SetPreferredAppModeFn>(GetProcAddress(
+                    result.module, MAKEINTRESOURCEA(135)));
+            result.flush_menu_themes =
+                reinterpret_cast<FlushMenuThemesFn>(GetProcAddress(
+                    result.module, MAKEINTRESOURCEA(136)));
+            return result;
+        }();
+        return functions;
+    }
+
     constexpr std::array<WPARAM, 8> kResizeHitTests = {
         HTLEFT,    HTRIGHT,    HTTOP,        HTBOTTOM,
         HTTOPLEFT, HTTOPRIGHT, HTBOTTOMLEFT, HTBOTTOMRIGHT,
@@ -291,6 +328,10 @@ void NativeShell::set_tray_menu(std::vector<TrayMenuItem> items) {
     post_command([this, items = std::move(items)]() mutable {
         tray_menu_items_ = std::move(items);
         });
+}
+
+void NativeShell::set_theme(const bool dark) {
+    post_command([this, dark] { apply_native_theme(dark); });
 }
 
 void NativeShell::set_global_hotkeys(std::vector<GlobalHotkeyBinding> bindings) {
@@ -645,6 +686,25 @@ void NativeShell::delete_window_icons() {
         DestroyIcon(window_icon_small_);
         window_icon_small_ = nullptr;
     }
+}
+
+void NativeShell::apply_native_theme(const bool dark) {
+    const auto& api = dark_mode_functions();
+
+    // These exports are undocumented. Treat them as an optional enhancement so
+    // unsupported Windows versions keep using the normal light menu instead of
+    // making native shell initialization fail. The uxtheme module is kept loaded
+    // for the process lifetime so the cached function pointers remain valid.
+    if (!api.set_preferred_app_mode || !api.flush_menu_themes) {
+        return;
+    }
+
+    // SetPreferredAppMode changes process-wide Win32 theme state, so keep it in
+    // sync with the application's selected theme rather than treating it as a
+    // tray-menu-only setting.
+    api.set_preferred_app_mode(
+        dark ? PreferredAppMode::ForceDark : PreferredAppMode::ForceLight);
+    api.flush_menu_themes();
 }
 
 void NativeShell::show_tray_menu() {

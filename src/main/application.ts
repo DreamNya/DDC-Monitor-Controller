@@ -31,6 +31,7 @@ export class DesktopApplication {
     #requestedOpen = false;
     #quitting = false;
     #globalHotkeySignature = '';
+    #nativeTheme: AppState['settings']['theme'] | undefined;
     #globalHotkeyCaptureActive = false;
 
     constructor(options: DesktopApplicationOptions) {
@@ -88,6 +89,7 @@ export class DesktopApplication {
             (event) => this.#handleNativeShellEvent(event),
         );
 
+        this.#syncNativeTheme(initialState);
         this.#syncGlobalHotkeys(initialState);
 
         trayController.update(initialState);
@@ -95,6 +97,7 @@ export class DesktopApplication {
         this.#appController.setStateListener((change) => {
             const { state } = change;
             trayController.update(state);
+            this.#syncNativeTheme(state);
             this.#syncGlobalHotkeys(state);
             panelManager.pushState(change);
         });
@@ -191,6 +194,16 @@ export class DesktopApplication {
         // 捕获期间设置可能发生变化（例如刚保存了新命令），强制用最新状态重建注册
         this.#globalHotkeySignature = '';
         this.#syncGlobalHotkeys(this.#appController.getState());
+    }
+
+    #syncNativeTheme(state: AppState): void {
+        const theme = state.settings.theme;
+        if (theme === this.#nativeTheme) {
+            return;
+        }
+
+        this.#nativeTheme = theme;
+        this.#nativeShell.setTheme(theme);
     }
 
     #syncGlobalHotkeys(state: AppState): void {

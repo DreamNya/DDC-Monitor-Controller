@@ -360,6 +360,31 @@ namespace {
         return env.Undefined();
     }
 
+    Napi::Value set_theme(const Napi::CallbackInfo& info) {
+        const Napi::Env env = info.Env();
+        try {
+            require_shell(env);
+            if (info.Length() < 1 || !info[0].IsString()) {
+                throw Napi::TypeError::New(env, "theme 必须是字符串");
+            }
+
+            const std::string theme = info[0].As<Napi::String>().Utf8Value();
+            if (theme == "dark") {
+                g_shell->set_theme(true);
+            }
+            else if (theme == "light") {
+                g_shell->set_theme(false);
+            }
+            else {
+                throw Napi::TypeError::New(env, "theme 必须是 light 或 dark");
+            }
+        }
+        catch (const Napi::Error& error) {
+            error.ThrowAsJavaScriptException();
+        }
+        return env.Undefined();
+    }
+
     Napi::Value set_global_hotkeys(const Napi::CallbackInfo& info) {
         const Napi::Env env = info.Env();
         try {
@@ -459,6 +484,7 @@ namespace {
         exports.Set("reload", Napi::Function::New(env, reload));
         exports.Set("executeScript", Napi::Function::New(env, execute_script));
         exports.Set("setTrayMenu", Napi::Function::New(env, set_tray_menu));
+        exports.Set("setTheme", Napi::Function::New(env, set_theme));
         exports.Set("setGlobalHotkeys", Napi::Function::New(env, set_global_hotkeys));
         exports.Set("openPath", Napi::Function::New(env, open_path));
         exports.Set("shutdown", Napi::Function::New(env, shutdown));
