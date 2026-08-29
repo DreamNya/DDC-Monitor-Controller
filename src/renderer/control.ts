@@ -31,7 +31,7 @@ import {
     waitForBridge,
     type ManualAdjustment,
 } from './common';
-import { applyAndCacheTheme } from './theme';
+import { applyTheme } from './theme';
 
 type RenderOptions = {
     syncManualValues?: boolean;
@@ -171,7 +171,7 @@ function bindEvents(): void {
 
     elements.themeToggle.addEventListener('change', () => {
         const theme: AppState['settings']['theme'] = elements.themeToggle.checked ? 'dark' : 'light';
-        applyAndCacheTheme(theme);
+        applyTheme(theme);
 
         void bridge.setTheme({ theme }).catch((error: unknown) => {
             showToast(getErrorMessage(error));
@@ -395,7 +395,7 @@ function showSubpanel(target: ControlSubpanelId): void {
 
 function renderTheme(theme: AppState['settings']['theme']): void {
     elements.themeToggle.checked = theme === 'dark';
-    applyAndCacheTheme(theme);
+    applyTheme(theme);
 }
 
 function parseAutoInterval(value: string): IntervalMinutes | null {

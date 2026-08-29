@@ -12,7 +12,7 @@ import {
     updateRangeOutput,
     waitForBridge,
 } from './common';
-import { applyAndCacheTheme } from './theme';
+import { applyTheme } from './theme';
 
 type RenderOptions = {
     syncManualValues?: boolean;
@@ -157,7 +157,7 @@ function renderStateChange({ reason, state }: AppStateChange): void {
 function render(state: AppState, options: RenderOptions = {}): void {
     const previousSelection = selectedMonitorId;
     currentState = state;
-    applyAndCacheTheme(state.settings.theme);
+    applyTheme(state.settings.theme);
     applyFontSizeSettings(state.settings.fontSize);
 
     elements.status.textContent = state.lastOperation;

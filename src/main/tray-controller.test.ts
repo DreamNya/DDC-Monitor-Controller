@@ -11,9 +11,10 @@ test('tray menu groups profiles and tools while marking active state', () => {
     const state = createState();
     const menu = createTrayMenu(state);
 
-    assert.deepEqual(menu.slice(0, 5), [
+    assert.deepEqual(menu.slice(0, 6), [
         { type: 'item', id: 'open-control', label: '详细设置面板' },
         { type: 'item', id: 'open-quick', label: '快速设置面板' },
+        { type: 'item', id: 'toggle-theme', label: '切换为夜间主题' },
         { type: 'separator' },
         { type: 'item', id: 'toggle-auto', label: '自动调节', checked: true },
         { type: 'item', id: 'apply-auto', label: '立即应用当前方案' },
@@ -41,7 +42,16 @@ test('tray menu groups profiles and tools while marking active state', () => {
     ]);
 });
 
-test('TrayController reuses existing commands for quick-open and profile switching', async () => {
+test('tray menu theme action follows current theme', () => {
+    const state = createState();
+    state.settings.theme = 'dark';
+
+    const menu = createTrayMenu(state);
+
+    assert.deepEqual(menu[2], { type: 'item', id: 'toggle-theme', label: '切换为明亮主题' });
+});
+
+test('TrayController reuses existing commands for quick-open, theme and profile switching', async () => {
     const state = createState();
     const menus: NativeTrayMenuItem[][] = [];
     const calls: Array<{ name: string; args: unknown[] }> = [];
@@ -49,6 +59,9 @@ test('TrayController reuses existing commands for quick-open and profile switchi
         getState: () => state,
         setAutoEnabled: async (enabled: boolean) => {
             calls.push({ name: 'setAutoEnabled', args: [enabled] });
+        },
+        setTheme: async (theme: AppState['settings']['theme']) => {
+            calls.push({ name: 'setTheme', args: [theme] });
         },
         setActiveScheduleProfile: async (profileId: string) => {
             calls.push({ name: 'setActiveScheduleProfile', args: [profileId] });
@@ -76,13 +89,20 @@ test('TrayController reuses existing commands for quick-open and profile switchi
     controller.update(structuredClone(state));
     assert.equal(menus.length, 1);
 
+    const darkState = structuredClone(state);
+    darkState.settings.theme = 'dark';
+    controller.update(darkState);
+    assert.equal(menus.length, 2);
+
     controller.handleMenuClick('open-quick', 120, 240);
+    controller.handleMenuClick('toggle-theme');
     controller.handleMenuClick('select-profile:office%2Fnight');
     controller.handleMenuClick('open-program-directory');
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     assert.deepEqual(calls, [
         { name: 'requestOpen', args: ['quick', 120, 240] },
+        { name: 'setTheme', args: ['dark'] },
         { name: 'setActiveScheduleProfile', args: ['office/night'] },
         { name: 'openPath', args: ['D:\\MonitorController'] },
     ]);

@@ -41,6 +41,7 @@ export class TrayController {
 
         const signature = JSON.stringify([
             state.settings.autoEnabled,
+            state.settings.theme,
             state.settings.activeScheduleProfileId,
             state.settings.scheduleProfiles.map(({ id, name }) => [id, name]),
         ]);
@@ -83,6 +84,13 @@ export class TrayController {
                 });
                 break;
 
+            case 'toggle-theme':
+                runBackground('切换界面主题', async () => {
+                    const state = this.#appController.getState();
+                    await this.#appController.setTheme(state.settings.theme === 'dark' ? 'light' : 'dark');
+                });
+                break;
+
             case 'apply-auto':
                 runBackground('应用自动设置', () => this.#appController.applyAutoNow());
                 break;
@@ -115,11 +123,16 @@ export class TrayController {
 }
 
 export function createTrayMenu(state: AppState): NativeTrayMenuItem[] {
-    const { autoEnabled, activeScheduleProfileId, scheduleProfiles } = state.settings;
+    const { autoEnabled, theme, activeScheduleProfileId, scheduleProfiles } = state.settings;
 
     return [
         { type: 'item', id: 'open-control', label: '详细设置面板' },
         { type: 'item', id: 'open-quick', label: '快速设置面板' },
+        {
+            type: 'item',
+            id: 'toggle-theme',
+            label: theme === 'dark' ? '切换为明亮主题' : '切换为夜间主题',
+        },
         { type: 'separator' },
         { type: 'item', id: 'toggle-auto', label: '自动调节', checked: autoEnabled },
         { type: 'item', id: 'apply-auto', label: '立即应用当前方案' },

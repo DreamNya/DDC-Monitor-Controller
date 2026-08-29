@@ -1,33 +1,34 @@
 export type Theme = 'light' | 'dark';
 
-const THEME_STORAGE_KEY = 'theme';
-
 export function isTheme(value: unknown): value is Theme {
     return value === 'light' || value === 'dark';
 }
 
-export function readCachedTheme(): Theme | undefined {
-    try {
-        const theme = localStorage.getItem(THEME_STORAGE_KEY);
-        return isTheme(theme) ? theme : undefined;
-    } catch {
-        return undefined;
-    }
+export function readThemeFromSearch(search: string): Theme {
+    const theme = new URLSearchParams(search).get('theme');
+    return isTheme(theme) ? theme : 'light';
+}
+
+export function readThemeFromUrl(): Theme {
+    return readThemeFromSearch(window.location.search);
 }
 
 export function applyDocumentTheme(theme: Theme): void {
     document.documentElement.dataset.theme = theme;
 }
 
-export function cacheTheme(theme: Theme): void {
-    try {
-        localStorage.setItem(THEME_STORAGE_KEY, theme);
-    } catch {
-        // localStorage 缓存失败不影响 settings.json
+export function syncThemeToUrl(theme: Theme): void {
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('theme') === theme) {
+        return;
     }
+
+    url.searchParams.set('theme', theme);
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
-export function applyAndCacheTheme(theme: Theme): void {
+export function applyTheme(theme: Theme): void {
     applyDocumentTheme(theme);
-    cacheTheme(theme);
+    syncThemeToUrl(theme);
 }

@@ -113,6 +113,7 @@ export class PanelManager {
         this.#nativeShell.openWindow({
             id: 'control',
             ...page,
+            pathname: createThemedPathname(page.pathname, state.settings.theme),
             uiScalePercent: state.settings.uiScale.control,
             backgroundColor: PANEL_BACKGROUND_COLORS.control[state.settings.theme],
             initialBounds: null,
@@ -199,9 +200,11 @@ export class PanelManager {
         }
 
         this.#page = page;
+        const pageOptions = PANEL_PAGES[page];
         this.#nativeShell.openWindow({
             id: page,
-            ...PANEL_PAGES[page],
+            ...pageOptions,
+            pathname: createThemedPathname(pageOptions.pathname, refreshedState.settings.theme),
             uiScalePercent: refreshedState.settings.uiScale[page],
             backgroundColor: PANEL_BACKGROUND_COLORS[page][refreshedState.settings.theme],
             ...(x !== undefined && y !== undefined ? { x, y } : {}),
@@ -261,4 +264,8 @@ function toControlWindowBounds(bounds: NativeWindowBounds): ControlWindowBounds 
 
 function toErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+function createThemedPathname(pathname: string, theme: AppState['settings']['theme']): string {
+    return `${pathname}?theme=${theme}`;
 }

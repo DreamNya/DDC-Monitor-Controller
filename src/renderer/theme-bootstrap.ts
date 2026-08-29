@@ -1,7 +1,3 @@
-import { applyDocumentTheme, readCachedTheme } from './theme';
+import { applyDocumentTheme, readThemeFromUrl } from './theme';
 
-const theme = readCachedTheme();
-
-if (theme !== undefined) {
-    applyDocumentTheme(theme);
-}
+applyDocumentTheme(readThemeFromUrl());
