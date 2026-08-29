@@ -25,6 +25,7 @@ import type {
 export interface MonitorBridge {
     getState(): Promise<AppState>;
     setAutoStartEnabled(options: { enabled: boolean }): Promise<null>;
+    setExternalApiConfiguration(options: { enabled: boolean; port: number }): Promise<null>;
     refreshMonitors(): Promise<null>;
     getMonitorCapabilities(options: { monitorId: string }): Promise<MonitorCapabilities>;
     getMonitorVcpValues(options: { monitorId: string; codes: number[] }): Promise<MonitorVcpReadResult[]>;

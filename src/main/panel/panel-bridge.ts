@@ -21,6 +21,8 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
             }
             return runCommand(() => appController.setAutoStartEnabled(enabled));
         },
+        setExternalApiConfiguration: ({ enabled, port }) =>
+            runCommand(() => appController.setExternalApiConfiguration({ enabled, port })),
         refreshMonitors: () => runCommand(() => appController.refreshMonitors()),
         getMonitorCapabilities: ({ monitorId }) => runBridgeCall(() => appController.getMonitorCapabilities(monitorId)),
         getMonitorVcpValues: ({ monitorId, codes }) =>

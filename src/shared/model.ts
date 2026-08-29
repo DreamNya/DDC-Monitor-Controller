@@ -130,6 +130,10 @@ export interface AppSettings {
     /** 是否为当前 Windows 用户启用登录自动启动；由 settings.json 作为 UI 状态来源 */
     autoStartEnabled: boolean;
     logEnabled: boolean;
+    /** 是否启用仅监听本机回环地址的 HTTP API */
+    externalApiEnabled: boolean;
+    /** 本地 HTTP API 监听端口 */
+    externalApiPort: number;
     theme: 'light' | 'dark';
     intervalMinutes: IntervalMinutes;
     targetMonitorId: MonitorTarget;

@@ -1,3 +1,4 @@
+import { isExternalApiPort, MAX_EXTERNAL_API_PORT, MIN_EXTERNAL_API_PORT } from '../api/external-api-config';
 import type { MonitorBridge } from '../shared/bridge';
 import { formatCapabilitiesString } from '../shared/capabilities-format';
 import { isFontSizePx } from '../shared/font-size';
@@ -91,6 +92,9 @@ const elements = {
     themeToggle: getElement<HTMLInputElement>('#theme-toggle'),
     logToggle: getElement<HTMLInputElement>('#log-toggle'),
     autoStartToggle: getElement<HTMLInputElement>('#auto-start-toggle'),
+    externalApiToggle: getElement<HTMLInputElement>('#external-api-toggle'),
+    externalApiPortInput: getElement<HTMLInputElement>('#external-api-port-input'),
+    externalApiEndpoint: getElement<HTMLElement>('#external-api-endpoint'),
     openLogFolderButton: getElement<HTMLButtonElement>('#open-log-folder-button'),
     quickUiScaleSlider: getElement<HTMLInputElement>('#quick-ui-scale-slider'),
     quickUiScaleValue: getElement<HTMLOutputElement>('#quick-ui-scale-value'),
@@ -353,6 +357,15 @@ function bindEvents(): void {
         });
     });
 
+    elements.externalApiToggle.addEventListener('change', () => {
+        void applyExternalApiSettings();
+    });
+
+    elements.externalApiPortInput.addEventListener('input', updateExternalApiEndpoint);
+    elements.externalApiPortInput.addEventListener('change', () => {
+        void applyExternalApiSettings();
+    });
+
     elements.openLogFolderButton.addEventListener('click', () => {
         void actions.run(async () => {
             await bridge.openLogFolder();
@@ -569,6 +582,44 @@ function deleteScheduleProfile(): void {
     });
 }
 
+function applyExternalApiSettings(): Promise<void> {
+    const enabled = elements.externalApiToggle.checked;
+    const port = Number(elements.externalApiPortInput.value);
+
+    return actions.run(async () => {
+        try {
+            if (!isExternalApiPort(port)) {
+                throw new RangeError(
+                    `本地 API 端口必须是 ${MIN_EXTERNAL_API_PORT} 到 ${MAX_EXTERNAL_API_PORT} 的整数`,
+                );
+            }
+
+            await bridge.setExternalApiConfiguration({ enabled, port });
+            showToast(enabled ? `本地 HTTP API 已启用：127.0.0.1:${port}` : '本地 HTTP API 已关闭');
+        } catch (error) {
+            renderExternalApiSettings(currentState?.settings);
+            throw error;
+        }
+    });
+}
+
+function renderExternalApiSettings(settings: AppState['settings'] | undefined): void {
+    if (!settings) {
+        return;
+    }
+
+    elements.externalApiToggle.checked = settings.externalApiEnabled;
+    elements.externalApiPortInput.value = String(settings.externalApiPort);
+    updateExternalApiEndpoint();
+}
+
+function updateExternalApiEndpoint(): void {
+    const port = Number(elements.externalApiPortInput.value);
+    elements.externalApiEndpoint.textContent = isExternalApiPort(port)
+        ? `http://127.0.0.1:${port}/api/v1`
+        : 'http://127.0.0.1:<端口>/api/v1';
+}
+
 function renderStateChange({ reason, state }: AppStateChange): void {
     render(state, {
         syncManualValues: reason === 'refresh-monitors' || reason === 'apply-manual' || reason === 'apply-auto',
@@ -607,6 +658,7 @@ function render(state: AppState, options: RenderOptions = {}): void {
     updateAutoIntervalDisplay();
     elements.logToggle.checked = state.settings.logEnabled;
     elements.autoStartToggle.checked = state.settings.autoStartEnabled;
+    renderExternalApiSettings(state.settings);
     renderTheme(state.settings.theme);
     elements.openLogFolderButton.disabled = !state.settings.logEnabled;
     setRangeValue(elements.quickUiScaleSlider, elements.quickUiScaleValue, state.settings.uiScale.quick);

@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+    assertExternalApiConfiguration,
+    type ExternalApiConfiguration,
+} from '../api/external-api-config.ts';
 import { MAX_ADVANCED_VCP_COMMANDS, validateAdvancedVcpAction } from '../shared/advanced-vcp.ts';
 import {
     createDefaultFontSizeSettings,
@@ -77,6 +81,7 @@ export interface AppControllerOptions {
     createAutoScheduler?: (options: AutoAdjustmentSchedulerOptions) => AutoScheduler;
     onLogEnabledChanged?: (enabled: boolean) => void;
     setAutoStartRegistration?: (enabled: boolean) => Promise<void>;
+    configureExternalApi?: (configuration: ExternalApiConfiguration) => Promise<void>;
 }
 
 export class AppController {
@@ -86,6 +91,7 @@ export class AppController {
     readonly #autoScheduler: AutoScheduler;
     readonly #onLogEnabledChanged: (enabled: boolean) => void;
     readonly #setAutoStartRegistration: (enabled: boolean) => Promise<void>;
+    readonly #configureExternalApi: (configuration: ExternalApiConfiguration) => Promise<void>;
 
     #disposePromise: Promise<void> | undefined;
 
@@ -97,6 +103,7 @@ export class AppController {
             (async () => {
                 throw new Error('当前运行环境不支持配置登录自动启动');
             });
+        this.#configureExternalApi = options.configureExternalApi ?? (async () => undefined);
 
         this.#state = new AppStateManager({
             settingsStore: options.settingsStore ?? new SettingsStore(),
@@ -154,6 +161,34 @@ export class AppController {
                 settings.autoStartEnabled = enabled;
             });
             this.#state.succeed(enabled ? '已为当前用户启用登录自动启动' : '已关闭登录自动启动');
+            return 'update-settings';
+        });
+    }
+
+    setExternalApiConfiguration(configuration: ExternalApiConfiguration): Promise<void> {
+        return this.#executeCommand(async () => {
+            assertExternalApiConfiguration(configuration);
+
+            // 先完成端口绑定/服务关闭，再提交设置，避免端口冲突时 settings.json 与实际监听状态不一致
+            await this.#configureExternalApi(configuration);
+
+            if (
+                this.#state.settings.externalApiEnabled === configuration.enabled &&
+                this.#state.settings.externalApiPort === configuration.port
+            ) {
+                return null;
+            }
+
+            this.#state.commit((settings) => {
+                settings.externalApiEnabled = configuration.enabled;
+                settings.externalApiPort = configuration.port;
+            });
+
+            this.#state.succeed(
+                configuration.enabled
+                    ? `本地 API 已启用，监听端口 ${configuration.port}`
+                    : '本地 API 已关闭',
+            );
             return 'update-settings';
         });
     }
@@ -539,6 +574,10 @@ export class AppController {
             const autoStartEnabled = this.#state.settings.autoStartEnabled;
             const defaults = createDefaultSettings();
             defaults.autoStartEnabled = autoStartEnabled;
+            await this.#configureExternalApi({
+                enabled: defaults.externalApiEnabled,
+                port: defaults.externalApiPort,
+            });
             this.#state.replace(defaults);
             this.#onLogEnabledChanged(this.#state.settings.logEnabled);
             this.#state.succeed('已恢复默认配置');
