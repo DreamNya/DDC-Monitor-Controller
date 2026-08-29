@@ -65,6 +65,12 @@ type MonitorController = Pick<
 >;
 type AutoScheduler = Pick<AutoAdjustmentScheduler, 'nextRunAt' | 'schedule' | 'stop' | 'dispose'>;
 
+export type AppControllerInitializationMode = 'desktop' | 'command';
+
+export interface AppControllerInitializeOptions {
+    mode?: AppControllerInitializationMode;
+}
+
 export interface AppControllerOptions {
     monitorController?: MonitorController;
     settingsStore?: SettingsPersistence;
@@ -112,17 +118,21 @@ export class AppController {
         this.#state.setListener(listener);
     }
 
-    async initialize(): Promise<void> {
+    async initialize(options: AppControllerInitializeOptions = {}): Promise<void> {
+        const mode = options.mode ?? 'desktop';
+
         await this.#state.load();
         this.#onLogEnabledChanged(this.#state.settings.logEnabled);
         await this.#refreshMonitors();
 
-        if (this.#state.settings.autoEnabled) {
-            // 启动阶段刚完成刷新，直接复用这批缓存，避免连续读取两次
-            await this.#applyAuto(false);
-            this.#autoScheduler.schedule(this.#state.settings.intervalMinutes);
-        } else {
-            this.#state.succeed('自动调节已关闭');
+        if (mode === 'desktop') {
+            if (this.#state.settings.autoEnabled) {
+                // 启动阶段刚完成刷新，直接复用这批缓存，避免连续读取两次
+                await this.#applyAuto(false);
+                this.#autoScheduler.schedule(this.#state.settings.intervalMinutes);
+            } else {
+                this.#state.succeed('自动调节已关闭');
+            }
         }
 
         this.#state.publish('initialize');

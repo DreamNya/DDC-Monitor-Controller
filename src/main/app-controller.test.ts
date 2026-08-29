@@ -16,6 +16,59 @@ import { createDefaultSettings } from './services/settings-store.ts';
 type MonitorDependency = NonNullable<AppControllerOptions['monitorController']>;
 type SettingsDependency = NonNullable<AppControllerOptions['settingsStore']>;
 
+test('AppController desktop initialization preserves the existing automatic startup behavior', async () => {
+    const settings = createDefaultSettings();
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const controller = createController(monitorController, settingsStore, scheduler);
+
+    await controller.initialize();
+
+    assert.equal(monitorController.getSnapshotsCalls, 1);
+    assert.equal(monitorController.applyCalls, 1);
+    assert.deepEqual(scheduler.scheduleCalls, [settings.intervalMinutes]);
+    assert.equal(scheduler.active, true);
+    assert.notEqual(controller.getState().nextRunAt, null);
+
+    await controller.dispose();
+});
+
+test('AppController command initialization loads state without applying or scheduling automatic settings', async () => {
+    const settings = createDefaultSettings();
+    settings.logEnabled = true;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const logStates: boolean[] = [];
+    const controller = new AppController({
+        monitorController,
+        settingsStore,
+        createAutoScheduler: (_options: AutoAdjustmentSchedulerOptions) => scheduler,
+        onLogEnabledChanged: (enabled) => logStates.push(enabled),
+    });
+    const changes: AppStateChange[] = [];
+    controller.setStateListener((change) => changes.push(change));
+
+    await controller.initialize({ mode: 'command' });
+
+    const state = controller.getState();
+    assert.deepEqual(logStates, [true]);
+    assert.equal(monitorController.getSnapshotsCalls, 1);
+    assert.equal(monitorController.applyCalls, 0);
+    assert.deepEqual(scheduler.scheduleCalls, []);
+    assert.equal(scheduler.active, false);
+    assert.equal(state.settings.autoEnabled, true);
+    assert.equal(state.nextRunAt, null);
+    assert.equal(state.lastOperation, '已检测到 1 台显示器');
+    assert.deepEqual(
+        changes.map(({ reason }) => reason),
+        ['initialize'],
+    );
+
+    await controller.dispose();
+});
+
 test('AppController publishes each command once and commits settings atomically in memory', async () => {
     const settings = createDefaultSettings();
     settings.autoEnabled = false;
@@ -295,6 +348,8 @@ class FakeSettingsStore implements SettingsDependency {
 class FakeMonitorController implements MonitorDependency {
     readonly applyStarted = createDeferred<void>();
     disposed = false;
+    getSnapshotsCalls = 0;
+    applyCalls = 0;
     #blockApply: boolean;
     #applyRelease = createDeferred<void>();
     #snapshots: MonitorSnapshot[] = [
@@ -312,6 +367,7 @@ class FakeMonitorController implements MonitorDependency {
     }
 
     async getSnapshots(): Promise<MonitorSnapshot[]> {
+        this.getSnapshotsCalls += 1;
         return this.getCachedSnapshots();
     }
 
@@ -364,6 +420,8 @@ class FakeMonitorController implements MonitorDependency {
     }
 
     async apply(request: ManualApplyRequest) {
+        this.applyCalls += 1;
+
         if (this.#blockApply) {
             this.applyStarted.resolve();
             await this.#applyRelease.promise;
