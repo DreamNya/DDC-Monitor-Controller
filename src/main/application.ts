@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { PublicApiDispatcher } from '../api/public-api-dispatcher.ts';
 import { parseGlobalShortcut } from '../shared/global-shortcut';
 import type { AppState } from '../shared/model';
 import { AppController } from './app-controller';
@@ -22,6 +23,7 @@ export class DesktopApplication {
     readonly #paths: RuntimePaths;
     readonly #singleInstanceLock: SingleInstanceLock;
     readonly #appController: AppController;
+    readonly #publicApiDispatcher: PublicApiDispatcher;
     readonly #nativeShell = new NativeShell();
 
     #panelManager: PanelManager | undefined;
@@ -48,10 +50,13 @@ export class DesktopApplication {
             },
             setAutoStartRegistration: (enabled) => autoStartService.setEnabled(enabled),
         });
+
+        this.#publicApiDispatcher = new PublicApiDispatcher(this.#appController);
     }
 
     async start(): Promise<void> {
-        await this.#appController.initialize();
+        await this.#appController.initialize({ mode: 'desktop' });
+        this.#singleInstanceLock.setApiRequestHandler((request) => this.#publicApiDispatcher.execute(request));
         const initialState = this.#appController.getState();
         const panelManager = new PanelManager({
             appController: this.#appController,
