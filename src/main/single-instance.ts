@@ -1,5 +1,5 @@
 import net, { type Server, type Socket } from 'node:net';
-import type { PublicApiRequest, PublicApiResponse } from '../api/public-api.ts';
+import type { PublicApiResponse } from '../api/public-api.ts';
 
 const DEFAULT_INSTANCE_PIPE = String.raw`\\.\pipe\DreamNya.DDCMonitorController`;
 
@@ -102,7 +102,7 @@ export class SingleInstanceLock {
     /**
      * 向已经运行的主实例发送一条 Public API 请求并等待结果。
      */
-    requestApi(request: PublicApiRequest): Promise<PublicApiResponse> {
+    requestApi(request: unknown): Promise<PublicApiResponse> {
         return new Promise((resolvePromise, rejectPromise) => {
             const client = net.createConnection(this.#pipeName);
             let buffer = '';
