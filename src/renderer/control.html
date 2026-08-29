@@ -399,6 +399,46 @@
 
                                 <p class="hint">默认文字用于标题、按钮和数值；提示文字用于标签、说明和辅助信息</p>
                             </section>
+
+                            <section class="card settings-card external-api-card">
+                                <div class="section-heading">
+                                    <div>
+                                        <span class="label">本地自动化</span>
+                                        <h2>HTTP API</h2>
+                                    </div>
+                                </div>
+
+                                <div class="external-api-settings">
+                                    <div class="setting-row external-api-toggle-row">
+                                        <div>
+                                            <strong>启用本地 HTTP API</strong>
+                                            <small>仅监听 127.0.0.1，支持本机程序和浏览器脚本调用</small>
+                                        </div>
+
+                                        <label class="switch small-switch" title="启用本地 HTTP API">
+                                            <input id="external-api-toggle" type="checkbox" />
+                                            <span></span>
+                                        </label>
+                                    </div>
+
+                                    <label class="external-api-port-field" for="external-api-port-input">
+                                        <span>监听端口</span>
+                                        <input
+                                            id="external-api-port-input"
+                                            type="number"
+                                            min="1024"
+                                            max="65535"
+                                            step="1"
+                                            inputmode="numeric"
+                                            value="45678" />
+                                    </label>
+                                </div>
+
+                                <p class="hint">
+                                    请求地址：<code id="external-api-endpoint">http://127.0.0.1:45678/api/v1</code>；
+                                    仅接受 POST + JSON Body
+                                </p>
+                            </section>
                         </div>
                     </section>
 

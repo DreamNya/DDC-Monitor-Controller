@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { HttpApiServer } from '../api/http-api-server.ts';
 import { PublicApiDispatcher } from '../api/public-api-dispatcher.ts';
 import type { PublicApiResponse } from '../api/public-api.ts';
 import { parseGlobalShortcut } from '../shared/global-shortcut';
@@ -25,6 +26,7 @@ export class DesktopApplication {
     readonly #singleInstanceLock: SingleInstanceLock;
     readonly #appController: AppController;
     readonly #publicApiDispatcher: PublicApiDispatcher;
+    readonly #httpApiServer: HttpApiServer;
     readonly #nativeShell = new NativeShell();
 
     #panelManager: PanelManager | undefined;
@@ -50,15 +52,30 @@ export class DesktopApplication {
                 options.fileLogger.setEnabled(enabled);
             },
             setAutoStartRegistration: (enabled) => autoStartService.setEnabled(enabled),
+            configureExternalApi: (configuration) => this.#httpApiServer.configure(configuration),
         });
 
         this.#publicApiDispatcher = new PublicApiDispatcher(this.#appController);
+        this.#httpApiServer = new HttpApiServer({ executor: this.#publicApiDispatcher });
     }
 
     async start(): Promise<void> {
         await this.#appController.initialize({ mode: 'desktop' });
         this.#singleInstanceLock.setApiRequestHandler((request) => this.#publicApiDispatcher.execute(request));
         const initialState = this.#appController.getState();
+
+        try {
+            await this.#httpApiServer.configure({
+                enabled: initialState.settings.externalApiEnabled,
+                port: initialState.settings.externalApiPort,
+            });
+        } catch (error) {
+            console.error(
+                `启动本地 HTTP API 失败（127.0.0.1:${initialState.settings.externalApiPort}）：`,
+                error,
+            );
+        }
+
         const panelManager = new PanelManager({
             appController: this.#appController,
             nativeShell: this.#nativeShell,
@@ -172,6 +189,12 @@ export class DesktopApplication {
 
             this.#panelManager?.prepareForApplicationExit();
             this.#trayController?.stop();
+
+            try {
+                await this.#httpApiServer.stop();
+            } catch (error) {
+                console.error('退出应用时停止本地 HTTP API 失败：', error);
+            }
 
             const results = await Promise.allSettled([this.#appController.dispose(), this.#singleInstanceLock.close()]);
 

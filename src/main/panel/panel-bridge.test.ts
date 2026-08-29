@@ -91,6 +91,8 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
         saveSchedule: (profileId: string, schedule: SchedulePoint[]) => record('saveSchedule', profileId, schedule),
         setLogEnabled: (enabled: boolean) => record('setLogEnabled', enabled),
         setAutoStartEnabled: (enabled: boolean) => record('setAutoStartEnabled', enabled),
+        setExternalApiConfiguration: (configuration: { enabled: boolean; port: number }) =>
+            record('setExternalApiConfiguration', configuration),
         resetSettings: () => record('resetSettings'),
     };
 
@@ -120,6 +122,7 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
 
     assert.equal(await bridge.getState(), state);
     assert.equal(await bridge.setAutoStartEnabled({ enabled: true }), null);
+    assert.equal(await bridge.setExternalApiConfiguration({ enabled: true, port: 54321 }), null);
     assert.deepEqual(await bridge.getMonitorCapabilities({ monitorId: 'monitor-1' }), {
         monitorId: 'monitor-1',
         monitorName: 'Test Monitor',
@@ -164,6 +167,7 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     assert.equal(await bridge.resetFontSize(), null);
     assert.deepEqual(calls, [
         { name: 'setAutoStartEnabled', args: [true] },
+        { name: 'setExternalApiConfiguration', args: [{ enabled: true, port: 54321 }] },
         { name: 'getMonitorCapabilities', args: ['monitor-1'] },
         { name: 'getMonitorVcpValues', args: ['monitor-1', [0x10, 0xfd]] },
         {

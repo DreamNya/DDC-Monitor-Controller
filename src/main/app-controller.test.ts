@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { DEFAULT_EXTERNAL_API_PORT } from '../api/external-api-config.ts';
 import type {
     AdvancedVcpAction,
     AdvancedVcpExecutionResult,
@@ -305,6 +306,90 @@ test('AppController serializes auto-enable and auto-disable side effects', async
         ['apply-auto', 'update-settings'],
     );
     assert.equal(settingsStore.staged.at(-1)?.autoEnabled, false);
+
+    await controller.dispose();
+});
+
+test('AppController applies local HTTP API configuration before committing settings', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const configurations: Array<{ enabled: boolean; port: number }> = [];
+    const controller = new AppController({
+        monitorController,
+        settingsStore,
+        createAutoScheduler: (_options: AutoAdjustmentSchedulerOptions) => scheduler,
+        configureExternalApi: async (configuration) => {
+            configurations.push(structuredClone(configuration));
+        },
+    });
+
+    await controller.initialize();
+    await controller.setExternalApiConfiguration({ enabled: true, port: 54321 });
+
+    assert.deepEqual(configurations, [{ enabled: true, port: 54321 }]);
+    assert.equal(controller.getState().settings.externalApiEnabled, true);
+    assert.equal(controller.getState().settings.externalApiPort, 54321);
+    assert.equal(settingsStore.staged.at(-1)?.externalApiEnabled, true);
+    assert.equal(settingsStore.staged.at(-1)?.externalApiPort, 54321);
+
+    await controller.dispose();
+});
+
+test('AppController keeps local HTTP API settings unchanged when runtime reconfiguration fails', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    const controller = new AppController({
+        monitorController,
+        settingsStore,
+        createAutoScheduler: (_options: AutoAdjustmentSchedulerOptions) => scheduler,
+        configureExternalApi: async () => {
+            throw new Error('EADDRINUSE');
+        },
+    });
+
+    await controller.initialize();
+    await assert.rejects(
+        controller.setExternalApiConfiguration({ enabled: true, port: 54321 }),
+        /EADDRINUSE/,
+    );
+
+    assert.equal(controller.getState().settings.externalApiEnabled, false);
+    assert.equal(controller.getState().settings.externalApiPort, DEFAULT_EXTERNAL_API_PORT);
+    assert.equal(settingsStore.staged.length, 0);
+
+    await controller.dispose();
+});
+
+test('AppController rejects invalid local HTTP API ports before runtime reconfiguration', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const scheduler = new FakeScheduler();
+    let configurationCalls = 0;
+    const controller = new AppController({
+        monitorController,
+        settingsStore,
+        createAutoScheduler: (_options: AutoAdjustmentSchedulerOptions) => scheduler,
+        configureExternalApi: async () => {
+            configurationCalls += 1;
+        },
+    });
+
+    await controller.initialize();
+    await assert.rejects(
+        controller.setExternalApiConfiguration({ enabled: true, port: 80 }),
+        /端口必须是 1024 到 65535/,
+    );
+
+    assert.equal(configurationCalls, 0);
+    assert.equal(settingsStore.staged.length, 0);
 
     await controller.dispose();
 });

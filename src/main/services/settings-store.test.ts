@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { DEFAULT_EXTERNAL_API_PORT } from '../../api/external-api-config.ts';
 import { createDefaultSettings, SETTINGS_SAVE_THROTTLE_MS, SettingsStore } from './settings-store.ts';
 
 test('SettingsStore merges all changes in one 10-second window into one write', async () => {
@@ -101,6 +102,51 @@ test('SettingsStore restores persisted auto-start preference from settings.json'
     try {
         const settings = await store.load();
         assert.equal(settings.autoStartEnabled, true);
+    } finally {
+        await store.dispose();
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});
+
+test('SettingsStore defaults local HTTP API to disabled with the default port', async () => {
+    const directory = await fs.mkdtemp(path.join(tmpdir(), 'monitor-settings-external-api-default-'));
+    const settingsPath = path.join(directory, 'settings.json');
+    await fs.writeFile(settingsPath, JSON.stringify({ theme: 'dark' }), 'utf8');
+    const store = new SettingsStore({ settingsPath });
+
+    try {
+        const settings = await store.load();
+        assert.equal(settings.externalApiEnabled, false);
+        assert.equal(settings.externalApiPort, DEFAULT_EXTERNAL_API_PORT);
+    } finally {
+        await store.dispose();
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});
+
+test('SettingsStore restores valid local HTTP API settings and rejects invalid persisted ports', async () => {
+    const directory = await fs.mkdtemp(path.join(tmpdir(), 'monitor-settings-external-api-port-'));
+    const settingsPath = path.join(directory, 'settings.json');
+    const store = new SettingsStore({ settingsPath });
+
+    try {
+        await fs.writeFile(
+            settingsPath,
+            JSON.stringify({ externalApiEnabled: true, externalApiPort: 54321 }),
+            'utf8',
+        );
+        let settings = await store.load();
+        assert.equal(settings.externalApiEnabled, true);
+        assert.equal(settings.externalApiPort, 54321);
+
+        await fs.writeFile(
+            settingsPath,
+            JSON.stringify({ externalApiEnabled: true, externalApiPort: 80 }),
+            'utf8',
+        );
+        settings = await store.load();
+        assert.equal(settings.externalApiEnabled, true);
+        assert.equal(settings.externalApiPort, DEFAULT_EXTERNAL_API_PORT);
     } finally {
         await store.dispose();
         await fs.rm(directory, { recursive: true, force: true });
