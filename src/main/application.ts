@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { PublicApiDispatcher } from '../api/public-api-dispatcher.ts';
+import type { PublicApiResponse } from '../api/public-api.ts';
 import { parseGlobalShortcut } from '../shared/global-shortcut';
 import type { AppState } from '../shared/model';
 import { AppController } from './app-controller';
@@ -125,6 +126,10 @@ export class DesktopApplication {
             reloadPage: () => panelManager.reloadPageForDevelopment(),
             shutdown: () => this.quit(),
         });
+    }
+
+    executePublicApi(request: unknown): Promise<PublicApiResponse> {
+        return this.#publicApiDispatcher.execute(request);
     }
 
     requestControlPanel(): void {

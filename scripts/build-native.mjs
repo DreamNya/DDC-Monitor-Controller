@@ -205,12 +205,13 @@ function buildLauncher(outputDir) {
             `/Fo:${quote(launcherObject)}`,
         ].join(' '),
         [
-            `link /nologo ${quote(launcherObject)} ${quote(launcherRes)} /NODEFAULTLIB /SUBSYSTEM:WINDOWS`,
+            `link /nologo ${quote(launcherObject)} ${quote(launcherRes)} /NODEFAULTLIB /SUBSYSTEM:CONSOLE`,
             `/MACHINE:X64 /ENTRY:launcher_entry /LTCG /OPT:REF,ICF /INCREMENTAL:NO /DYNAMICBASE`,
             `/HIGHENTROPYVA /NXCOMPAT /MANIFEST:EMBED`,
             `/OUT:${quote(launcherExe)}`,
             'Kernel32.lib',
             'User32.lib',
+            'Shell32.lib',
         ].join(' '),
     ].join(' && ');
 
