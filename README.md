@@ -35,6 +35,7 @@ GitHub: <https://github.com/DreamNya/DDC-Monitor-Controller>
   * 支持为快捷命令配置系统级全局快捷键
 * 界面设置
   * 支持亮色 / 暗色主题
+  * 支持设置开机自启动
   * 支持分别调整快速设置与详细设置面板缩放比例
   * 支持调整默认文字大小
 
@@ -53,7 +54,7 @@ GitHub: <https://github.com/DreamNya/DDC-Monitor-Controller>
 
 ## TODO
 
-* [ ] 自动配置开机启动或计划任务
+* [ ] CLI外部接口
 * [ ] 自动获取日出、日落时间，并作为方案的初始和末尾时间节点
 * [ ] 时间节点之间的非线性变化
 
@@ -177,6 +178,7 @@ https://wwbwh.lanzouw.com/b01d75e9of
 #### 设置
 
 * 切换亮色 / 暗色主题
+* 设置程序开机自启动
 * 修改快速设置面板缩放比例
 * 修改详细设置面板缩放比例
 * 修改默认文字大小
