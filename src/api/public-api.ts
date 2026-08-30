@@ -9,17 +9,15 @@ import type {
     ScheduleProfile,
 } from '../shared/model.ts';
 
-export const PUBLIC_API_VERSION = 1 as const;
+export const PUBLIC_API_REQUEST_METHOD = '$request' as const;
 
 export type PublicApiMethod =
-    | 'system.ping'
     | 'state.get'
     | 'monitor.list'
-    | 'monitor.refresh'
+    | 'monitor.target'
     | 'monitor.set'
     | 'auto.setEnabled'
     | 'auto.setInterval'
-    | 'auto.setTarget'
     | 'auto.applyNow'
     | 'schedule.list'
     | 'schedule.activate'
@@ -28,57 +26,63 @@ export type PublicApiMethod =
     | 'vcp.capabilities'
     | 'vcp.read'
     | 'vcp.write'
-    | 'vcp.adjust'
-    | 'app.setTheme'
-    | 'app.setLogEnabled';
+    | 'vcp.adjust';
 
+/** 高频操作的简写命令；高级 VCP 命令仅保留完整 method 名称 */
+export type PublicApiAlias =
+    'state' | 'monitor' | 'brightness' | 'contrast' | 'auto' | 'interval' | 'apply' | 'schedule';
+
+/** batch 控制命令，单位为毫秒 */
+export type PublicApiControlMethod = 'sleep';
+
+export type PublicApiResponseMethod =
+    PublicApiMethod | PublicApiAlias | PublicApiControlMethod | typeof PUBLIC_API_REQUEST_METHOD;
+
+/** Dispatcher 内部使用的规范化业务请求 */
 export type PublicApiRequest =
-    | { method: 'system.ping'; params?: never }
     | { method: 'state.get'; params?: never }
     | { method: 'monitor.list'; params?: never }
-    | { method: 'monitor.refresh'; params?: never }
+    | { method: 'monitor.target'; params: { monitorId: string } }
     | {
           method: 'monitor.set';
           params: {
-              monitorId: string;
+              monitorId?: string;
               brightness?: number;
               contrast?: number;
           };
       }
     | { method: 'auto.setEnabled'; params: { enabled: boolean } }
     | { method: 'auto.setInterval'; params: { intervalMinutes: IntervalMinutes } }
-    | { method: 'auto.setTarget'; params: { monitorId: string } }
     | { method: 'auto.applyNow'; params?: never }
     | { method: 'schedule.list'; params?: never }
     | { method: 'schedule.activate'; params: { profileId: string } }
     | { method: 'command.list'; params?: never }
     | { method: 'command.execute'; params: { commandId: string } }
-    | { method: 'vcp.capabilities'; params: { monitorId: string } }
-    | { method: 'vcp.read'; params: { monitorId: string; codes: number[] } }
-    | { method: 'vcp.write'; params: { monitorId: string; code: number; value: number } }
+    | { method: 'vcp.capabilities'; params: { monitorId?: string } }
+    | { method: 'vcp.read'; params: { monitorId?: string; codes: number[] } }
+    | { method: 'vcp.write'; params: { monitorId?: string; code: number; value: number } }
     | {
           method: 'vcp.adjust';
           params: {
-              monitorId: string;
+              monitorId?: string;
               code: number;
               direction: 'increase' | 'decrease';
               percent: number;
           };
-      }
-    | { method: 'app.setTheme'; params: { theme: 'light' | 'dark' } }
-    | { method: 'app.setLogEnabled'; params: { enabled: boolean } };
+      };
+
+export interface PublicApiMonitorSnapshot extends MonitorSnapshot {
+    /** 当前 batch 中此显示器是否属于 monitor.target 选中的作用域 */
+    active: boolean;
+}
 
 export interface PublicApiResultMap {
-    'system.ping': {
-        apiVersion: typeof PUBLIC_API_VERSION;
-    };
     'state.get': AppState;
-    'monitor.list': MonitorSnapshot[];
-    'monitor.refresh': null;
+    'monitor.list': PublicApiMonitorSnapshot[];
+    'monitor.target': null;
     'monitor.set': null;
     'auto.setEnabled': null;
     'auto.setInterval': null;
-    'auto.setTarget': null;
     'auto.applyNow': null;
     'schedule.list': {
         activeProfileId: string;
@@ -91,8 +95,6 @@ export interface PublicApiResultMap {
     'vcp.read': MonitorVcpReadResult[];
     'vcp.write': AdvancedVcpExecutionResult;
     'vcp.adjust': AdvancedVcpExecutionResult;
-    'app.setTheme': null;
-    'app.setLogEnabled': null;
 }
 
 export type PublicApiResult<M extends PublicApiMethod = PublicApiMethod> = PublicApiResultMap[M];
@@ -104,12 +106,30 @@ export interface PublicApiError {
     message: string;
 }
 
-export type PublicApiResponse<T = unknown> =
+export interface PublicApiMonitorValue {
+    monitorId: string;
+    monitorName: string;
+    value: number | null;
+}
+
+export type PublicApiCommandResponse<T = unknown> =
     | {
+          method: PublicApiResponseMethod;
           ok: true;
           result: T;
       }
     | {
+          method: PublicApiResponseMethod;
           ok: false;
           error: PublicApiError;
       };
+
+/**
+ * 公开 API 始终返回数组，即使请求只包含一个命令
+ * batch 运行时失败会保留此前成功项，并以失败项结束数组
+ */
+export type PublicApiResponse = PublicApiCommandResponse[];
+
+export function isPublicApiResponseSuccessful(response: PublicApiResponse): boolean {
+    return response.length > 0 && response.every((item) => item.ok);
+}

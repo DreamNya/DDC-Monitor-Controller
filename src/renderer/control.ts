@@ -38,7 +38,15 @@ type RenderOptions = {
     syncManualValues?: boolean;
 };
 
-type ControlSubpanelId = 'control-panel' | 'vcp-panel' | 'advanced-vcp-panel' | 'settings-panel';
+type ApiReferenceTransport = 'http' | 'cli';
+type ApiExampleTransport = 'curl' | 'fetch' | 'cli';
+
+interface ApiExampleDefinition {
+    payload: unknown;
+    cli: string;
+}
+
+type ControlSubpanelId = 'control-panel' | 'vcp-panel' | 'advanced-vcp-panel' | 'settings-panel' | 'external-api-panel';
 
 let bridge: MonitorBridge;
 let currentState: AppState | undefined;
@@ -46,6 +54,33 @@ let lastCapabilities: MonitorCapabilities | undefined;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let copiedVcpCellTimer: ReturnType<typeof setTimeout> | undefined;
 let copiedVcpCell: HTMLTableCellElement | undefined;
+let apiExampleTransport: ApiExampleTransport = 'curl';
+
+const API_EXAMPLES: Record<string, ApiExampleDefinition> = {
+    'common-batch': {
+        payload: {
+            monitor: 'monitor-1',
+            brightness: 30,
+            contrast: 50,
+        },
+        cli: 'DDCMonitorController.exe --monitor monitor-1 --brightness 30 --contrast 50',
+    },
+    'ordered-batch': {
+        payload: [{ monitor: 'monitor-1' }, { brightness: 20 }, { sleep: 1000 }, { brightness: 50 }],
+        cli: 'DDCMonitorController.exe --monitor monitor-1 --brightness 20 --sleep 1000 --brightness 50',
+    },
+    'method-batch': {
+        payload: [
+            { 'monitor.target': 'monitor-1' },
+            { 'monitor.set': { brightness: 35, contrast: 50 } },
+            { sleep: 500 },
+            { 'vcp.read': { codes: [16, 18, 96] } },
+            { 'monitor.target': 'monitor-2' },
+            { 'monitor.set': { brightness: 25, contrast: 40 } },
+        ],
+        cli: `DDCMonitorController.exe --api '[{"monitor.target":"monitor-1"},{"monitor.set":{"brightness":35,"contrast":50}},{"sleep":500},{"vcp.read":{"codes":[16,18,96]}},{"monitor.target":"monitor-2"},,{"monitor.set":{"brightness":25,"contrast":40}}]'`,
+    },
+};
 
 const VCP_CODE_NAMES = new Map<number, string>([
     [0x10, '亮度'],
@@ -95,6 +130,12 @@ const elements = {
     externalApiToggle: getElement<HTMLInputElement>('#external-api-toggle'),
     externalApiPortInput: getElement<HTMLInputElement>('#external-api-port-input'),
     externalApiEndpoint: getElement<HTMLElement>('#external-api-endpoint'),
+    apiReferenceCard: getElement<HTMLElement>('.api-reference-card'),
+    apiTransportOptions: [...document.querySelectorAll<HTMLButtonElement>('[data-api-transport-option]')],
+    apiExampleTransportOptions: [
+        ...document.querySelectorAll<HTMLButtonElement>('[data-api-example-transport-option]'),
+    ],
+    apiExampleCodes: [...document.querySelectorAll<HTMLElement>('[data-api-example-code]')],
     openLogFolderButton: getElement<HTMLButtonElement>('#open-log-folder-button'),
     quickUiScaleSlider: getElement<HTMLInputElement>('#quick-ui-scale-slider'),
     quickUiScaleValue: getElement<HTMLOutputElement>('#quick-ui-scale-value'),
@@ -366,6 +407,24 @@ function bindEvents(): void {
         void applyExternalApiSettings();
     });
 
+    for (const option of elements.apiTransportOptions) {
+        option.addEventListener('click', () => {
+            const transport = option.dataset.apiTransportOption;
+            if (transport === 'http' || transport === 'cli') {
+                setApiReferenceTransport(transport);
+            }
+        });
+    }
+
+    for (const option of elements.apiExampleTransportOptions) {
+        option.addEventListener('click', () => {
+            const transport = option.dataset.apiExampleTransportOption;
+            if (transport === 'curl' || transport === 'fetch' || transport === 'cli') {
+                setApiExampleTransport(transport);
+            }
+        });
+    }
+
     elements.openLogFolderButton.addEventListener('click', () => {
         void actions.run(async () => {
             await bridge.openLogFolder();
@@ -373,6 +432,138 @@ function bindEvents(): void {
     });
 
     disableDefaultContextMenu();
+}
+
+function setApiReferenceTransport(transport: ApiReferenceTransport): void {
+    elements.apiReferenceCard.dataset.apiTransport = transport;
+
+    for (const option of elements.apiTransportOptions) {
+        const isActive = option.dataset.apiTransportOption === transport;
+        option.classList.toggle('active', isActive);
+        option.setAttribute('aria-pressed', String(isActive));
+    }
+}
+
+function setApiExampleTransport(transport: ApiExampleTransport): void {
+    apiExampleTransport = transport;
+
+    for (const option of elements.apiExampleTransportOptions) {
+        const isActive = option.dataset.apiExampleTransportOption === transport;
+        option.classList.toggle('active', isActive);
+        option.setAttribute('aria-pressed', String(isActive));
+    }
+
+    renderApiExamples();
+}
+
+function renderApiExamples(): void {
+    const endpoint = elements.externalApiEndpoint.textContent?.trim() || 'http://127.0.0.1:<端口>/api/v1';
+
+    for (const code of elements.apiExampleCodes) {
+        const exampleName = code.dataset.apiExampleCode;
+        if (!exampleName) {
+            continue;
+        }
+
+        const example = API_EXAMPLES[exampleName];
+        if (!example) {
+            continue;
+        }
+
+        code.textContent = formatApiExample(example, apiExampleTransport, endpoint);
+    }
+}
+
+function formatApiExample(example: ApiExampleDefinition, transport: ApiExampleTransport, endpoint: string): string {
+    switch (transport) {
+        case 'curl':
+            return `curl.exe -X POST "${endpoint}" -H "Content-Type: application/json" -d '${JSON.stringify(example.payload)}'`;
+        case 'fetch':
+            return formatFetchApiExample(example.payload, endpoint);
+        case 'cli':
+            return example.cli;
+    }
+}
+
+function formatFetchApiExample(payload: unknown, endpoint: string): string {
+    const payloadLines = formatJsonValue(payload).split('\n');
+    const payloadText = payloadLines.map((line, index) => (index === 0 ? line : `        ${line}`)).join('\n');
+
+    return [
+        `await fetch('${endpoint}', {`,
+        `    method: 'POST',`,
+        `    headers: { 'Content-Type': 'application/json' },`,
+        `    body: JSON.stringify(${payloadText}),`,
+        `});`,
+    ].join('\n');
+}
+
+function formatJsonValue(value: unknown, indentLevel = 0, maxInlineLength = 72): string {
+    const indent = '    '.repeat(indentLevel);
+    const childIndent = '    '.repeat(indentLevel + 1);
+
+    if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return JSON.stringify(value);
+    }
+
+    if (Array.isArray(value)) {
+        if (value.length === 0) {
+            return '[]';
+        }
+
+        const inlineItems = value.map((item) => formatJsonValue(item, 0, maxInlineLength));
+        const inline = `[${inlineItems.join(', ')}]`;
+
+        if (
+            inline.length <= maxInlineLength &&
+            !value.some((item) => Array.isArray(item) || (item !== null && typeof item === 'object'))
+        ) {
+            return inline;
+        }
+
+        return [
+            '[',
+            ...value.map(
+                (item, index) =>
+                    `${childIndent}${formatJsonValue(
+                        item,
+                        indentLevel + 1,
+                        maxInlineLength,
+                    )}${index < value.length - 1 ? ',' : ''}`,
+            ),
+            `${indent}]`,
+        ].join('\n');
+    }
+
+    if (typeof value === 'object') {
+        const entries = Object.entries(value as Record<string, unknown>);
+
+        if (entries.length === 0) {
+            return '{}';
+        }
+
+        const inlineEntries = entries.map(
+            ([key, item]) => `${JSON.stringify(key)}: ${formatJsonValue(item, 0, maxInlineLength)}`,
+        );
+
+        const inline = `{ ${inlineEntries.join(', ')} }`;
+
+        if (inline.length <= maxInlineLength && !inlineEntries.some((entry) => entry.includes('\n'))) {
+            return inline;
+        }
+
+        return [
+            '{',
+            ...entries.map(([key, item], index) => {
+                const formatted = formatJsonValue(item, indentLevel + 1, maxInlineLength);
+
+                return `${childIndent}${JSON.stringify(key)}: ${formatted}` + (index < entries.length - 1 ? ',' : '');
+            }),
+            `${indent}}`,
+        ].join('\n');
+    }
+
+    return 'null';
 }
 
 function bindPanelNavigation(): void {
@@ -384,7 +575,8 @@ function bindPanelNavigation(): void {
                 target === 'control-panel' ||
                 target === 'vcp-panel' ||
                 target === 'advanced-vcp-panel' ||
-                target === 'settings-panel'
+                target === 'settings-panel' ||
+                target === 'external-api-panel'
             ) {
                 showSubpanel(target);
             }
@@ -589,9 +781,7 @@ function applyExternalApiSettings(): Promise<void> {
     return actions.run(async () => {
         try {
             if (!isExternalApiPort(port)) {
-                throw new RangeError(
-                    `本地 API 端口必须是 ${MIN_EXTERNAL_API_PORT} 到 ${MAX_EXTERNAL_API_PORT} 的整数`,
-                );
+                throw new RangeError(`本地 API 端口必须是 ${MIN_EXTERNAL_API_PORT} 到 ${MAX_EXTERNAL_API_PORT} 的整数`);
             }
 
             await bridge.setExternalApiConfiguration({ enabled, port });
@@ -618,6 +808,7 @@ function updateExternalApiEndpoint(): void {
     elements.externalApiEndpoint.textContent = isExternalApiPort(port)
         ? `http://127.0.0.1:${port}/api/v1`
         : 'http://127.0.0.1:<端口>/api/v1';
+    renderApiExamples();
 }
 
 function renderStateChange({ reason, state }: AppStateChange): void {

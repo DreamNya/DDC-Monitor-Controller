@@ -14,14 +14,14 @@ export interface LauncherCliResult {
 }
 
 /**
- * 将一次 CLI 调用结果回传给原生 Launcher。
+ * 将一次 CLI 调用结果回传给原生 Launcher
  *
- * 非 --silent CLI 在冷启动桌面实例后 Node 会继续常驻，因此 Launcher 不能等待
- * Node 进程退出。Launcher 通过环境变量提供一次性 Named Pipe；这里写入结果后关闭
- * 连接，让 Launcher 可以立即输出结果并退出，而桌面 Node 进程继续运行。
+ * 非 --silent CLI 在冷启动桌面实例后 Node 会继续常驻，因此 Launcher 不能等待 Node 进程退出
+ * Launcher 通过环境变量提供一次性 Named Pipe；这里写入结果后关闭
+ * 连接，让 Launcher 可以立即输出结果并退出，而桌面 Node 进程继续运行
  *
  * @returns true 表示存在 Launcher 结果通道且已经成功写入；false 表示当前并非由
- * Launcher 结果通道启动，调用方应回退到 process.stdout / process.stderr。
+ * Launcher 结果通道启动，调用方应回退到 process.stdout / process.stderr
  */
 export async function sendLauncherCliResult(result: LauncherCliResult): Promise<boolean> {
     const pipeName = process.env[LAUNCHER_RESULT_PIPE_ENV];
@@ -30,7 +30,7 @@ export async function sendLauncherCliResult(result: LauncherCliResult): Promise<
         return false;
     }
 
-    // 结果通道只属于当前这次启动，避免桌面进程未来创建的子进程意外继承。
+    // 结果通道只属于当前这次启动，避免桌面进程未来创建的子进程意外继承
     delete process.env[LAUNCHER_RESULT_PIPE_ENV];
 
     const payload = encodeLauncherCliResult(result);

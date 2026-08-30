@@ -7,7 +7,7 @@ import {
 } from '../api/cli.ts';
 import { executeHeadlessApiRequest } from '../api/headless-api-runner.ts';
 import { sendLauncherCliResult } from '../api/launcher-result-channel.ts';
-import type { PublicApiResponse } from '../api/public-api.ts';
+import { isPublicApiResponseSuccessful, type PublicApiResponse } from '../api/public-api.ts';
 import { DesktopApplication } from './application';
 import { resolveRuntimePaths } from './runtime-paths';
 import { FileLogger } from './services/file-logger';
@@ -32,10 +32,7 @@ try {
         await writeCliError(error.message, CLI_EXIT_CODES.invalidArguments);
         process.exitCode = CLI_EXIT_CODES.invalidArguments;
     } else {
-        await writeCliError(
-            `启动应用失败：${toErrorMessage(error)}`,
-            CLI_EXIT_CODES.instanceError,
-        );
+        await writeCliError(`启动应用失败：${toErrorMessage(error)}`, CLI_EXIT_CODES.instanceError);
         process.exitCode = CLI_EXIT_CODES.instanceError;
     }
 }
@@ -77,7 +74,9 @@ async function runApiStartup(
         return;
     }
 
-    const launcherExitCode = result.response.ok ? CLI_EXIT_CODES.success : CLI_EXIT_CODES.apiError;
+    const launcherExitCode = isPublicApiResponseSuccessful(result.response)
+        ? CLI_EXIT_CODES.success
+        : CLI_EXIT_CODES.apiError;
     await writeCliResponse(result.response, launcherExitCode);
 
     if (result.exitCode !== null) {

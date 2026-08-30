@@ -4,11 +4,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import {
-    LAUNCHER_RESULT_PIPE_ENV,
-    encodeLauncherCliResult,
-    sendLauncherCliResult,
-} from './launcher-result-channel.ts';
+import { LAUNCHER_RESULT_PIPE_ENV, encodeLauncherCliResult, sendLauncherCliResult } from './launcher-result-channel.ts';
 
 const RESULT_MAGIC = 0x31434d44;
 
@@ -31,10 +27,7 @@ test('sendLauncherCliResult returns false when no Launcher channel is configured
     delete process.env[LAUNCHER_RESULT_PIPE_ENV];
 
     try {
-        assert.equal(
-            await sendLauncherCliResult({ exitCode: 0, stream: 'stdout', text: '{}\n' }),
-            false,
-        );
+        assert.equal(await sendLauncherCliResult({ exitCode: 0, stream: 'stdout', text: '{}\n' }), false);
     } finally {
         restoreEnvironment(previous);
     }

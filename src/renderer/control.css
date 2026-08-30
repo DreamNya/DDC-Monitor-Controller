@@ -1078,6 +1078,12 @@ td:last-child {
         transform 150ms ease;
 }
 
+.nav-icon-text {
+    font-size: clamp(10px, calc(var(--font-size-default) - 2px), 13px);
+    font-weight: 750;
+    letter-spacing: -0.04em;
+}
+
 .nav-item:not(.active):hover:not(:disabled) .nav-icon {
     background: var(--nav-icon-hover-background);
     color: var(--nav-icon-hover-text);
@@ -1248,7 +1254,7 @@ td:last-child {
 
 .settings-workspace {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: max-content;
     align-content: start;
     gap: var(--card-gap);
@@ -1276,10 +1282,6 @@ td:last-child {
 .settings-card.ui-scale-card .ui-scale-options,
 .settings-card.font-size-card .ui-scale-options {
     margin-top: clamp(12px, 1.7vh, 18px);
-}
-
-.external-api-card {
-    grid-column: 1 / -1;
 }
 
 .external-api-settings {
@@ -1314,11 +1316,312 @@ td:last-child {
     font-variant-numeric: tabular-nums;
 }
 
+.external-api-card {
+    flex: 0 0 auto;
+}
+
 .external-api-card code {
     color: var(--control-text);
     font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
     overflow-wrap: anywhere;
     user-select: text;
+}
+
+.external-api-cli-hint {
+    margin-top: clamp(4px, 0.7vh, 7px);
+}
+
+.external-api-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: var(--card-gap);
+    min-height: 0;
+    height: 100%;
+    padding: 0 20px 20px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.api-reference-card {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 calc(100% - clamp(190px, 22vh, 230px) - var(--card-gap));
+    min-height: 0;
+    overflow: hidden;
+}
+
+.api-reference-heading {
+    flex: 0 0 auto;
+}
+
+.api-transport-switch {
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(54px, 1fr));
+    flex: 0 0 auto;
+    padding: 3px;
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    background: var(--control-surface);
+}
+
+.api-transport-option {
+    min-width: 0;
+    border: 0;
+    border-radius: 7px;
+    padding: clamp(5px, 0.75vh, 7px) clamp(10px, 1.2vw, 14px);
+    background: transparent;
+    color: var(--muted);
+    font-size: calc(clamp(10px, 1.35vh, 12px) + var(--font-size-hint-offset));
+    font-weight: 750;
+    box-shadow: none;
+}
+
+.api-transport-option:hover:not(:disabled) {
+    background: var(--value-background);
+    color: var(--control-text);
+}
+
+.api-transport-option.active {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 2px 7px rgb(0 0 0 / 12%);
+}
+
+.api-example-transport-switch {
+    grid-template-columns: repeat(3, minmax(52px, 1fr));
+}
+
+.api-table code {
+    color: var(--control-text);
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    user-select: text;
+}
+
+.api-table-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: clamp(10px, 1.4vh, 14px);
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    background: var(--input-background);
+}
+
+.api-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+    font-size: var(--font-size-default);
+}
+
+.api-table th,
+.api-table td {
+    padding: clamp(7px, 1vh, 10px) clamp(8px, 1vw, 12px);
+    border-bottom: 1px solid var(--input-border);
+    vertical-align: middle;
+    text-align: left;
+    font-size: var(--font-size-default);
+    overflow-wrap: anywhere;
+}
+
+.api-table thead th {
+    z-index: 2;
+    background: var(--control-surface);
+    font-size: var(--font-size-default);
+}
+
+.api-table th:first-child {
+    width: 30%;
+}
+
+.api-table th:nth-child(2) {
+    width: 37%;
+}
+
+.api-table th:nth-child(3) {
+    width: 33%;
+}
+
+.api-table td:first-child > code {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    font-size: var(--font-size-default);
+}
+
+.api-table td > small {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: var(--font-size-hint);
+    line-height: 1.4;
+}
+
+.api-cell-lines {
+    display: grid;
+    gap: 4px;
+    color: var(--control-text);
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    font-size: var(--font-size-hint);
+    line-height: 1.45;
+}
+
+.api-cell-lines > span {
+    min-width: 0;
+    color: inherit;
+    font: inherit;
+    overflow-wrap: anywhere;
+}
+
+.api-cell-lines code {
+    color: inherit;
+    font: inherit;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.api-reference-card[data-api-transport='http'] .api-example-cli,
+.api-reference-card[data-api-transport='cli'] .api-example-http {
+    display: none;
+}
+
+.api-table .api-group-row th {
+    position: static;
+    width: auto;
+    padding-block: clamp(6px, 0.85vh, 8px);
+    background: var(--value-background);
+    color: var(--control-text);
+    font-size: var(--font-size-default);
+    font-weight: 700;
+}
+
+.api-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.api-table-wrap::-webkit-scrollbar {
+    width: 8px;
+}
+
+.api-table-wrap::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.api-table-wrap::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgb(105 115 134 / 45%);
+    background-clip: padding-box;
+}
+
+.api-table-wrap::-webkit-scrollbar-thumb:hover {
+    background: rgb(105 115 134 / 68%);
+    background-clip: padding-box;
+}
+
+.api-examples-card {
+    flex: 0 0 auto;
+    min-height: clamp(420px, 58vh, 620px);
+    overflow: hidden;
+}
+
+.api-examples-heading,
+.api-examples-hint {
+    flex: 0 0 auto;
+}
+
+.api-examples-hint {
+    margin-top: clamp(8px, 1.1vh, 12px);
+    font-size: var(--font-size-hint);
+}
+
+.api-examples-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(8px, 1.1vh, 12px);
+    margin-top: clamp(10px, 1.4vh, 14px);
+}
+
+.api-example-item {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.28fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: clamp(10px, 1.4vw, 16px);
+    min-width: 0;
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    padding: clamp(9px, 1.2vh, 12px);
+    background: var(--control-surface);
+}
+
+.api-example-item-heading {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.api-example-item-heading strong {
+    color: var(--control-text);
+    font-size: var(--font-size-default);
+    line-height: 1.35;
+}
+
+.api-example-item-heading small {
+    color: var(--muted);
+    font-size: var(--font-size-hint);
+    line-height: 1.45;
+}
+
+.api-example-item pre {
+    display: flex;
+    align-items: flex-start;
+    min-width: 0;
+    min-height: clamp(54px, 7.5vh, 78px);
+    margin: 0;
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    padding: clamp(8px, 1.1vh, 11px);
+    background: var(--input-background);
+    overflow: hidden;
+}
+
+.api-example-item code {
+    min-width: 0;
+    color: var(--control-text);
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    font-size: var(--font-size-hint);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    user-select: text;
+}
+
+.external-api-workspace::-webkit-scrollbar {
+    width: 8px;
+}
+
+.external-api-workspace::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.external-api-workspace::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgb(105 115 134 / 45%);
+    background-clip: padding-box;
+}
+
+.external-api-workspace::-webkit-scrollbar-thumb:hover {
+    background: rgb(105 115 134 / 68%);
+    background-clip: padding-box;
 }
 
 .advanced-vcp-workspace {
