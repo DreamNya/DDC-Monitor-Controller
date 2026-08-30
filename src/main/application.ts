@@ -70,10 +70,7 @@ export class DesktopApplication {
                 port: initialState.settings.externalApiPort,
             });
         } catch (error) {
-            console.error(
-                `启动本地 HTTP API 失败（127.0.0.1:${initialState.settings.externalApiPort}）：`,
-                error,
-            );
+            console.error(`启动本地 HTTP API 失败（127.0.0.1:${initialState.settings.externalApiPort}）：`, error);
         }
 
         const panelManager = new PanelManager({

@@ -1,6 +1,6 @@
 # DDC Monitor Controller
 
-一款轻量级 Windows 显示器 DDC/CI 控制工具，提供图形化操作界面，支持手动/自动调节显示器亮度与对比度、枚举显示器 VCP Capabilities、高级 VCP 读写以及基于全局快捷键的快捷命令
+一款轻量级 Windows 显示器 DDC/CI 控制工具，提供图形化操作界面，支持手动/自动调节显示器亮度与对比度、枚举显示器 VCP Capabilities、高级 VCP 读写、基于全局快捷键的快捷命令，以及供外部自动化调用的 CLI / HTTP API
 
 GitHub: <https://github.com/DreamNya/DDC-Monitor-Controller>
 
@@ -11,6 +11,7 @@ GitHub: <https://github.com/DreamNya/DDC-Monitor-Controller>
   * WebView UI 按需创建，关闭窗口后立即销毁
 * 通过系统托盘快速唤醒操作界面
   * 提供 `快速设置` 和 `详细设置` 两种交互面板
+  * 可直接从托盘菜单切换亮色 / 暗色主题
 * 支持多显示器控制
   * 可自由切换当前控制的显示器
   * 支持调节显示器亮度和对比度
@@ -114,11 +115,11 @@ https://wwbwh.lanzouw.com/b01d75e9of
 
 ### 托盘菜单
 
-右键单击托盘图标，可打开快捷菜单，并进入快速设置或详细设置
+右键单击托盘图标，可打开快捷菜单，进入快速设置或详细设置，并可直接切换亮色 / 暗色主题
 
 ### 详细设置
 
-详细设置面板通过侧边栏提供 `控制面板`、`设置`、`枚举 VCP`、`高级 VCP` 等功能
+详细设置面板通过侧边栏提供 `控制面板`、`设置`、`外部 API`、`枚举 VCP`、`高级 VCP` 等功能
 
 #### 控制面板
 
@@ -184,6 +185,25 @@ https://wwbwh.lanzouw.com/b01d75e9of
 * 修改默认文字大小
 * 查看或打开日志目录等程序设置
 
+#### 外部 API
+
+程序提供本地 HTTP 与 CLI 两种外部调用方式，两者共用同一套 Public API：
+
+* **HTTP API** 默认关闭，可在本页手动开启并配置监听端口
+  * 固定监听 `127.0.0.1`，不会监听局域网地址
+  * 当前不进行额外鉴权；启用后，任何本机程序均可向该端口发送请求
+  * 仅接受 `POST` + JSON Body
+  * 支持跨域调用，可用于用户脚本 / 油猴脚本等本机自动化场景
+* **CLI API** 始终可用，不受 HTTP API 开关影响
+  * 可通过 `DDCMonitorController.exe --args xxx` 的命令行参数调用（开发环境可通过 `node index.mjs --args xxx` 调用）
+  * 不使用 `--silent` 时，如果已有程序实例，请求会转发给现有实例执行；如果没有实例，程序会正常启动并在执行后继续常驻
+  * 使用 `--silent` 时，仅允许在当前没有运行实例时执行；程序以无界面模式完成任务后立即退出
+* 批量命令会按照请求中的顺序逐条等待执行
+  * 任一任务运行失败后，后续任务不再执行
+  * 已经成功执行的任务不会自动回滚
+
+可用 API、参数定义以及 curl / fetch / CLI 调用示例会随程序版本同步展示在 **详细设置 → 外部 API** 页面，请以该页面为准
+
 ### 数据存储
 
 **配置文件和 WebView 数据目录：**
@@ -192,7 +212,7 @@ https://wwbwh.lanzouw.com/b01d75e9of
 %LOCALAPPDATA%\DDCMonitorController
 ```
 
-> 高级 VCP 快捷命令及其全局快捷键配置会随程序设置一并持久化保存
+> 高级 VCP 快捷命令、全局快捷键以及 HTTP API 开关 / 监听端口等配置会随程序设置一并持久化保存
 
 **日志文件：**
 
@@ -223,7 +243,7 @@ https://wwbwh.lanzouw.com/b01d75e9of
   * 显示器状态缓存与自动调节
   * Capabilities / VCP 数据解析
   * 高级 VCP 命令与快捷命令管理
-  * 前后端 RPC 和配置持久化
+  * Public API、CLI / HTTP 传输层、前后端 RPC 和配置持久化
 * **HTML / CSS / TypeScript Renderer 负责界面展示与用户交互**
 
 > 各层通过明确的 Native Addon / WebMessage RPC 边界通信，避免业务逻辑与桥接逻辑耦合
@@ -237,6 +257,7 @@ native/
 └─ MonitorNative/    DDC/CI VCP / Capabilities 桥接层
 
 src/
+├─ api/              Public API、CLI / HTTP 调用与外部自动化协议层
 ├─ main/             Node.js 后端业务层
 ├─ renderer/         WebView2 前端 UI
 └─ shared/           前后端共享类型、模型、VCP 工具与 RPC 契约

@@ -2,7 +2,7 @@ import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { ExternalApiConfiguration } from './external-api-config.ts';
 import { assertExternalApiConfiguration } from './external-api-config.ts';
-import type { PublicApiResponse } from './public-api.ts';
+import { PUBLIC_API_REQUEST_METHOD, type PublicApiResponse } from './public-api.ts';
 
 export const HTTP_API_HOST = '127.0.0.1';
 export const HTTP_API_PATH = '/api/v1';
@@ -112,11 +112,7 @@ export class HttpApiServer {
             }
 
             if (!isJsonContentType(request.headers['content-type'])) {
-                respondJson(
-                    response,
-                    415,
-                    transportError('INVALID_REQUEST', 'Content-Type 必须是 application/json'),
-                );
+                respondJson(response, 415, transportError('INVALID_REQUEST', 'Content-Type 必须是 application/json'));
                 return;
             }
 
@@ -220,13 +216,16 @@ function respondJson(response: ServerResponse, statusCode: number, payload: unkn
 }
 
 function transportError(code: 'INVALID_REQUEST' | 'EXECUTION_FAILED', message: string): PublicApiResponse {
-    return {
-        ok: false,
-        error: {
-            code,
-            message,
+    return [
+        {
+            method: PUBLIC_API_REQUEST_METHOD,
+            ok: false,
+            error: {
+                code,
+                message,
+            },
         },
-    };
+    ];
 }
 
 class HttpApiRequestError extends Error {

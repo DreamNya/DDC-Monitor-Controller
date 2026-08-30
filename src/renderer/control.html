@@ -48,6 +48,16 @@
                         <button
                             class="nav-item"
                             type="button"
+                            data-panel-target="external-api-panel"
+                            data-allow-while-busy
+                            aria-controls="external-api-panel"
+                            aria-selected="false">
+                            <span class="nav-icon nav-icon-text" aria-hidden="true">API</span>
+                            <span>外部 API</span>
+                        </button>
+                        <button
+                            class="nav-item"
+                            type="button"
                             data-panel-target="vcp-panel"
                             data-allow-while-busy
                             aria-controls="vcp-panel"
@@ -399,7 +409,11 @@
 
                                 <p class="hint">默认文字用于标题、按钮和数值；提示文字用于标签、说明和辅助信息</p>
                             </section>
+                        </div>
+                    </section>
 
+                    <section id="external-api-panel" class="subpanel" aria-label="外部 API" hidden>
+                        <div class="external-api-workspace">
                             <section class="card settings-card external-api-card">
                                 <div class="section-heading">
                                     <div>
@@ -435,9 +449,882 @@
                                 </div>
 
                                 <p class="hint">
-                                    请求地址：<code id="external-api-endpoint">http://127.0.0.1:45678/api/v1</code>；
-                                    仅接受 POST + JSON Body
+                                    请求地址：
+                                    <code id="external-api-endpoint">http://127.0.0.1:45678/api/v1</code>
+                                    ； 仅接受 POST + JSON Body
                                 </p>
+                                <p class="hint external-api-cli-hint">
+                                    HTTP API 开关仅控制 HTTP 服务；CLI API 始终可用，不受此开关影响
+                                </p>
+                            </section>
+
+                            <section class="card api-reference-card" data-api-transport="http">
+                                <div class="section-heading api-reference-heading">
+                                    <div>
+                                        <span class="label">PUBLIC API</span>
+                                        <h2>可用 API</h2>
+                                    </div>
+
+                                    <div class="api-transport-switch" role="group" aria-label="API 调用方式">
+                                        <button
+                                            class="api-transport-option active"
+                                            type="button"
+                                            data-api-transport-option="http"
+                                            aria-pressed="true">
+                                            HTTP
+                                        </button>
+                                        <button
+                                            class="api-transport-option"
+                                            type="button"
+                                            data-api-transport-option="cli"
+                                            aria-pressed="false">
+                                            CLI
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="api-table-wrap">
+                                    <table class="api-table">
+                                        <thead>
+                                            <tr>
+                                                <th>API</th>
+                                                <th>参数</th>
+                                                <th>
+                                                    <span class="api-example api-example-http">HTTP JSON</span>
+                                                    <span class="api-example api-example-cli">CLI</span>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="api-group-row">
+                                                <th colspan="3">常用命令（别名）</th>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>state</code>
+                                                    <small>获取完整应用状态</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>null</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>{"state":null}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>--state</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>monitor</code>
+                                                    <small>读取显示器列表或设置后续命令目标显示器</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>null</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>string | "all"</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>{"monitor":null}</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>{"monitor":"monitor-1"}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>--monitor</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>--monitor monitor-1</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>brightness</code>
+                                                    <small>读取或设置亮度</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>null</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>number (0-100)</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>{"brightness":null}</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>{"brightness":30}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>--brightness</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>--brightness 30</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>contrast</code>
+                                                    <small>读取或设置对比度</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>null</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>number (0-100)</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>{"contrast":null}</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>{"contrast":50}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>--contrast</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>--contrast 50</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>auto</code>
+                                                    <small>读取或切换自动模式</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>null</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>boolean</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>{"auto":null}</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>{"auto":true}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>--auto</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>--auto true</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>interval</code>
+                                                    <small>读取或设置自动运行间隔</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>null</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>10 | 15 | 20 | 30 | 60</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>{"interval":null}</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>{"interval":15}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>--interval</code>
+                                                        </span>
+                                                        <span>
+                                                            设置：
+                                                            <code>--interval 15</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>apply</code>
+                                                    <small>立即执行一次自动调节</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            调用：
+                                                            <code>null</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            调用：
+                                                            <code>{"apply":null}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            调用：
+                                                            <code>--apply</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>schedule</code>
+                                                    <small>读取方案或激活指定方案</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>null</code>
+                                                        </span>
+                                                        <span>
+                                                            激活：
+                                                            <code>string</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>{"schedule":null}</code>
+                                                        </span>
+                                                        <span>
+                                                            激活：
+                                                            <code>{"schedule":"work"}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            读取：
+                                                            <code>--schedule</code>
+                                                        </span>
+                                                        <span>
+                                                            激活：
+                                                            <code>--schedule work</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>sleep</code>
+                                                    <small>前后命令间等待指定毫秒数</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            等待：
+                                                            <code>number (0-60000)</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            等待：
+                                                            <code>{"sleep":1000}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            等待：
+                                                            <code>--sleep 1000</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            <tr class="api-group-row">
+                                                <th colspan="3">完整命令</th>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>state.get</code>
+                                                    <small>获取完整应用状态</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            调用：
+                                                            <code>null</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span><code>{"state.get":null}</code></span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span><code>--api '{"state.get":null}'</code></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>monitor.list</code>
+                                                    <small>获取显示器列表</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            调用：
+                                                            <code>null</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span><code>{"monitor.list":null}</code></span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span><code>--api '{"monitor.list":null}'</code></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>monitor.target</code>
+                                                    <small>设置后续命令目标显示器</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            monitorId：
+                                                            <code>string | "all"</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span><code>{"monitor.target":"monitor-1"}</code></span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span><code>--api '{"monitor.target":"monitor-1"}'</code></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>monitor.set</code>
+                                                    <small>
+                                                        设置亮度/对比度；显式传参 monitorId 优先于 monitor.target
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            monitorId?：
+                                                            <code>string</code>
+                                                        </span>
+                                                        <span>
+                                                            brightness?：
+                                                            <code>number (0-100)</code>
+                                                        </span>
+                                                        <span>
+                                                            contrast?：
+                                                            <code>number (0-100)</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                {"monitor.set":{"monitorId":"monitor-1","brightness":30,"contrast":50}}
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                --api
+                                                                '{"monitor.set":{"monitorId":"monitor-1","brightness":30,"contrast":50}}'
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>auto.setEnabled</code>
+                                                    <small>开启或关闭自动模式</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            enabled：
+                                                            <code>boolean</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span><code>{"auto.setEnabled":{"enabled":true}}</code></span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>--api '{"auto.setEnabled":{"enabled":true}}'</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>auto.setInterval</code>
+                                                    <small>设置自动运行间隔</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            intervalMinutes：
+                                                            <code style="display: block">10 | 15 | 20 | 30 | 60</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            <code>{"auto.setInterval":{"intervalMinutes":15}}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                --api '{"auto.setInterval":{"intervalMinutes":15}}'
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>auto.applyNow</code>
+                                                    <small>立即执行一次自动调节</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            调用：
+                                                            <code>null</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span><code>{"auto.applyNow":null}</code></span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span><code>--api '{"auto.applyNow":null}'</code></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>schedule.list</code>
+                                                    <small>获取所有定时方案</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            调用：
+                                                            <code>null</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span><code>{"schedule.list":null}</code></span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span><code>--api '{"schedule.list":null}'</code></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>schedule.activate</code>
+                                                    <small>激活指定定时方案</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            profileId：
+                                                            <code>string</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            <code>{"schedule.activate":{"profileId":"work"}}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                --api '{"schedule.activate":{"profileId":"work"}}'
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>command.list</code>
+                                                    <small>获取已保存的高级 VCP 命令</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            调用：
+                                                            <code>null</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span><code>{"command.list":null}</code></span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span><code>--api '{"command.list":null}'</code></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>command.execute</code>
+                                                    <small>执行已保存的高级 VCP 命令</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            commandId：
+                                                            <code>string</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            <code>{"command.execute":{"commandId":"command-1"}}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                --api '{"command.execute":{"commandId":"command-1"}}'
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>vcp.capabilities</code>
+                                                    <small>读取显示器 Capabilities</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            monitorId?：
+                                                            <code>string</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            <code>{"vcp.capabilities":{"monitorId":"monitor-1"}}</code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                --api '{"vcp.capabilities":{"monitorId":"monitor-1"}}'
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>vcp.read</code>
+                                                    <small>读取一个或多个 VCP Code</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            monitorId?：
+                                                            <code>string</code>
+                                                        </span>
+                                                        <span>
+                                                            codes：
+                                                            <code>number[]</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                {"vcp.read":{"monitorId":"monitor-1","codes":[16,96]}}
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                --api
+                                                                '{"vcp.read":{"monitorId":"monitor-1","codes":[16,96]}}'
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>vcp.write</code>
+                                                    <small>写入 VCP Code</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            monitorId?：
+                                                            <code>string</code>
+                                                        </span>
+                                                        <span>
+                                                            code：
+                                                            <code>number (0-255)</code>
+                                                        </span>
+                                                        <span>
+                                                            value：
+                                                            <code>uint32</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                {"vcp.write":{"monitorId":"monitor-1","code":96,"value":17}}
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                --api
+                                                                '{"vcp.write":{"monitorId":"monitor-1","code":96,"value":17}}'
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <code>vcp.adjust</code>
+                                                    <small>按百分比增减 VCP 值</small>
+                                                </td>
+                                                <td>
+                                                    <div class="api-cell-lines">
+                                                        <span>
+                                                            monitorId?：
+                                                            <code>string</code>
+                                                        </span>
+                                                        <span>
+                                                            code：
+                                                            <code>number (0-255)</code>
+                                                        </span>
+                                                        <span>
+                                                            direction：
+                                                            <code>"increase" | "decrease"</code>
+                                                        </span>
+                                                        <span>
+                                                            percent：
+                                                            <code>number (&gt; 0)</code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="api-example api-example-http api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                {"vcp.adjust":{"monitorId":"monitor-1","code":16,"direction":"increase","percent":10}}
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                    <div class="api-example api-example-cli api-cell-lines">
+                                                        <span>
+                                                            <code>
+                                                                --api
+                                                                '{"vcp.adjust":{"monitorId":"monitor-1","code":16,"direction":"increase","percent":10}}'
+                                                            </code>
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+
+                            <section class="card api-examples-card">
+                                <div class="section-heading api-examples-heading">
+                                    <div>
+                                        <span class="label">QUICK START</span>
+                                        <h2>API 示例</h2>
+                                    </div>
+
+                                    <div
+                                        class="api-transport-switch api-example-transport-switch"
+                                        role="group"
+                                        aria-label="API 示例格式">
+                                        <button
+                                            class="api-transport-option active"
+                                            type="button"
+                                            data-api-example-transport-option="curl"
+                                            aria-pressed="true">
+                                            curl
+                                        </button>
+                                        <button
+                                            class="api-transport-option"
+                                            type="button"
+                                            data-api-example-transport-option="fetch"
+                                            aria-pressed="false">
+                                            fetch
+                                        </button>
+                                        <button
+                                            class="api-transport-option"
+                                            type="button"
+                                            data-api-example-transport-option="cli"
+                                            aria-pressed="false">
+                                            CLI
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <p class="hint api-examples-hint">
+                                    示例与上方 API 定义使用同一组参数；curl / fetch 会自动使用当前监听端口，CLI 示例不受
+                                    HTTP API 开关影响
+                                </p>
+
+                                <div class="api-examples-list">
+                                    <article class="api-example-item">
+                                        <div class="api-example-item-heading">
+                                            <strong>常用命令</strong>
+                                            <small>指定目标后同时设置亮度和对比度</small>
+                                        </div>
+                                        <pre><code data-api-example-code="common-batch"></code></pre>
+                                    </article>
+
+                                    <article class="api-example-item">
+                                        <div class="api-example-item-heading">
+                                            <strong>批量常用命令</strong>
+                                            <small>通过数组传递命令将顺序依次执行</small>
+                                        </div>
+                                        <pre><code data-api-example-code="ordered-batch"></code></pre>
+                                    </article>
+
+                                    <article class="api-example-item">
+                                        <div class="api-example-item-heading">
+                                            <strong>批量完整命令</strong>
+                                            <small>
+                                                monitor.target 作用于后续所有命令直至出现另一个 monitor.target
+                                            </small>
+                                        </div>
+                                        <pre><code data-api-example-code="method-batch"></code></pre>
+                                    </article>
+                                </div>
                             </section>
                         </div>
                     </section>

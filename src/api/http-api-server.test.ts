@@ -15,10 +15,7 @@ test('HttpApiServer accepts POST JSON and forwards the same Public API request',
         executor: {
             execute: async (request) => {
                 requests.push(request);
-                return {
-                    ok: true,
-                    result: { apiVersion: 1 },
-                };
+                return [{ method: 'state', ok: true, result: { apiVersion: 1 } }];
             },
         },
     });
@@ -32,15 +29,12 @@ test('HttpApiServer accepts POST JSON and forwards the same Public API request',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ method: 'system.ping' }),
+            body: JSON.stringify({ state: null }),
         });
 
         assert.equal(response.statusCode, 200);
-        assert.deepEqual(JSON.parse(response.body), {
-            ok: true,
-            result: { apiVersion: 1 },
-        });
-        assert.deepEqual(requests, [{ method: 'system.ping' }]);
+        assert.deepEqual(JSON.parse(response.body), [{ method: 'state', ok: true, result: { apiVersion: 1 } }]);
+        assert.deepEqual(requests, [{ state: null }]);
         assert.equal(response.headers['access-control-allow-origin'], '*');
     } finally {
         await server.stop();
@@ -53,7 +47,7 @@ test('HttpApiServer handles browser CORS preflight without executing the API', a
         executor: {
             execute: async () => {
                 executions += 1;
-                return { ok: true, result: null };
+                return [{ method: 'state', ok: true, result: null }];
             },
         },
     });
@@ -87,7 +81,7 @@ test('HttpApiServer rejects non-JSON POST requests before dispatch', async () =>
         executor: {
             execute: async () => {
                 executions += 1;
-                return { ok: true, result: null };
+                return [{ method: 'state', ok: true, result: null }];
             },
         },
     });
@@ -105,13 +99,16 @@ test('HttpApiServer rejects non-JSON POST requests before dispatch', async () =>
 
         assert.equal(response.statusCode, 415);
         assert.equal(executions, 0);
-        assert.deepEqual(JSON.parse(response.body), {
-            ok: false,
-            error: {
-                code: 'INVALID_REQUEST',
-                message: 'Content-Type 必须是 application/json',
+        assert.deepEqual(JSON.parse(response.body), [
+            {
+                method: '$request',
+                ok: false,
+                error: {
+                    code: 'INVALID_REQUEST',
+                    message: 'Content-Type 必须是 application/json',
+                },
             },
-        });
+        ]);
     } finally {
         await server.stop();
     }
@@ -121,7 +118,7 @@ test('HttpApiServer rejects oversized JSON bodies', async () => {
     const server = new HttpApiServer({
         maxBodyBytes: 16,
         executor: {
-            execute: async () => ({ ok: true, result: null }),
+            execute: async () => [{ method: 'state', ok: true, result: null }],
         },
     });
 
@@ -133,7 +130,7 @@ test('HttpApiServer rejects oversized JSON bodies', async () => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ method: 'system.ping' }),
+            body: JSON.stringify({ state: 'x'.repeat(32) }),
         });
 
         assert.equal(response.statusCode, 413);
@@ -146,7 +143,7 @@ test('HttpApiServer rejects oversized JSON bodies', async () => {
 test('HttpApiServer binds only to the IPv4 loopback address', async () => {
     const server = new HttpApiServer({
         executor: {
-            execute: async () => ({ ok: true, result: null }),
+            execute: async () => [{ method: 'state', ok: true, result: null }],
         },
     });
 
@@ -158,7 +155,7 @@ test('HttpApiServer binds only to the IPv4 loopback address', async () => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ method: 'system.ping' }),
+            body: JSON.stringify({ state: null }),
         });
 
         assert.equal(response.statusCode, 200);
@@ -226,7 +223,7 @@ async function requestHttp(
 test('HttpApiServer configure can enable, rebind, and disable the local API', async () => {
     const server = new HttpApiServer({
         executor: {
-            execute: async () => ({ ok: true, result: { apiVersion: 1 } }),
+            execute: async () => [{ method: 'state', ok: true, result: { apiVersion: 1 } }],
         },
     });
     const firstPort = await reserveFreePort();
@@ -246,7 +243,7 @@ test('HttpApiServer configure can enable, rebind, and disable the local API', as
                 method: 'POST',
                 path: HTTP_API_PATH,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ method: 'system.ping' }),
+                body: JSON.stringify({ state: null }),
             }),
         );
 
@@ -254,7 +251,7 @@ test('HttpApiServer configure can enable, rebind, and disable the local API', as
             method: 'POST',
             path: HTTP_API_PATH,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ method: 'system.ping' }),
+            body: JSON.stringify({ state: null }),
         });
         assert.equal(response.statusCode, 200);
 
@@ -269,7 +266,7 @@ test('HttpApiServer configure can enable, rebind, and disable the local API', as
 test('HttpApiServer keeps the previous listener when rebinding to an occupied port fails', async () => {
     const server = new HttpApiServer({
         executor: {
-            execute: async () => ({ ok: true, result: { apiVersion: 1 } }),
+            execute: async () => [{ method: 'state', ok: true, result: { apiVersion: 1 } }],
         },
     });
     const currentPort = await reserveFreePort();
@@ -286,7 +283,7 @@ test('HttpApiServer keeps the previous listener when rebinding to an occupied po
             method: 'POST',
             path: HTTP_API_PATH,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ method: 'system.ping' }),
+            body: JSON.stringify({ state: null }),
         });
         assert.equal(response.statusCode, 200);
     } finally {

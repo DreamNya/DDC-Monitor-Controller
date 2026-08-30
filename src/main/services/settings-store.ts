@@ -202,9 +202,7 @@ function normalizeSettings(value: unknown): AppSettings {
     return {
         logEnabled: typeof source.logEnabled === 'boolean' ? source.logEnabled : false,
         externalApiEnabled: typeof source.externalApiEnabled === 'boolean' ? source.externalApiEnabled : false,
-        externalApiPort: isExternalApiPort(source.externalApiPort)
-            ? source.externalApiPort
-            : DEFAULT_EXTERNAL_API_PORT,
+        externalApiPort: isExternalApiPort(source.externalApiPort) ? source.externalApiPort : DEFAULT_EXTERNAL_API_PORT,
         theme: source.theme === 'dark' ? 'dark' : 'light',
         autoEnabled: typeof source.autoEnabled === 'boolean' ? source.autoEnabled : true,
         autoStartEnabled: typeof source.autoStartEnabled === 'boolean' ? source.autoStartEnabled : false,

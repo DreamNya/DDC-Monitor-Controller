@@ -59,16 +59,12 @@ test('SingleInstanceLock forwards Public API requests and returns structured res
 
     try {
         assert.equal(await primary.acquire(), true);
-        primary.setApiRequestHandler(async (request) => ({
-            ok: true,
-            result: request,
-        }));
+        primary.setApiRequestHandler(async (request) => [{ method: 'state', ok: true, result: request }]);
 
         assert.equal(await secondary.acquire({ notifyExistingInstance: false }), false);
-        assert.deepEqual(await secondary.requestApi({ method: 'system.ping' }), {
-            ok: true,
-            result: { method: 'system.ping' },
-        });
+        assert.deepEqual(await secondary.requestApi({ ping: null }), [
+            { method: 'state', ok: true, result: { ping: null } },
+        ]);
     } finally {
         await Promise.allSettled([secondary.close(), primary.close()]);
     }
@@ -83,13 +79,16 @@ test('SingleInstanceLock returns an API error while the primary dispatcher is no
         assert.equal(await primary.acquire(), true);
         assert.equal(await secondary.acquire({ notifyExistingInstance: false }), false);
 
-        assert.deepEqual(await secondary.requestApi({ method: 'system.ping' }), {
-            ok: false,
-            error: {
-                code: 'EXECUTION_FAILED',
-                message: '主实例 Public API 尚未准备完成',
+        assert.deepEqual(await secondary.requestApi({ ping: null }), [
+            {
+                method: '$request',
+                ok: false,
+                error: {
+                    code: 'EXECUTION_FAILED',
+                    message: '主实例 Public API 尚未准备完成',
+                },
             },
-        });
+        ]);
     } finally {
         await Promise.allSettled([secondary.close(), primary.close()]);
     }

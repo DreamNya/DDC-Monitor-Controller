@@ -13,56 +13,99 @@ test('parseCliInvocation preserves the normal no-argument desktop startup', () =
     assert.deepEqual(parseCliInvocation([]), { type: 'desktop' });
 });
 
-test('parseCliInvocation builds a generic Public API request with optional JSON params and silent mode', () => {
-    assert.deepEqual(
-        parseCliInvocation([
-            '--silent',
-            '--api',
-            'monitor.set',
-            '--params',
-            '{"monitorId":"all","brightness":30}',
-        ]),
-        {
-            type: 'api',
-            silent: true,
-            request: {
-                method: 'monitor.set',
-                params: {
-                    monitorId: 'all',
-                    brightness: 30,
-                },
-            },
-        },
-    );
-
-    assert.deepEqual(parseCliInvocation(['--api', 'system.ping']), {
+test('parseCliInvocation compiles ordered CLI shorthand commands into the same batch format', () => {
+    assert.deepEqual(parseCliInvocation(['--brightness', '10', '--sleep', '1000', '--brightness', '0', '--silent']), {
         type: 'api',
-        silent: false,
-        request: {
-            method: 'system.ping',
-        },
+        silent: true,
+        request: [{ brightness: 10 }, { sleep: 1000 }, { brightness: 0 }],
     });
 });
 
-test('parseCliInvocation rejects incomplete, duplicate, and unknown CLI arguments', () => {
+test('parseCliInvocation uses omitted shorthand values as getters and parses common value types', () => {
+    assert.deepEqual(
+        parseCliInvocation([
+            '--brightness',
+            '--contrast',
+            '45',
+            '--auto',
+            'on',
+            '--interval',
+            '15',
+            '--monitor',
+            'monitor-1',
+            '--schedule',
+            '--apply',
+        ]),
+        {
+            type: 'api',
+            silent: false,
+            request: [
+                { brightness: null },
+                { contrast: 45 },
+                { auto: true },
+                { interval: 15 },
+                { monitor: 'monitor-1' },
+                { schedule: null },
+                { apply: null },
+            ],
+        },
+    );
+});
+
+test('parseCliInvocation supports the merged monitor shorthand as getter or batch target', () => {
+    assert.deepEqual(parseCliInvocation(['--state', '--monitor', '--monitor', 'monitor-1', '--apply']), {
+        type: 'api',
+        silent: false,
+        request: [{ state: null }, { monitor: null }, { monitor: 'monitor-1' }, { apply: null }],
+    });
+});
+
+test('parseCliInvocation accepts the same JSON command object or batch used by HTTP', () => {
+    assert.deepEqual(parseCliInvocation(['--silent', '--api', '{"brightness":30,"auto":false}']), {
+        type: 'api',
+        silent: true,
+        request: {
+            brightness: 30,
+            auto: false,
+        },
+    });
+
+    assert.deepEqual(parseCliInvocation(['--api', '[{"brightness":20},{"sleep":50},{"brightness":40}]']), {
+        type: 'api',
+        silent: false,
+        request: [{ brightness: 20 }, { sleep: 50 }, { brightness: 40 }],
+    });
+});
+
+test('parseCliInvocation rejects invalid, ambiguous and mixed CLI arguments', () => {
     assert.throws(() => parseCliInvocation(['--silent']), CliArgumentError);
-    assert.throws(() => parseCliInvocation(['--params', '{}']), CliArgumentError);
     assert.throws(() => parseCliInvocation(['--api']), CliArgumentError);
-    assert.throws(() => parseCliInvocation(['--api', '--silent']), CliArgumentError);
-    assert.throws(() => parseCliInvocation(['--api', 'state.get', '--api', 'system.ping']), CliArgumentError);
-    assert.throws(() => parseCliInvocation(['--api', 'state.get', '--params', '{']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--api', '{']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--api', '{}', '--api', '{}']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--api', '{}', '--params', '{}']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--api', '{"state":null}', '--brightness', '10']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--brightness', '10', '--api', '{"state":null}']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--sleep']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--sleep', 'abc']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--auto', 'maybe']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--monitors']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--target', 'monitor-1']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--ping']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--refresh']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--theme', 'dark']), CliArgumentError);
+    assert.throws(() => parseCliInvocation(['--log', 'true']), CliArgumentError);
     assert.throws(() => parseCliInvocation(['--unknown']), CliArgumentError);
 });
 
 test('runCliApiInvocation forwards a normal CLI request to an existing instance', async () => {
     const runtime = new FakeCliRuntime(false);
-    const response: PublicApiResponse = { ok: true, result: { apiVersion: 1 } };
+    const response: PublicApiResponse = [{ method: 'state', ok: true, result: null }];
     runtime.forwardResponse = response;
 
     const result = await runCliApiInvocation(
         {
             type: 'api',
-            request: { method: 'system.ping' },
+            request: { state: null },
             silent: false,
         },
         runtime,
@@ -82,7 +125,7 @@ test('runCliApiInvocation rejects --silent when an existing instance is running'
     const result = await runCliApiInvocation(
         {
             type: 'api',
-            request: { method: 'system.ping' },
+            request: { state: null },
             silent: true,
         },
         runtime,
@@ -98,18 +141,21 @@ test('runCliApiInvocation rejects --silent when an existing instance is running'
 
 test('runCliApiInvocation executes headless and always releases the instance lock in silent mode', async () => {
     const runtime = new FakeCliRuntime(true);
-    runtime.headlessResponse = {
-        ok: false,
-        error: {
-            code: 'EXECUTION_FAILED',
-            message: 'test failure',
+    runtime.headlessResponse = [
+        {
+            method: 'apply',
+            ok: false,
+            error: {
+                code: 'EXECUTION_FAILED',
+                message: 'test failure',
+            },
         },
-    };
+    ];
 
     const result = await runCliApiInvocation(
         {
             type: 'api',
-            request: { method: 'auto.applyNow' },
+            request: { apply: null },
             silent: true,
         },
         runtime,
@@ -131,7 +177,7 @@ test('runCliApiInvocation releases the instance lock when headless execution thr
         runCliApiInvocation(
             {
                 type: 'api',
-                request: { method: 'state.get' },
+                request: { state: null },
                 silent: true,
             },
             runtime,
@@ -143,19 +189,13 @@ test('runCliApiInvocation releases the instance lock when headless execution thr
 
 test('runCliApiInvocation starts the desktop instance and keeps it resident for a cold non-silent CLI request', async () => {
     const runtime = new FakeCliRuntime(true);
-    const response: PublicApiResponse = { ok: true, result: null };
+    const response: PublicApiResponse = [{ method: 'brightness', ok: true, result: null }];
     runtime.desktopResponse = response;
 
     const result = await runCliApiInvocation(
         {
             type: 'api',
-            request: {
-                method: 'monitor.set',
-                params: {
-                    monitorId: 'all',
-                    brightness: 30,
-                },
-            },
+            request: { brightness: 30 },
             silent: false,
         },
         runtime,
@@ -173,9 +213,9 @@ class FakeCliRuntime implements CliApiRuntime {
     readonly calls: string[] = [];
     readonly #acquired: boolean;
 
-    forwardResponse: PublicApiResponse = { ok: true, result: null };
-    headlessResponse: PublicApiResponse = { ok: true, result: null };
-    desktopResponse: PublicApiResponse = { ok: true, result: null };
+    forwardResponse: PublicApiResponse = [{ method: 'state', ok: true, result: null }];
+    headlessResponse: PublicApiResponse = [{ method: 'state', ok: true, result: null }];
+    desktopResponse: PublicApiResponse = [{ method: 'state', ok: true, result: null }];
     headlessError: Error | undefined;
 
     constructor(acquired: boolean) {

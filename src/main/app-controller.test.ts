@@ -354,10 +354,7 @@ test('AppController keeps local HTTP API settings unchanged when runtime reconfi
     });
 
     await controller.initialize();
-    await assert.rejects(
-        controller.setExternalApiConfiguration({ enabled: true, port: 54321 }),
-        /EADDRINUSE/,
-    );
+    await assert.rejects(controller.setExternalApiConfiguration({ enabled: true, port: 54321 }), /EADDRINUSE/);
 
     assert.equal(controller.getState().settings.externalApiEnabled, false);
     assert.equal(controller.getState().settings.externalApiPort, DEFAULT_EXTERNAL_API_PORT);

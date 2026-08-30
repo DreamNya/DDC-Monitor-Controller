@@ -130,20 +130,12 @@ test('SettingsStore restores valid local HTTP API settings and rejects invalid p
     const store = new SettingsStore({ settingsPath });
 
     try {
-        await fs.writeFile(
-            settingsPath,
-            JSON.stringify({ externalApiEnabled: true, externalApiPort: 54321 }),
-            'utf8',
-        );
+        await fs.writeFile(settingsPath, JSON.stringify({ externalApiEnabled: true, externalApiPort: 54321 }), 'utf8');
         let settings = await store.load();
         assert.equal(settings.externalApiEnabled, true);
         assert.equal(settings.externalApiPort, 54321);
 
-        await fs.writeFile(
-            settingsPath,
-            JSON.stringify({ externalApiEnabled: true, externalApiPort: 80 }),
-            'utf8',
-        );
+        await fs.writeFile(settingsPath, JSON.stringify({ externalApiEnabled: true, externalApiPort: 80 }), 'utf8');
         settings = await store.load();
         assert.equal(settings.externalApiEnabled, true);
         assert.equal(settings.externalApiPort, DEFAULT_EXTERNAL_API_PORT);

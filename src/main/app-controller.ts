@@ -1,8 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-    assertExternalApiConfiguration,
-    type ExternalApiConfiguration,
-} from '../api/external-api-config.ts';
+import { assertExternalApiConfiguration, type ExternalApiConfiguration } from '../api/external-api-config.ts';
 import { MAX_ADVANCED_VCP_COMMANDS, validateAdvancedVcpAction } from '../shared/advanced-vcp.ts';
 import {
     createDefaultFontSizeSettings,
@@ -185,9 +182,7 @@ export class AppController {
             });
 
             this.#state.succeed(
-                configuration.enabled
-                    ? `本地 API 已启用，监听端口 ${configuration.port}`
-                    : '本地 API 已关闭',
+                configuration.enabled ? `本地 API 已启用，监听端口 ${configuration.port}` : '本地 API 已关闭',
             );
             return 'update-settings';
         });

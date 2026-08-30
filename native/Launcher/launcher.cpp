@@ -387,10 +387,10 @@ namespace {
         const DWORD process_count = GetConsoleProcessList(
             process_ids, static_cast<DWORD>(sizeof(process_ids) / sizeof(process_ids[0])));
 
-        // Console subsystem 是 PowerShell 等调用方可靠等待 Launcher、获取 stdout 和
-        // exit code 的前提。Explorer 双击时系统会先创建一个仅属于 Launcher 的控制台；
-        // 一进入入口就立即隐藏并释放，把普通 GUI 启动的控制台闪现压到最短。
-        // 如果控制台还有父进程则绝不隐藏，避免破坏 PowerShell/cmd/Windows Terminal。
+        // Console subsystem 是 PowerShell 等调用方可靠等待 Launcher、获取 stdout 和 exit code 的前提
+        // Explorer 双击时系统会先创建一个仅属于 Launcher 的控制台；
+        // 一进入入口就立即隐藏并释放，把普通 GUI 启动的控制台闪现压到最短
+        // 如果控制台还有父进程则绝不隐藏，避免破坏 PowerShell/cmd/Windows Terminal
         if (process_count == 1 && process_ids[0] == GetCurrentProcessId()) {
             const HWND console_window = GetConsoleWindow();
             if (console_window != nullptr) {
@@ -606,7 +606,7 @@ namespace {
     }
 
     int run_launcher() {
-        // 必须尽可能早执行：如果由 Explorer 双击而得到独占控制台，立即隐藏/释放。
+        // 必须尽可能早执行：如果由 Explorer 双击而得到独占控制台，立即隐藏/释放
         detach_unowned_console_early();
 
         bool silent_mode = false;
