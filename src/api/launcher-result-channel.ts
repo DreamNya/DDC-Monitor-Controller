@@ -16,9 +16,9 @@ export interface LauncherCliResult {
 /**
  * 将一次 CLI 调用结果回传给原生 Launcher
  *
- * 非 --silent CLI 在冷启动桌面实例后 Node 会继续常驻，因此 Launcher 不能等待 Node 进程退出
- * Launcher 通过环境变量提供一次性 Named Pipe；这里写入结果后关闭
- * 连接，让 Launcher 可以立即输出结果并退出，而桌面 Node 进程继续运行
+ * 专用 DDCMonitorController-CLI.exe 是 Console 子系统程序，负责同步等待并向调用方返回
+ * stdout/stderr 与退出码；Node 始终以 CREATE_NO_WINDOW 启动，因此所有 CLI（包括 --silent）
+ * 都通过环境变量提供的一次性 Named Pipe 回传结果，普通CLI 冷启动桌面实例后 Node 可以继续常驻
  *
  * @returns true 表示存在 Launcher 结果通道且已经成功写入；false 表示当前并非由
  * Launcher 结果通道启动，调用方应回退到 process.stdout / process.stderr

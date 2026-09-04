@@ -52,6 +52,7 @@ function main() {
     const buildScript = path.join(root, 'scripts', 'build.mjs');
     const packageJson = path.join(root, 'package.json');
     const builtLauncher = path.join(buildRoot, 'DDCMonitorController.exe');
+    const builtCliLauncher = path.join(buildRoot, 'DDCMonitorController-CLI.exe');
     const builtAddon = path.join(buildRoot, 'native', 'MonitorNative.node');
     const builtWebViewAddon = path.join(buildRoot, 'native', 'WebViewNative.node');
 
@@ -60,7 +61,12 @@ function main() {
 
     runNodeScript(buildScript);
 
-    if (!fs.existsSync(builtLauncher) || !fs.existsSync(builtAddon) || !fs.existsSync(builtWebViewAddon)) {
+    if (
+        !fs.existsSync(builtLauncher) ||
+        !fs.existsSync(builtCliLauncher) ||
+        !fs.existsSync(builtAddon) ||
+        !fs.existsSync(builtWebViewAddon)
+    ) {
         throw new Error('dist/build 缺少原生文件；请先执行 npm run build:native');
     }
 
@@ -69,15 +75,17 @@ function main() {
 
     copyDirectoryContents(buildRoot, appRoot);
 
-    // 便携包只在根目录保留启动器
+    // 便携包只在根目录保留 GUI / CLI 启动器
     fs.rmSync(path.join(appRoot, 'DDCMonitorController.exe'), { force: true });
+    fs.rmSync(path.join(appRoot, 'DDCMonitorController-CLI.exe'), { force: true });
 
     fs.copyFileSync(builtLauncher, path.join(portableRoot, 'DDCMonitorController.exe'));
+    fs.copyFileSync(builtCliLauncher, path.join(portableRoot, 'DDCMonitorController-CLI.exe'));
     fs.copyFileSync(process.execPath, path.join(portableRoot, 'node.exe'));
     fs.copyFileSync(packageJson, path.join(portableRoot, 'package.json'));
 
     console.log(`便携目录已生成：${portableRoot}`);
-    console.log('双击 DDCMonitorController.exe 即可启动');
+    console.log('双击 DDCMonitorController.exe 即可启动；命令行请使用 DDCMonitorController-CLI.exe');
 }
 
 try {

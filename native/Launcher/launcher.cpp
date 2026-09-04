@@ -3,7 +3,13 @@
 #include <windows.h>
 #include <shellapi.h>
 
+#ifndef DDCMC_CLI_LAUNCHER
+#define DDCMC_CLI_LAUNCHER 0
+#endif
+
 namespace {
+
+    constexpr bool kCliLauncher = DDCMC_CLI_LAUNCHER != 0;
 
     constexpr DWORD kBufferChars = 32768;
     constexpr DWORD kUtf8BufferBytes = kBufferChars * 3;
@@ -37,9 +43,6 @@ namespace {
 
         STARTUPINFOW startup_info;
         PROCESS_INFORMATION process_info;
-        HANDLE child_stdin;
-        HANDLE child_stdout;
-        HANDLE child_stderr;
         HANDLE result_pipe;
         HANDLE result_event;
         OVERLAPPED result_connect_overlapped;
@@ -61,7 +64,9 @@ namespace {
         const HANDLE output_handle = GetStdHandle(standard_handle);
 
         if (!is_valid_handle(output_handle)) {
-            return false;
+            // CLI 可能被第三方程序以 CREATE_NO_WINDOW 启动而没有标准句柄
+            // 这种情况下仍保留真实退出码，只跳过文本输出
+            return true;
         }
 
         if (content_length == 0) {
@@ -140,74 +145,13 @@ namespace {
             static_cast<DWORD>(sizeof(newline) - 1), &written, nullptr) != FALSE;
     }
 
-    void report_error(const wchar_t* message, bool silent_mode) {
-        if (silent_mode && write_stderr(message)) {
+    void report_error(const wchar_t* message) {
+        if (kCliLauncher) {
+            write_stderr(message);
             return;
         }
 
         show_error(message);
-    }
-
-    HANDLE create_inheritable_nul(DWORD access) {
-        SECURITY_ATTRIBUTES security_attributes{};
-        security_attributes.nLength = sizeof(security_attributes);
-        security_attributes.bInheritHandle = TRUE;
-
-        return CreateFileW(L"NUL", access, FILE_SHARE_READ | FILE_SHARE_WRITE,
-            &security_attributes, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    }
-
-    HANDLE duplicate_standard_handle(DWORD standard_handle, DWORD fallback_access) {
-        const HANDLE source = GetStdHandle(standard_handle);
-
-        if (is_valid_handle(source)) {
-            HANDLE duplicate = nullptr;
-            if (DuplicateHandle(GetCurrentProcess(), source, GetCurrentProcess(),
-                &duplicate, 0, TRUE, DUPLICATE_SAME_ACCESS)) {
-                return duplicate;
-            }
-        }
-
-        return create_inheritable_nul(fallback_access);
-    }
-
-    void close_child_standard_handles() {
-        if (is_valid_handle(g_state.child_stdin)) {
-            CloseHandle(g_state.child_stdin);
-            g_state.child_stdin = nullptr;
-        }
-
-        if (is_valid_handle(g_state.child_stdout)) {
-            CloseHandle(g_state.child_stdout);
-            g_state.child_stdout = nullptr;
-        }
-
-        if (is_valid_handle(g_state.child_stderr)) {
-            CloseHandle(g_state.child_stderr);
-            g_state.child_stderr = nullptr;
-        }
-    }
-
-    bool prepare_silent_startup() {
-        g_state.child_stdin = duplicate_standard_handle(
-            STD_INPUT_HANDLE, GENERIC_READ);
-        g_state.child_stdout = duplicate_standard_handle(
-            STD_OUTPUT_HANDLE, GENERIC_WRITE);
-        g_state.child_stderr = duplicate_standard_handle(
-            STD_ERROR_HANDLE, GENERIC_WRITE);
-
-        if (!is_valid_handle(g_state.child_stdin) ||
-            !is_valid_handle(g_state.child_stdout) ||
-            !is_valid_handle(g_state.child_stderr)) {
-            close_child_standard_handles();
-            return false;
-        }
-
-        g_state.startup_info.dwFlags |= STARTF_USESTDHANDLES;
-        g_state.startup_info.hStdInput = g_state.child_stdin;
-        g_state.startup_info.hStdOutput = g_state.child_stdout;
-        g_state.startup_info.hStdError = g_state.child_stderr;
-        return true;
     }
 
     bool append_text(wchar_t* destination, DWORD capacity, const wchar_t* source) {
@@ -369,38 +313,7 @@ namespace {
         return cursor;
     }
 
-    bool equals_text(const wchar_t* left, const wchar_t* right) {
-        DWORD index = 0;
-
-        while (left[index] != L'\0' && right[index] != L'\0') {
-            if (left[index] != right[index]) {
-                return false;
-            }
-            ++index;
-        }
-
-        return left[index] == right[index];
-    }
-
-    void detach_unowned_console_early() {
-        DWORD process_ids[2]{};
-        const DWORD process_count = GetConsoleProcessList(
-            process_ids, static_cast<DWORD>(sizeof(process_ids) / sizeof(process_ids[0])));
-
-        // Console subsystem 是 PowerShell 等调用方可靠等待 Launcher、获取 stdout 和 exit code 的前提
-        // Explorer 双击时系统会先创建一个仅属于 Launcher 的控制台；
-        // 一进入入口就立即隐藏并释放，把普通 GUI 启动的控制台闪现压到最短
-        // 如果控制台还有父进程则绝不隐藏，避免破坏 PowerShell/cmd/Windows Terminal
-        if (process_count == 1 && process_ids[0] == GetCurrentProcessId()) {
-            const HWND console_window = GetConsoleWindow();
-            if (console_window != nullptr) {
-                ShowWindow(console_window, SW_HIDE);
-            }
-            FreeConsole();
-        }
-    }
-
-    bool detect_launch_mode(bool* silent_mode, bool* cli_mode) {
+    bool detect_has_arguments(bool* has_arguments) {
         int argc = 0;
         LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
 
@@ -408,16 +321,7 @@ namespace {
             return false;
         }
 
-        *silent_mode = false;
-        *cli_mode = argc > 1;
-
-        for (int index = 1; index < argc; ++index) {
-            if (equals_text(argv[index], L"--silent")) {
-                *silent_mode = true;
-                break;
-            }
-        }
-
+        *has_arguments = argc > 1;
         LocalFree(argv);
         return true;
     }
@@ -545,12 +449,12 @@ namespace {
             if (!GetExitCodeProcess(process_handle, &exit_code)) {
                 exit_code = 3;
             }
-            report_error(L"Node.js 后端在返回 CLI 结果前退出", true);
+            report_error(L"Node.js 后端在返回 CLI 结果前退出");
             return static_cast<int>(exit_code);
         }
 
         if (wait_result != WAIT_OBJECT_0) {
-            report_error(L"等待 CLI API 结果失败", true);
+            report_error(L"等待 CLI API 结果失败");
             return 3;
         }
 
@@ -558,7 +462,7 @@ namespace {
         if (!GetOverlappedResult(g_state.result_pipe,
             &g_state.result_connect_overlapped, &transferred, FALSE) &&
             GetLastError() != ERROR_PIPE_CONNECTED) {
-            report_error(L"连接 CLI API 结果通道失败", true);
+            report_error(L"连接 CLI API 结果通道失败");
             return 3;
         }
 
@@ -568,12 +472,12 @@ namespace {
             (header.stream != kLauncherResultStreamStdout &&
                 header.stream != kLauncherResultStreamStderr) ||
             header.payload_length > kResultBufferBytes) {
-            report_error(L"CLI API 返回了无效结果", true);
+            report_error(L"CLI API 返回了无效结果");
             return 3;
         }
 
         if (!read_exact_from_result_pipe(g_state.result_buffer, header.payload_length)) {
-            report_error(L"读取 CLI API 结果失败", true);
+            report_error(L"读取 CLI API 结果失败");
             return 3;
         }
 
@@ -583,42 +487,33 @@ namespace {
 
         if (!write_utf8_to_standard_handle(standard_handle, g_state.result_buffer,
             header.payload_length)) {
-            report_error(L"输出 CLI API 结果失败", true);
+            report_error(L"输出 CLI API 结果失败");
             return 3;
         }
 
         return static_cast<int>(header.exit_code);
     }
 
-    int wait_for_child_process(HANDLE process_handle, bool cli_mode) {
-        if (WaitForSingleObject(process_handle, INFINITE) != WAIT_OBJECT_0) {
-            report_error(L"等待 Node.js 后端退出失败", cli_mode);
-            return 5;
-        }
-
-        DWORD exit_code = 0;
-        if (!GetExitCodeProcess(process_handle, &exit_code)) {
-            report_error(L"无法获取 Node.js 后端退出码", cli_mode);
-            return 6;
-        }
-
-        return static_cast<int>(exit_code);
-    }
-
     int run_launcher() {
-        // 必须尽可能早执行：如果由 Explorer 双击而得到独占控制台，立即隐藏/释放
-        detach_unowned_console_early();
+        bool has_arguments = false;
 
-        bool silent_mode = false;
-        bool cli_mode = false;
-
-        if (!detect_launch_mode(&silent_mode, &cli_mode)) {
-            show_error(L"无法解析启动参数");
+        if (!detect_has_arguments(&has_arguments)) {
+            report_error(L"无法解析启动参数");
             return 1;
         }
 
+        if (kCliLauncher && !has_arguments) {
+            report_error(L"DDCMonitorController-CLI.exe 必须提供 CLI 参数；图形界面请运行 DDCMonitorController.exe");
+            return 2;
+        }
+
+        if (!kCliLauncher && has_arguments) {
+            show_error(L"DDCMonitorController.exe 仅用于图形界面启动；\n命令行调用请使用 DDCMonitorController-CLI.exe");
+            return 2;
+        }
+
         if (!get_launcher_directory(g_state.root, kBufferChars)) {
-            report_error(L"无法确定启动器所在目录", cli_mode);
+            report_error(L"无法确定启动器所在目录");
             return 1;
         }
 
@@ -636,14 +531,14 @@ namespace {
         }
 
         // 便携布局不可用时，使用系统 PATH 中的 Node：
-        // DDCMonitorController.exe + index.mjs
+        // DDCMonitorController.exe / DDCMonitorController-CLI.exe + index.mjs
         if (working_directory == nullptr) {
             if (!find_system_node(g_state.node, kBufferChars, g_state.command,
                 kBufferChars) ||
                 !join_path(g_state.entry, kBufferChars, g_state.root, L"index.mjs") ||
                 !file_exists(g_state.entry)) {
                 report_error(L"找不到 Node.js 或 index.mjs\n"
-                    L"请安装 Node.js，或使用完整的便携包", cli_mode);
+                    L"请安装 Node.js，或使用完整的便携包");
 
                 return 2;
             }
@@ -654,68 +549,54 @@ namespace {
         const wchar_t* argument_tail = find_argument_tail(GetCommandLineW());
         if (!build_command_line(g_state.command, kBufferChars, g_state.node,
             g_state.entry, argument_tail)) {
-            report_error(L"启动命令过长", cli_mode);
+            report_error(L"启动命令过长");
             return 3;
         }
 
         g_state.startup_info.cb = sizeof(g_state.startup_info);
 
-        if (silent_mode && !prepare_silent_startup()) {
-            report_error(L"无法准备 CLI 标准输入输出", true);
-            return 4;
-        }
-
-        const bool launcher_result_mode = cli_mode && !silent_mode;
-        if (launcher_result_mode) {
+        // 专用 Console CLI 通过一次性 Named Pipe 获取 Node 返回结果
+        // GUI Launcher 不创建结果通道，只负责无控制台地拉起桌面 Node 进程
+        if (kCliLauncher) {
             if (!prepare_launcher_result_pipe() ||
                 !SetEnvironmentVariableW(kLauncherResultPipeEnv,
                     g_state.result_pipe_name)) {
                 close_launcher_result_pipe();
-                report_error(L"无法准备 CLI API 结果通道", true);
+                report_error(L"无法准备 CLI API 结果通道");
                 return 4;
             }
         }
 
-        const DWORD creation_flags = silent_mode
-            ? NORMAL_PRIORITY_CLASS
-            : CREATE_NO_WINDOW | NORMAL_PRIORITY_CLASS;
+        // node.exe 自身是 Console 程序，无论由 GUI 还是 CLI Launcher 拉起，
+        // 都禁止它创建第二个控制台窗口；CLI 文本统一由 Named Pipe 回传给 CLI.exe
+        const DWORD creation_flags = CREATE_NO_WINDOW | NORMAL_PRIORITY_CLASS;
 
         const BOOL process_created = CreateProcessW(g_state.node, g_state.command,
-            nullptr, nullptr, silent_mode ? TRUE : FALSE, creation_flags, nullptr,
+            nullptr, nullptr, FALSE, creation_flags, nullptr,
             working_directory, &g_state.startup_info, &g_state.process_info);
 
-        if (launcher_result_mode) {
+        if (kCliLauncher) {
             SetEnvironmentVariableW(kLauncherResultPipeEnv, nullptr);
-        }
-
-        if (silent_mode) {
-            close_child_standard_handles();
         }
 
         if (!process_created) {
             close_launcher_result_pipe();
-            report_error(L"无法启动 Node.js 后端", cli_mode);
+            report_error(L"无法启动 Node.js 后端");
             return 4;
         }
 
         CloseHandle(g_state.process_info.hThread);
 
-        if (launcher_result_mode) {
+        if (kCliLauncher) {
             const int exit_code = wait_for_launcher_result(g_state.process_info.hProcess);
             close_launcher_result_pipe();
             CloseHandle(g_state.process_info.hProcess);
             return exit_code;
         }
 
-        if (!silent_mode) {
-            CloseHandle(g_state.process_info.hProcess);
-            return 0;
-        }
-
-        const int exit_code = wait_for_child_process(
-            g_state.process_info.hProcess, cli_mode);
+        // GUI 启动：Node/WebView 后端继续常驻，Windows 子系统 Launcher 立即退出
         CloseHandle(g_state.process_info.hProcess);
-        return exit_code;
+        return 0;
     }
 
 } // namespace

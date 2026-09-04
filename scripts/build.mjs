@@ -59,6 +59,7 @@ await Promise.all([
 const nativeAddon = path.resolve(root, 'native/bin/win-x64/MonitorNative.node');
 const webViewNativeAddon = path.resolve(root, 'native/bin/win-x64/WebViewNative.node');
 const launcher = path.resolve(root, 'native/bin/win-x64/DDCMonitorController.exe');
+const cliLauncher = path.resolve(root, 'native/bin/win-x64/DDCMonitorController-CLI.exe');
 
 try {
     await fs.stat(nativeAddon);
@@ -78,7 +79,14 @@ try {
     await fs.stat(launcher);
     await fs.copyFile(launcher, path.resolve(outputRoot, 'DDCMonitorController.exe'));
 } catch {
-    console.warn('警告：尚未生成无控制台启动器；可先执行 npm run build:native，再重新构建');
+    console.warn('警告：尚未生成 GUI 启动器；可先执行 npm run build:native，再重新构建');
+}
+
+try {
+    await fs.stat(cliLauncher);
+    await fs.copyFile(cliLauncher, path.resolve(outputRoot, 'DDCMonitorController-CLI.exe'));
+} catch {
+    console.warn('警告：尚未生成 CLI 启动器；可先执行 npm run build:native，再重新构建');
 }
 
 const packageJSON = path.resolve(root, 'package.json');

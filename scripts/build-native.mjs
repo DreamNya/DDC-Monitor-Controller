@@ -170,7 +170,7 @@ function buildAddon(name, outputDir, environment = {}) {
     return outputAddon;
 }
 
-function buildLauncher(outputDir) {
+function buildLaunchers(outputDir) {
     const programFilesX86 = process.env['ProgramFiles(x86)'];
 
     if (!programFilesX86) {
@@ -184,8 +184,10 @@ function buildLauncher(outputDir) {
     const vcvars = path.join(visualStudioPath, 'VC', 'Auxiliary', 'Build', 'vcvars64.bat');
     const buildDir = path.join(root, 'native', 'build', 'win-x64');
     const launcherSource = path.join(root, 'native', 'Launcher', 'launcher.cpp');
-    const launcherObject = path.join(buildDir, 'launcher.obj');
-    const launcherExe = path.join(outputDir, 'DDCMonitorController.exe');
+    const guiLauncherObject = path.join(buildDir, 'launcher-gui.obj');
+    const cliLauncherObject = path.join(buildDir, 'launcher-cli.obj');
+    const guiLauncherExe = path.join(outputDir, 'DDCMonitorController.exe');
+    const cliLauncherExe = path.join(outputDir, 'DDCMonitorController-CLI.exe');
     const launcherRc = path.join(root, 'native', 'Launcher', 'resource.rc');
     const launcherRes = path.join(buildDir, 'launcher.res');
 
@@ -194,29 +196,48 @@ function buildLauncher(outputDir) {
     assertFile(launcherRc, `找不到资源脚本：${launcherRc}`);
     fs.mkdirSync(buildDir, { recursive: true });
 
+    const commonCompileFlags = [
+        'cl /nologo /c /utf-8 /O1 /GL /Gw /GR- /Zl /GS- /W4 /permissive-',
+        '/DUNICODE /D_UNICODE',
+    ];
+    const commonLinkFlags = [
+        '/MACHINE:X64 /ENTRY:launcher_entry /LTCG /OPT:REF,ICF /INCREMENTAL:NO /DYNAMICBASE',
+        '/HIGHENTROPYVA /NXCOMPAT /MANIFEST:EMBED',
+        'Kernel32.lib',
+        'User32.lib',
+        'Shell32.lib',
+    ];
+
     const commandProcessor = process.env.ComSpec ?? 'cmd.exe';
     const command = [
         `call ${quote(vcvars)}`,
         `rc /nologo /fo ${quote(launcherRes)} ${quote(launcherRc)}`,
         [
-            'cl /nologo /c /utf-8 /O1 /GL /Gw /GR- /Zl /GS- /W4 /permissive-',
-            '/DUNICODE /D_UNICODE',
+            ...commonCompileFlags,
+            '/DDDCMC_CLI_LAUNCHER=0',
             quote(launcherSource),
-            `/Fo:${quote(launcherObject)}`,
+            `/Fo:${quote(guiLauncherObject)}`,
         ].join(' '),
         [
-            `link /nologo ${quote(launcherObject)} ${quote(launcherRes)} /NODEFAULTLIB /SUBSYSTEM:CONSOLE`,
-            `/MACHINE:X64 /ENTRY:launcher_entry /LTCG /OPT:REF,ICF /INCREMENTAL:NO /DYNAMICBASE`,
-            `/HIGHENTROPYVA /NXCOMPAT /MANIFEST:EMBED`,
-            `/OUT:${quote(launcherExe)}`,
-            'Kernel32.lib',
-            'User32.lib',
-            'Shell32.lib',
+            ...commonCompileFlags,
+            '/DDDCMC_CLI_LAUNCHER=1',
+            quote(launcherSource),
+            `/Fo:${quote(cliLauncherObject)}`,
+        ].join(' '),
+        [
+            `link /nologo ${quote(guiLauncherObject)} ${quote(launcherRes)} /NODEFAULTLIB /SUBSYSTEM:WINDOWS`,
+            ...commonLinkFlags,
+            `/OUT:${quote(guiLauncherExe)}`,
+        ].join(' '),
+        [
+            `link /nologo ${quote(cliLauncherObject)} ${quote(launcherRes)} /NODEFAULTLIB /SUBSYSTEM:CONSOLE`,
+            ...commonLinkFlags,
+            `/OUT:${quote(cliLauncherExe)}`,
         ].join(' '),
     ].join(' && ');
 
     run(command, [], { shell: commandProcessor });
-    return launcherExe;
+    return { guiLauncherExe, cliLauncherExe };
 }
 
 function main() {
@@ -228,12 +249,13 @@ function main() {
     const webView2Sdk = ensureWebView2Sdk();
     const monitorAddon = buildAddon('MonitorNative', outputDir);
     const webViewAddon = buildAddon('WebViewNative', outputDir, { WEBVIEW2_SDK_DIR: webView2Sdk });
-    const launcher = buildLauncher(outputDir);
+    const { guiLauncherExe, cliLauncherExe } = buildLaunchers(outputDir);
 
-    console.log('Node-API 原生模块和无控制台启动器已生成：');
+    console.log('Node-API 原生模块、GUI 启动器和 CLI 启动器已生成：');
     console.log(`  ${monitorAddon}`);
     console.log(`  ${webViewAddon}`);
-    console.log(`  ${launcher}`);
+    console.log(`  ${guiLauncherExe}`);
+    console.log(`  ${cliLauncherExe}`);
 }
 
 try {

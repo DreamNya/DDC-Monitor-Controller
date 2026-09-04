@@ -63,11 +63,11 @@ const API_EXAMPLES: Record<string, ApiExampleDefinition> = {
             brightness: 30,
             contrast: 50,
         },
-        cli: 'DDCMonitorController.exe --monitor monitor-1 --brightness 30 --contrast 50',
+        cli: 'DDCMonitorController-CLI.exe --monitor monitor-1 --brightness 30 --contrast 50',
     },
     'ordered-batch': {
         payload: [{ monitor: 'monitor-1' }, { brightness: 20 }, { sleep: 1000 }, { brightness: 50 }],
-        cli: 'DDCMonitorController.exe --monitor monitor-1 --brightness 20 --sleep 1000 --brightness 50',
+        cli: 'DDCMonitorController-CLI.exe --monitor monitor-1 --brightness 20 --sleep 1000 --brightness 50',
     },
     'method-batch': {
         payload: [
@@ -78,7 +78,7 @@ const API_EXAMPLES: Record<string, ApiExampleDefinition> = {
             { 'monitor.target': 'monitor-2' },
             { 'monitor.set': { brightness: 25, contrast: 40 } },
         ],
-        cli: `DDCMonitorController.exe --api '[{"monitor.target":"monitor-1"},{"monitor.set":{"brightness":35,"contrast":50}},{"sleep":500},{"vcp.read":{"codes":[16,18,96]}},{"monitor.target":"monitor-2"},,{"monitor.set":{"brightness":25,"contrast":40}}]'`,
+        cli: `DDCMonitorController-CLI.exe --api '[{"monitor.target":"monitor-1"},{"monitor.set":{"brightness":35,"contrast":50}},{"sleep":500},{"vcp.read":{"codes":[16,18,96]}},{"monitor.target":"monitor-2"},,{"monitor.set":{"brightness":25,"contrast":40}}]'`,
     },
 };
 

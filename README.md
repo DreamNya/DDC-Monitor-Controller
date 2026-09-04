@@ -55,7 +55,6 @@ GitHub: <https://github.com/DreamNya/DDC-Monitor-Controller>
 
 ## TODO
 
-* [ ] CLI外部接口
 * [ ] 自动获取日出、日落时间，并作为方案的初始和末尾时间节点
 * [ ] 时间节点之间的非线性变化
 
@@ -100,11 +99,16 @@ https://wwbwh.lanzouw.com/b01d75e9of
 
 ### 启动
 
-双击 `DDCMonitorController.exe` 即可启动程序
+双击 `DDCMonitorController.exe` 即可启动程序，并常驻系统托盘
 
-程序启动后会常驻系统托盘
+（`详细设置面板-设置界面`可配置开机自动启动）
 
-（可将 `DDCMonitorController.exe` 添加到系统启动项或计划任务以支持开机自动启动）
+> **程序入口说明**
+>
+> * `DDCMonitorController.exe`：仅用于启动图形界面，不支持 CLI 参数调用
+> * `DDCMonitorController-CLI.exe`：仅用于 CLI 参数调用，不作为图形界面启动入口
+>   * 默认情况下，CLI 命令执行后会同时启动主程序
+>   * 使用 `--silent` 参数时，仅执行 CLI 操作，不启动主程序
 
 ### 快速设置
 
@@ -195,7 +199,7 @@ https://wwbwh.lanzouw.com/b01d75e9of
   * 仅接受 `POST` + JSON Body
   * 支持跨域调用，可用于用户脚本 / 油猴脚本等本机自动化场景
 * **CLI API** 始终可用，不受 HTTP API 开关影响
-  * 可通过 `DDCMonitorController.exe --args xxx` 的命令行参数调用（开发环境可通过 `node index.mjs --args xxx` 调用）
+  * 可通过 `DDCMonitorController-CLI.exe` 的命令行参数调用（开发环境可通过 `node index.mjs --args xxx` 调用）
   * 不使用 `--silent` 时，如果已有程序实例，请求会转发给现有实例执行；如果没有实例，程序会正常启动并在执行后继续常驻
   * 使用 `--silent` 时，仅允许在当前没有运行实例时执行；程序以无界面模式完成任务后立即退出
 * 批量命令会按照请求中的顺序逐条等待执行
