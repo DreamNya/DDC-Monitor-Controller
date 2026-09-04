@@ -477,12 +477,18 @@ function renderApiExamples(): void {
 function formatApiExample(example: ApiExampleDefinition, transport: ApiExampleTransport, endpoint: string): string {
     switch (transport) {
         case 'curl':
-            return `curl.exe -X POST "${endpoint}" -H "Content-Type: application/json" -d '${JSON.stringify(example.payload)}'`;
+            return formatCurlApiExample(example.payload, endpoint);
         case 'fetch':
             return formatFetchApiExample(example.payload, endpoint);
         case 'cli':
             return example.cli;
     }
+}
+
+function formatCurlApiExample(payload: unknown, endpoint: string): string {
+    const payloadText = JSON.stringify(payload).replaceAll('"', '\\"');
+
+    return `curl.exe -X POST "${endpoint}" -H "Content-Type: application/json" -d "${payloadText}"`;
 }
 
 function formatFetchApiExample(payload: unknown, endpoint: string): string {
