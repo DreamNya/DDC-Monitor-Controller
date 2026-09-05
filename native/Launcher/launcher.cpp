@@ -502,15 +502,17 @@ namespace {
             return 1;
         }
 
-        if (kCliLauncher && !has_arguments) {
+#if DDCMC_CLI_LAUNCHER
+        if (!has_arguments) {
             report_error(L"DDCMonitorController-CLI.exe 必须提供 CLI 参数；图形界面请运行 DDCMonitorController.exe");
             return 2;
         }
-
-        if (!kCliLauncher && has_arguments) {
+#else
+        if (has_arguments) {
             show_error(L"DDCMonitorController.exe 仅用于图形界面启动；\n命令行调用请使用 DDCMonitorController-CLI.exe");
             return 2;
         }
+#endif
 
         if (!get_launcher_directory(g_state.root, kBufferChars)) {
             report_error(L"无法确定启动器所在目录");
