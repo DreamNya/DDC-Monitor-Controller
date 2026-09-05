@@ -9,7 +9,6 @@
 #include <array>
 #include <condition_variable>
 #include <cstdint>
-#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -131,6 +130,15 @@ public:
     void shutdown();
 
 private:
+    // Registration and dispatch need only the native command and an owned ID.
+    // Share the element type with the temporary tray mapping so both tables
+    // use the same vector specialization. Labels remain in the input bindings
+    // for registration error messages.
+    struct CommandMapping {
+        UINT command = 0;
+        std::string id;
+    };
+
     static constexpr UINT kCommandMessage = WM_APP + 1;
     static constexpr UINT kTrayMessage = WM_APP + 2;
     static constexpr UINT_PTR kBoundsTimer = 1;
@@ -191,7 +199,7 @@ private:
 
     std::thread ui_thread_;
     std::mutex command_mutex_;
-    std::deque<std::function<void()>> commands_;
+    std::vector<std::function<void()>> commands_;
     std::mutex ready_mutex_;
     std::condition_variable ready_condition_;
     bool ready_ = false;
@@ -208,7 +216,7 @@ private:
     bool tray_added_ = false;
     UINT taskbar_created_message_ = 0;
     std::vector<TrayMenuItem> tray_menu_items_;
-    std::vector<std::pair<int, GlobalHotkeyBinding>> global_hotkeys_;
+    std::vector<CommandMapping> global_hotkeys_;
     ULONGLONG last_tray_primary_click_tick_ = 0;
     int ui_scale_percent_ = 100;
     std::uint64_t generation_ = 0;

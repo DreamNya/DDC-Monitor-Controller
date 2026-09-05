@@ -20,6 +20,11 @@
         "typecheck": "tsc --noEmit",
         "lint": "eslint .",
         "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
+        "test:native": "node scripts/native-tests/run.mjs contracts",
+        "test:native:ddc": "node scripts/native-tests/run.mjs ddc",
+        "test:native:ddc-write": "node scripts/native-tests/run.mjs ddc-write --allow-write --monitor-index 0",
+        "test:native:webview": "node scripts/native-tests/run.mjs webview",
+        "test:native:interactive": "node scripts/native-tests/run.mjs interactive",
         "check": "npm run typecheck && npm run lint && npm run format:check",
         "package": "node scripts/portable.mjs"
     },

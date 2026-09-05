@@ -9,21 +9,38 @@
 #include <cstdint>
 #include <cwchar>
 #include <limits>
-#include <mutex>
-#include <sstream>
 #include <string>
 #include <vector>
 
 namespace {
 
-    struct MonitorRecord {
-        HANDLE handle = nullptr;
-        std::string id;
-        std::string name;
+    struct PhysicalMonitorBatch final {
+        explicit PhysicalMonitorBatch(const DWORD count) : monitors(count) {}
+
+        ~PhysicalMonitorBatch() noexcept {
+            for (const auto& monitor : monitors) {
+                if (monitor.hPhysicalMonitor != nullptr) {
+                    DestroyPhysicalMonitor(monitor.hPhysicalMonitor);
+                }
+            }
+        }
+
+        PhysicalMonitorBatch(const PhysicalMonitorBatch&) = delete;
+        PhysicalMonitorBatch& operator=(const PhysicalMonitorBatch&) = delete;
+
+        std::vector<PHYSICAL_MONITOR> monitors;
     };
 
-    std::mutex g_mutex;
-    std::vector<MonitorRecord> g_monitors;
+    SRWLOCK g_mutex = SRWLOCK_INIT;
+
+    class MonitorLock final {
+    public:
+        MonitorLock() noexcept { AcquireSRWLockExclusive(&g_mutex); }
+        ~MonitorLock() noexcept { ReleaseSRWLockExclusive(&g_mutex); }
+        MonitorLock(const MonitorLock&) = delete;
+        MonitorLock& operator=(const MonitorLock&) = delete;
+    };
+    std::vector<HANDLE> g_monitors;
 
     DWORD last_error_or(const DWORD fallback) noexcept {
         const DWORD code = GetLastError();
@@ -31,9 +48,9 @@ namespace {
     }
 
     void cleanup_locked() noexcept {
-        for (const auto& monitor : g_monitors) {
-            if (monitor.handle != nullptr) {
-                DestroyPhysicalMonitor(monitor.handle);
+        for (const HANDLE monitor : g_monitors) {
+            if (monitor != nullptr) {
+                DestroyPhysicalMonitor(monitor);
             }
         }
 
@@ -41,7 +58,7 @@ namespace {
     }
 
     void cleanup_environment(void*) noexcept {
-        std::lock_guard lock(g_mutex);
+        const MonitorLock lock;
         cleanup_locked();
     }
 
@@ -100,15 +117,10 @@ namespace {
     }
 
     std::string format_vcp_code(const std::uint32_t code) {
-        std::ostringstream stream;
-        stream << "0x" << std::hex << std::uppercase;
-
-        if (code < 0x10) {
-            stream << '0';
-        }
-
-        stream << code;
-        return stream.str();
+        // Callers validate that the VCP code is one byte before formatting it.
+        constexpr char hex[] = "0123456789ABCDEF";
+        const char result[] = { '0', 'x', hex[(code >> 4) & 0x0f], hex[code & 0x0f] };
+        return std::string(result, sizeof(result));
     }
 
     void throw_win32_error(const Napi::Env& env, const std::string& operation,
@@ -143,7 +155,7 @@ namespace {
         return true;
     }
 
-    MonitorRecord* resolve_monitor(const Napi::Env& env,
+    HANDLE* resolve_monitor(const Napi::Env& env,
         const std::uint32_t index) {
         if (index >= g_monitors.size()) {
             Napi::RangeError::New(env, "显示器索引已失效：" + std::to_string(index) +
@@ -157,9 +169,10 @@ namespace {
 
     Napi::Value refresh_monitors(const Napi::CallbackInfo& info) {
         const Napi::Env env = info.Env();
-        std::lock_guard lock(g_mutex);
+        const MonitorLock lock;
         cleanup_locked();
 
+        const Napi::Array result = Napi::Array::New(env);
         std::vector<HMONITOR> logical_monitors;
 
         if (!EnumDisplayMonitors(nullptr, nullptr, collect_monitor,
@@ -179,7 +192,8 @@ namespace {
                 continue;
             }
 
-            std::vector<PHYSICAL_MONITOR> physical_monitors(physical_count);
+            PhysicalMonitorBatch physical_batch(physical_count);
+            auto& physical_monitors = physical_batch.monitors;
 
             if (!GetPhysicalMonitorsFromHMONITOR(logical_monitor, physical_count,
                 physical_monitors.data())) {
@@ -207,33 +221,19 @@ namespace {
                 const std::wstring stable_id = device_name + L"|" + display_name + L"|" +
                     std::to_wstring(physical_index);
 
-                g_monitors.push_back({
-                    physical.hPhysicalMonitor,
-                    wide_to_utf8(stable_id),
-                    wide_to_utf8(display_name),
-                    });
+                const std::size_t index = g_monitors.size();
+                Napi::Object item = Napi::Object::New(env);
+                item.Set("id", wide_to_utf8(stable_id));
+                item.Set("name", wide_to_utf8(display_name));
+                item.Set("index", Napi::Number::New(env, static_cast<double>(index)));
+                result.Set(static_cast<std::uint32_t>(index), item);
 
-                // 句柄所有权已转移到 g_monitors
+                // Only handles are needed after refresh. Until push_back
+                // succeeds, physical_batch retains ownership, including on
+                // exceptions from string conversion or Node-API calls above.
+                g_monitors.push_back(physical.hPhysicalMonitor);
                 physical.hPhysicalMonitor = nullptr;
             }
-
-            // 若未来上方循环提前退出，仍释放所有尚未转移的句柄
-            for (const auto& physical : physical_monitors) {
-                if (physical.hPhysicalMonitor != nullptr) {
-                    DestroyPhysicalMonitor(physical.hPhysicalMonitor);
-                }
-            }
-        }
-
-        const Napi::Array result = Napi::Array::New(env, g_monitors.size());
-
-        for (std::size_t index = 0; index < g_monitors.size(); ++index) {
-            const auto& monitor = g_monitors[index];
-            Napi::Object item = Napi::Object::New(env);
-            item.Set("id", monitor.id);
-            item.Set("name", monitor.name);
-            item.Set("index", Napi::Number::New(env, static_cast<double>(index)));
-            result.Set(static_cast<std::uint32_t>(index), item);
         }
 
         return result;
@@ -255,8 +255,8 @@ namespace {
             return env.Undefined();
         }
 
-        std::lock_guard lock(g_mutex);
-        MonitorRecord* monitor = resolve_monitor(env, index);
+        const MonitorLock lock;
+        HANDLE* monitor = resolve_monitor(env, index);
 
         if (monitor == nullptr) {
             return env.Undefined();
@@ -265,7 +265,7 @@ namespace {
         DWORD current = 0;
         DWORD maximum = 0;
 
-        if (!GetVCPFeatureAndVCPFeatureReply(monitor->handle, static_cast<BYTE>(code),
+        if (!GetVCPFeatureAndVCPFeatureReply(*monitor, static_cast<BYTE>(code),
             nullptr, &current, &maximum)) {
             throw_win32_error(env, "读取 VCP " + format_vcp_code(code),
                 last_error_or(ERROR_GEN_FAILURE));
@@ -286,8 +286,8 @@ namespace {
             return env.Undefined();
         }
 
-        std::lock_guard lock(g_mutex);
-        MonitorRecord* monitor = resolve_monitor(env, index);
+        const MonitorLock lock;
+        HANDLE* monitor = resolve_monitor(env, index);
 
         if (monitor == nullptr) {
             return env.Undefined();
@@ -295,7 +295,7 @@ namespace {
 
         DWORD length = 0;
 
-        if (!GetCapabilitiesStringLength(monitor->handle, &length)) {
+        if (!GetCapabilitiesStringLength(*monitor, &length)) {
             throw_win32_error(env, "读取显示器 Capabilities 长度",
                 last_error_or(ERROR_GEN_FAILURE));
             return env.Undefined();
@@ -310,7 +310,7 @@ namespace {
         // Windows Monitor Configuration API 内部完成 DDC/CI
         // Capabilities Request (0xF3) / Capabilities Reply (0xE3) 交互
         if (!CapabilitiesRequestAndCapabilitiesReply(
-            monitor->handle, buffer.data(), length)) {
+            *monitor, buffer.data(), length)) {
             throw_win32_error(env, "读取显示器 Capabilities",
                 last_error_or(ERROR_GEN_FAILURE));
             return env.Undefined();
@@ -337,14 +337,14 @@ namespace {
             return env.Undefined();
         }
 
-        std::lock_guard lock(g_mutex);
-        MonitorRecord* monitor = resolve_monitor(env, index);
+        const MonitorLock lock;
+        HANDLE* monitor = resolve_monitor(env, index);
 
         if (monitor == nullptr) {
             return env.Undefined();
         }
 
-        if (!SetVCPFeature(monitor->handle, static_cast<BYTE>(code), value)) {
+        if (!SetVCPFeature(*monitor, static_cast<BYTE>(code), value)) {
             throw_win32_error(env, "设置 VCP " + format_vcp_code(code),
                 last_error_or(ERROR_GEN_FAILURE));
             return env.Undefined();
@@ -354,7 +354,7 @@ namespace {
     }
 
     Napi::Value shutdown(const Napi::CallbackInfo& info) {
-        std::lock_guard lock(g_mutex);
+        const MonitorLock lock;
         cleanup_locked();
         return info.Env().Undefined();
     }

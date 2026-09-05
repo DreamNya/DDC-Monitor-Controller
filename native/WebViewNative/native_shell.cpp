@@ -8,9 +8,7 @@
 #include <shellscalingapi.h>
 
 #include <algorithm>
-#include <cstdio>
 #include <cmath>
-#include <filesystem>
 #include <stdexcept>
 #include <utility>
 
@@ -170,11 +168,14 @@ namespace {
     }
 
     std::string hresult_message(const HRESULT value) {
-        return "HRESULT 0x" + [](const HRESULT code) {
-            char buffer[16]{};
-            sprintf_s(buffer, "%08lX", static_cast<unsigned long>(code));
-            return std::string(buffer);
-            }(value);
+        constexpr char hex[] = "0123456789ABCDEF";
+        char result[] = "HRESULT 0x00000000";
+        auto code = static_cast<std::uint32_t>(value);
+        for (int index = 17; index >= 10; --index) {
+            result[index] = hex[code & 0x0f];
+            code >>= 4;
+        }
+        return std::string(result, sizeof(result) - 1);
     }
 
     bool starts_with(const std::wstring& value, const wchar_t* prefix) {
@@ -349,7 +350,7 @@ void NativeShell::replace_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> 
 
     for (std::size_t index = 0; index < bindings.size(); ++index) {
         const int native_id = kFirstGlobalHotkeyId + static_cast<int>(index);
-        auto binding = std::move(bindings[index]);
+        auto& binding = bindings[index];
         constexpr UINT kModNoRepeat = 0x4000;
         const UINT modifiers = binding.modifiers | kModNoRepeat;
 
@@ -368,25 +369,25 @@ void NativeShell::replace_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> 
             continue;
         }
 
-        global_hotkeys_.emplace_back(native_id, std::move(binding));
+        global_hotkeys_.push_back(
+            CommandMapping{ static_cast<UINT>(native_id), std::move(binding.id) });
     }
 }
 
 void NativeShell::clear_global_hotkeys_on_ui() {
     if (message_window_) {
-        for (const auto& [native_id, binding] : global_hotkeys_) {
-            (void)binding;
-            UnregisterHotKey(message_window_, native_id);
+        for (const auto& mapping : global_hotkeys_) {
+            UnregisterHotKey(message_window_, static_cast<int>(mapping.command));
         }
     }
     global_hotkeys_.clear();
 }
 
 void NativeShell::handle_global_hotkey(const WPARAM wparam) {
-    const int native_id = static_cast<int>(wparam);
+    const UINT native_id = static_cast<UINT>(wparam);
     const auto it = std::find_if(
         global_hotkeys_.begin(), global_hotkeys_.end(),
-        [native_id](const auto& item) { return item.first == native_id; });
+        [native_id](const auto& item) { return item.command == native_id; });
 
     if (it == global_hotkeys_.end()) {
         return;
@@ -394,7 +395,7 @@ void NativeShell::handle_global_hotkey(const WPARAM wparam) {
 
     NativeEvent event{};
     event.kind = NativeEventKind::GlobalHotkey;
-    event.id = it->second.id;
+    event.id = it->id;
     emit(std::move(event));
 }
 
@@ -467,20 +468,6 @@ void NativeShell::run_ui_thread() {
         return;
     }
 
-    try {
-        std::filesystem::create_directories(config_.webview_data_directory);
-    }
-    catch (const std::exception& error) {
-        std::lock_guard lock(ready_mutex_);
-        startup_error_ = std::string("创建 WebView data 目录失败：") + error.what();
-        ready_ = true;
-        ready_condition_.notify_all();
-        if (SUCCEEDED(com_result)) {
-            CoUninitialize();
-        }
-        return;
-    }
-
     if (!register_window_class()) {
         std::lock_guard lock(ready_mutex_);
         startup_error_ = "注册 Native Shell 窗口类失败";
@@ -530,7 +517,7 @@ void NativeShell::run_ui_thread() {
 }
 
 void NativeShell::drain_commands() {
-    std::deque<std::function<void()>> commands;
+    std::vector<std::function<void()>> commands;
     {
         std::lock_guard lock(command_mutex_);
         commands.swap(commands_);
@@ -653,7 +640,8 @@ void NativeShell::create_tray_icon() {
     tray_data_.uCallbackMessage = kTrayMessage;
     tray_data_.hIcon = tray_icon_;
     if (!config_.tray_tooltip.empty()) {
-        tray_data_.uFlags |= NIF_TIP;
+        // Version 4 suppresses the standard hover tooltip without NIF_SHOWTIP.
+        tray_data_.uFlags |= NIF_TIP | NIF_SHOWTIP;
         wcsncpy_s(tray_data_.szTip, config_.tray_tooltip.c_str(), _TRUNCATE);
     }
 
@@ -717,15 +705,11 @@ void NativeShell::show_tray_menu() {
         return;
     }
 
-    struct CommandMapping {
-        UINT command = 0;
-        std::string id;
-    };
     std::vector<CommandMapping> mappings;
     UINT next_command = kFirstTrayMenuCommand;
 
-    const std::function<bool(HMENU, const std::vector<TrayMenuItem>&)> append_items =
-        [&](const HMENU target, const std::vector<TrayMenuItem>& items) {
+    const auto append_items =
+        [&](const auto& self, const HMENU target, const std::vector<TrayMenuItem>& items) -> bool {
             for (const auto& item : items) {
                 if (item.kind == TrayMenuItem::Kind::Separator) {
                     if (!AppendMenuW(target, MF_SEPARATOR, 0, nullptr)) {
@@ -744,7 +728,7 @@ void NativeShell::show_tray_menu() {
                     if (!submenu) {
                         return false;
                     }
-                    if (!append_items(submenu, item.children) ||
+                    if (!self(self, submenu, item.children) ||
                         !AppendMenuW(target, flags | MF_POPUP,
                             reinterpret_cast<UINT_PTR>(submenu),
                             item.label.c_str())) {
@@ -767,7 +751,7 @@ void NativeShell::show_tray_menu() {
             return true;
         };
 
-    if (!append_items(menu, tray_menu_items_)) {
+    if (!append_items(append_items, menu, tray_menu_items_)) {
         DestroyMenu(menu);
         emit_error("创建系统托盘菜单失败");
         return;

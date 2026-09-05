@@ -104,6 +104,13 @@ export class NativeShell {
         if (this.#initialized) {
             return;
         }
+        // Prepare the application directory in TypeScript so the native bridge
+        // does not need to link std::filesystem just to create one directory.
+        try {
+            fs.mkdirSync(options.webviewDataDirectory, { recursive: true });
+        } catch (error) {
+            throw new Error(`创建 WebView data 目录失败：${toErrorMessage(error)}`, { cause: error });
+        }
         this.#addon.initialize(options, eventCallback);
         this.#initialized = true;
     }

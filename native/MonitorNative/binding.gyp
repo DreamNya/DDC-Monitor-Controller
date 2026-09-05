@@ -2,6 +2,7 @@
     "targets": [
         {
             "target_name": "MonitorNative",
+            "includes": ["../addon-size.gypi"],
             "sources": ["addon.cpp"],
             "include_dirs": [
                 "<!(node -p \"require('node-addon-api').include_dir\")"
