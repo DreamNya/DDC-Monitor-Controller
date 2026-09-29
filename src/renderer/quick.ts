@@ -125,7 +125,8 @@ function handleSliderInput(event: Event): void {
 
 function cycleMonitor(): void {
     liveAdjustment.cancelPending();
-    const monitors = currentState?.monitors ?? [];
+    const allMonitors = currentState?.monitors ?? [];
+    const monitors = getUniqueMonitors(allMonitors);
 
     if (monitors.length <= 1) {
         return;
@@ -167,9 +168,9 @@ function render(state: AppState, options: RenderOptions = {}): void {
     if (
         options.resetMonitorSelection ||
         selectedMonitorId === undefined ||
-        !state.monitors.some(({ id }) => id === selectedMonitorId)
+        state.monitors.filter(({ id }) => id === selectedMonitorId).length !== 1
     ) {
-        selectedMonitorId = state.monitors[0]?.id;
+        selectedMonitorId = getUniqueMonitors(state.monitors)[0]?.id ?? state.monitors[0]?.id;
     }
 
     renderMonitorHeader();
@@ -183,7 +184,7 @@ function render(state: AppState, options: RenderOptions = {}): void {
 
 function renderMonitorHeader(): void {
     const monitor = getSelectedMonitor();
-    const monitorCount = currentState?.monitors.length ?? 0;
+    const monitorCount = getUniqueMonitors(currentState?.monitors ?? []).length;
 
     if (!monitor) {
         elements.monitorNumber.textContent = '–';
@@ -194,7 +195,8 @@ function renderMonitorHeader(): void {
     }
 
     elements.monitorNumber.textContent = String(monitor.index + 1);
-    elements.monitorName.textContent = monitor.name || `显示器 ${monitor.index + 1}`;
+    const ambiguous = currentState?.monitors.filter(({ id }) => id === monitor.id).length !== 1;
+    elements.monitorName.textContent = `${monitor.name || `显示器 ${monitor.index + 1}`}${ambiguous ? '（身份不唯一）' : ''}`;
 
     if (monitorCount > 1) {
         elements.monitorSwitchButton.title = `当前为第 ${monitor.index + 1} 台显示器，点击切换下一台`;
@@ -202,9 +204,12 @@ function renderMonitorHeader(): void {
             'aria-label',
             `当前显示器：${elements.monitorName.textContent}，点击切换下一台`,
         );
-    } else {
+    } else if (monitorCount === 1) {
         elements.monitorSwitchButton.title = '当前仅检测到一台显示器';
         elements.monitorSwitchButton.setAttribute('aria-label', `当前显示器：${elements.monitorName.textContent}`);
+    } else {
+        elements.monitorSwitchButton.title = '显示器身份不唯一，无法单独控制';
+        elements.monitorSwitchButton.setAttribute('aria-label', '显示器身份不唯一，无法单独控制');
     }
 }
 
@@ -226,6 +231,10 @@ function getSelectedMonitor(): AppState['monitors'][number] | undefined {
     return currentState.monitors.find(({ id }) => id === selectedMonitorId);
 }
 
+function getUniqueMonitors(monitors: AppState['monitors']): AppState['monitors'] {
+    return monitors.filter((monitor) => monitors.filter(({ id }) => id === monitor.id).length === 1);
+}
+
 function updateSliderOutputs(): void {
     updateRangeOutput(elements.brightnessSlider, elements.brightnessValue);
     updateRangeOutput(elements.contrastSlider, elements.contrastValue);
@@ -233,10 +242,14 @@ function updateSliderOutputs(): void {
 
 function setBusy(value: boolean): void {
     const hasMonitor = (currentState?.monitors.length ?? 0) > 0;
+    const selected = getSelectedMonitor();
+    const hasUniqueMonitor =
+        selected !== undefined && currentState?.monitors.filter(({ id }) => id === selected.id).length === 1;
 
+    document.documentElement.dataset.busy = String(value);
     elements.monitorSwitchButton.disabled = value || !hasMonitor;
-    elements.brightnessSlider.disabled = value || !hasMonitor;
-    elements.contrastSlider.disabled = value || !hasMonitor;
+    elements.brightnessSlider.disabled = value || !hasUniqueMonitor;
+    elements.contrastSlider.disabled = value || !hasUniqueMonitor;
     elements.refreshButton.disabled = value;
     elements.openControlButton.disabled = value;
 }

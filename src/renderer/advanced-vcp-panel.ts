@@ -141,16 +141,24 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
             return;
         }
 
-        for (const monitor of nextState.monitors) {
+        const uniqueMonitors = nextState.monitors.filter(
+            (monitor) => nextState.monitors.filter(({ id }) => id === monitor.id).length === 1,
+        );
+        for (const monitor of uniqueMonitors) {
             elements.monitorSelect.add(new Option(monitor.name || `显示器 ${monitor.index + 1}`, monitor.id));
         }
+        if (uniqueMonitors.length === 0) {
+            elements.monitorSelect.add(new Option('显示器身份不唯一，无法单独控制', ''));
+            elements.monitorSelect.value = '';
+            return;
+        }
 
-        const preferred = nextState.monitors.some(({ id }) => id === previous)
+        const preferred = uniqueMonitors.some(({ id }) => id === previous)
             ? previous
             : nextState.settings.targetMonitorId !== 'all' &&
-                nextState.monitors.some(({ id }) => id === nextState.settings.targetMonitorId)
+                uniqueMonitors.some(({ id }) => id === nextState.settings.targetMonitorId)
               ? nextState.settings.targetMonitorId
-              : nextState.monitors[0]!.id;
+              : uniqueMonitors[0]!.id;
         elements.monitorSelect.value = preferred;
     }
 
@@ -349,7 +357,8 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
         }
 
         for (const [monitorId, groupCommands] of groups) {
-            const onlineMonitor = nextState.monitors.find(({ id }) => id === monitorId);
+            const matches = nextState.monitors.filter(({ id }) => id === monitorId);
+            const onlineMonitor = matches.length === 1 ? matches[0] : undefined;
             const group = document.createElement('section');
             group.className = 'advanced-command-group';
 
@@ -359,7 +368,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
             name.textContent = onlineMonitor?.name || groupCommands[0]!.monitorName || monitorId;
             const status = document.createElement('span');
             status.className = `advanced-monitor-status ${onlineMonitor ? 'online' : 'offline'}`;
-            status.textContent = onlineMonitor ? '在线' : '离线 / 不可用';
+            status.textContent = matches.length > 1 ? '身份不唯一 / 不可用' : onlineMonitor ? '在线' : '离线 / 不可用';
             heading.append(name, status);
             group.append(heading);
 

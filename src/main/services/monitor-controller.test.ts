@@ -7,6 +7,29 @@ const VCP_BRIGHTNESS = 0x10;
 const VCP_CONTRAST = 0x12;
 
 describe('DDCMonitorController cache policy', () => {
+    test('duplicate EDID IDs cannot select one physical monitor, while all keeps separate caches', async () => {
+        const id = 'edid|Same Model|NULL|NULL';
+        const client = new FakeDdcClient([
+            { id, name: 'Same Model', index: 0 },
+            { id, name: 'Same Model', index: 1 },
+        ]);
+        const controller = new DDCMonitorController(client);
+
+        await controller.getSnapshots();
+        await assert.rejects(controller.apply({ monitorId: id, brightness: 45, contrast: 55 }), /标识不唯一/);
+        assert.throws(() => controller.getCapabilities(id), /标识不唯一/);
+        assert.equal(client.writes.length, 0);
+
+        await controller.apply({ monitorId: 'all', brightness: 45, contrast: 55 });
+        assert.deepEqual(client.writes, [
+            { index: 0, code: VCP_BRIGHTNESS, value: 45 },
+            { index: 0, code: VCP_CONTRAST, value: 55 },
+            { index: 1, code: VCP_BRIGHTNESS, value: 45 },
+            { index: 1, code: VCP_CONTRAST, value: 55 },
+        ]);
+        await controller.dispose();
+    });
+
     test('manual and live apply reuse refreshed values without extra reads', async () => {
         const client = new FakeDdcClient();
         const controller = new DDCMonitorController(client);

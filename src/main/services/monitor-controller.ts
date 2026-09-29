@@ -169,11 +169,11 @@ export class DDCMonitorController {
 
         for (const monitor of targets) {
             this.#writePercentage(monitor, VCP_BRIGHTNESS, brightness);
-            this.#updateSnapshotValue(monitor.id, { brightness });
+            this.#updateSnapshotValue(monitor.index, { brightness });
 
             this.#writePercentage(monitor, VCP_CONTRAST, contrast);
-            this.#updateSnapshotValue(monitor.id, { contrast });
-            this.#clearSnapshotError(monitor.id);
+            this.#updateSnapshotValue(monitor.index, { contrast });
+            this.#clearSnapshotError(monitor.index);
         }
 
         return {
@@ -204,12 +204,12 @@ export class DDCMonitorController {
         for (const monitor of targets) {
             if (brightness !== undefined) {
                 this.#writePercentage(monitor, VCP_BRIGHTNESS, brightness);
-                this.#updateSnapshotValue(monitor.id, { brightness });
+                this.#updateSnapshotValue(monitor.index, { brightness });
             }
 
             if (contrast !== undefined) {
                 this.#writePercentage(monitor, VCP_CONTRAST, contrast);
-                this.#updateSnapshotValue(monitor.id, { contrast });
+                this.#updateSnapshotValue(monitor.index, { contrast });
             }
         }
 
@@ -270,7 +270,7 @@ export class DDCMonitorController {
     #readAndCachePercentage(monitor: NativeMonitor, code: number): number {
         const value = this.#client.readVcpValue(monitor.index, code);
         const percentage = toPercentage(value);
-        const cacheKey = createVcpCacheKey(monitor.id, code);
+        const cacheKey = createVcpCacheKey(monitor.index, code);
 
         this.#maximumValues.set(cacheKey, value.maximum);
         this.#percentageValues.set(cacheKey, percentage);
@@ -278,7 +278,7 @@ export class DDCMonitorController {
     }
 
     #writePercentage(monitor: NativeMonitor, code: number, percentage: number): void {
-        const cacheKey = createVcpCacheKey(monitor.id, code);
+        const cacheKey = createVcpCacheKey(monitor.index, code);
 
         if (this.#percentageValues.get(cacheKey) === percentage) {
             return;
@@ -306,9 +306,9 @@ export class DDCMonitorController {
         this.#percentageValues.set(cacheKey, percentage);
     }
 
-    #updateSnapshotValue(monitorId: string, values: { brightness?: number; contrast?: number }): void {
+    #updateSnapshotValue(monitorIndex: number, values: { brightness?: number; contrast?: number }): void {
         this.#snapshots = this.#snapshots.map((monitor) => {
-            if (monitor.id !== monitorId) {
+            if (monitor.index !== monitorIndex) {
                 return monitor;
             }
 
@@ -323,9 +323,9 @@ export class DDCMonitorController {
         });
     }
 
-    #clearSnapshotError(monitorId: string): void {
+    #clearSnapshotError(monitorIndex: number): void {
         this.#snapshots = this.#snapshots.map((monitor) => {
-            if (monitor.id !== monitorId || monitor.error === undefined) {
+            if (monitor.index !== monitorIndex || monitor.error === undefined) {
                 return monitor;
             }
 
@@ -348,8 +348,8 @@ function toPercentage(value: VcpValue): number {
     return clamp((value.current / value.maximum) * 100);
 }
 
-function createVcpCacheKey(monitorId: string, code: number): string {
-    return `${monitorId}\u0000${code}`;
+function createVcpCacheKey(monitorIndex: number, code: number): string {
+    return `${monitorIndex}\u0000${code}`;
 }
 
 function resolveTargets(monitors: readonly NativeMonitor[], target: MonitorTarget): NativeMonitor[] {
@@ -361,13 +361,14 @@ function resolveTargets(monitors: readonly NativeMonitor[], target: MonitorTarge
         return [...monitors];
     }
 
-    const monitor = monitors.find(({ id }) => id === target);
-
-    if (!monitor) {
+    const matches = monitors.filter(({ id }) => id === target);
+    if (matches.length === 0) {
         throw new Error(`目标显示器已断开或标识发生变化：${target}`);
     }
-
-    return [monitor];
+    if (matches.length > 1) {
+        throw new Error(`目标显示器标识不唯一，无法安全地选择单台显示器：${target}`);
+    }
+    return matches;
 }
 
 function resolveSingleMonitor(monitors: readonly NativeMonitor[], monitorId: string): NativeMonitor {

@@ -117,7 +117,9 @@ for (const scenario of suites[mode]) {
                     maxBuffer: 4 * 1024 * 1024,
                 });
                 const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
-                assert.ifError(result.error && new Error(`${result.error.message}\n${output}`, { cause: result.error }));
+                assert.ifError(
+                    result.error && new Error(`${result.error.message}\n${output}`, { cause: result.error }),
+                );
                 assert.equal(result.signal, null, output);
                 assert.equal(result.status, 0, output);
                 assert.ok(output.includes(`NATIVE_SCENARIO_COMPLETE:${scenario}`), output);

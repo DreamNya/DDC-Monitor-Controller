@@ -3,7 +3,7 @@
         {
             "target_name": "MonitorNative",
             "includes": ["../addon-size.gypi"],
-            "sources": ["addon.cpp"],
+            "sources": ["addon.cpp", "monitor-identity.cpp"],
             "include_dirs": [
                 "<!(node -p \"require('node-addon-api').include_dir\")"
             ],
@@ -32,7 +32,10 @@
                             "VCLinkerTool": {
                                 "AdditionalDependencies": [
                                     "Dxva2.lib",
-                                    "User32.lib"
+                                    "User32.lib",
+                                    "Wbemuuid.lib",
+                                    "Ole32.lib",
+                                    "OleAut32.lib"
                                 ]
                             }
                         }

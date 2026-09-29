@@ -946,36 +946,52 @@ function renderMonitorOptions(state: AppState): void {
             monitor.brightness === null || monitor.contrast === null
                 ? '（读取失败）'
                 : `（亮度 ${monitor.brightness} / 对比度 ${monitor.contrast}）`;
-        elements.monitorSelect.add(
-            new Option(`${monitor.name || `显示器 ${monitor.index + 1}`} ${suffix}`, monitor.id),
-        );
+        const option = new Option(`${monitor.name || `显示器 ${monitor.index + 1}`} ${suffix}`, monitor.id);
+        if (state.monitors.filter(({ id }) => id === monitor.id).length > 1) {
+            option.text += '（身份不唯一）';
+            option.disabled = true;
+        }
+        elements.monitorSelect.add(option);
     }
 
-    elements.monitorSelect.value =
-        selected === 'all' || state.monitors.some(({ id }) => id === selected) ? selected : 'all';
+    if (selected !== 'all' && !state.monitors.some(({ id }) => id === selected)) {
+        const offline = new Option('原目标显示器离线，请重新选择', selected);
+        offline.disabled = true;
+        elements.monitorSelect.add(offline);
+    }
+
+    elements.monitorSelect.value = selected;
 }
 
 function renderVcpMonitorOptions(state: AppState): void {
     const previousSelection = elements.vcpMonitorSelect.value;
+    const uniqueMonitors = state.monitors.filter(
+        (monitor) => state.monitors.filter(({ id }) => id === monitor.id).length === 1,
+    );
     elements.vcpMonitorSelect.replaceChildren();
 
-    if (state.monitors.length === 0) {
-        elements.vcpMonitorSelect.add(new Option('未检测到支持 DDC/CI 的显示器', ''));
+    if (uniqueMonitors.length === 0) {
+        elements.vcpMonitorSelect.add(
+            new Option(
+                state.monitors.length === 0 ? '未检测到支持 DDC/CI 的显示器' : '显示器身份不唯一，无法单独控制',
+                '',
+            ),
+        );
         elements.vcpMonitorSelect.value = '';
-        clearVcpResults('未检测到可枚举的显示器');
+        clearVcpResults('未检测到可单独枚举的显示器');
         return;
     }
 
-    for (const monitor of state.monitors) {
+    for (const monitor of uniqueMonitors) {
         elements.vcpMonitorSelect.add(new Option(monitor.name || `显示器 ${monitor.index + 1}`, monitor.id));
     }
 
-    const preferredSelection = state.monitors.some(({ id }) => id === previousSelection)
+    const preferredSelection = uniqueMonitors.some(({ id }) => id === previousSelection)
         ? previousSelection
         : state.settings.targetMonitorId !== 'all' &&
-            state.monitors.some(({ id }) => id === state.settings.targetMonitorId)
+            uniqueMonitors.some(({ id }) => id === state.settings.targetMonitorId)
           ? state.settings.targetMonitorId
-          : (state.monitors[0]?.id ?? '');
+          : uniqueMonitors[0]!.id;
 
     elements.vcpMonitorSelect.value = preferredSelection;
 

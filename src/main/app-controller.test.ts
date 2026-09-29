@@ -209,6 +209,53 @@ test('AppController saves monitor-bound advanced VCP commands and rejects execut
     await controller.dispose();
 });
 
+test('AppController keeps an unresolved monitor target instead of retargeting every display', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    settings.targetMonitorId = 'old-display-path|Test Monitor|0';
+    const controller = createController(
+        new FakeMonitorController(),
+        new FakeSettingsStore(settings),
+        new FakeScheduler(),
+    );
+
+    await controller.initialize({ mode: 'command' });
+
+    assert.equal(controller.getState().settings.targetMonitorId, settings.targetMonitorId);
+    assert.match(controller.getState().lastOperation, /请重新选择目标显示器/);
+    await controller.dispose();
+});
+
+test('AppController rejects commands when two displays share the same EDID ID', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const controller = createController(monitorController, new FakeSettingsStore(settings), new FakeScheduler());
+    await controller.initialize();
+
+    await controller.saveAdvancedVcpCommand({
+        name: 'Test command',
+        monitorId: 'monitor-1',
+        action: { type: 'read', code: 0x10 },
+        shortcut: null,
+    });
+    const [command] = controller.getState().settings.advancedVcpCommands;
+    assert.ok(command);
+
+    monitorController.duplicateFirstMonitor();
+    await assert.rejects(controller.executeAdvancedVcpCommand(command.id), /身份不唯一/);
+    await assert.rejects(
+        controller.saveAdvancedVcpCommand({
+            name: 'Another command',
+            monitorId: 'monitor-1',
+            action: { type: 'read', code: 0x10 },
+            shortcut: null,
+        }),
+        /标识不唯一/,
+    );
+    await controller.dispose();
+});
+
 test('AppController persists auto-start preference only after the scheduled-task operation succeeds', async () => {
     const settings = createDefaultSettings();
     settings.autoEnabled = false;
@@ -499,6 +546,13 @@ class FakeMonitorController implements MonitorDependency {
 
     disconnectAll(): void {
         this.#snapshots = [];
+    }
+
+    duplicateFirstMonitor(): void {
+        const first = this.#snapshots[0];
+        if (first) {
+            this.#snapshots.push({ ...first, index: 1 });
+        }
     }
 
     async apply(request: ManualApplyRequest) {

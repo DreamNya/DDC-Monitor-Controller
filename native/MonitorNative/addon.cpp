@@ -5,6 +5,8 @@
 #include <lowlevelmonitorconfigurationapi.h>
 #include <physicalmonitorenumerationapi.h>
 
+#include "monitor-identity.h"
+
 #include <cmath>
 #include <cstdint>
 #include <cwchar>
@@ -174,6 +176,7 @@ namespace {
 
         const Napi::Array result = Napi::Array::New(env);
         std::vector<HMONITOR> logical_monitors;
+        const auto identities = read_monitor_identities();
 
         if (!EnumDisplayMonitors(nullptr, nullptr, collect_monitor,
             reinterpret_cast<LPARAM>(&logical_monitors))) {
@@ -208,6 +211,19 @@ namespace {
             const std::wstring device_name =
                 has_monitor_info ? monitor_info.szDevice : L"DISPLAY";
 
+            // A single GDI display can expose several DDC handles (for example
+            // clone mode). In that case the monitor interface cannot identify
+            // which handle belongs to which EDID, so do not guess by order.
+            const MonitorIdentity* identity = nullptr;
+            if (has_monitor_info && physical_count == 1) {
+                DISPLAY_DEVICEW display_device{};
+                display_device.cb = sizeof(display_device);
+                if (EnumDisplayDevicesW(device_name.c_str(), 0, &display_device,
+                    EDD_GET_DEVICE_INTERFACE_NAME)) {
+                    identity = find_monitor_identity(identities, display_device.DeviceID);
+                }
+            }
+
             for (DWORD physical_index = 0; physical_index < physical_count;
                 ++physical_index) {
                 auto& physical = physical_monitors[physical_index];
@@ -217,14 +233,25 @@ namespace {
                 const std::wstring description(physical.szPhysicalMonitorDescription,
                     description_length);
                 const std::wstring display_name =
-                    description.empty() ? device_name : description;
-                const std::wstring stable_id = device_name + L"|" + display_name + L"|" +
-                    std::to_wstring(physical_index);
+                    description.empty() ? L"未知显示器" : description;
+                const std::wstring product_code =
+                    identity != nullptr && !identity->product_code.empty()
+                        ? identity->product_code : L"NULL";
+                const std::wstring serial_number =
+                    identity != nullptr && !identity->serial_number.empty() &&
+                    identity->serial_number.find_first_not_of(L"0 ") != std::wstring::npos
+                        ? identity->serial_number : L"NULL";
+                const std::wstring stable_id = L"edid|" + display_name + L"|" +
+                    product_code + L"|" + serial_number;
+                std::wstring shown_name = display_name;
+                if (serial_number != L"NULL") {
+                    shown_name += L" (" + serial_number + L")";
+                }
 
                 const std::size_t index = g_monitors.size();
                 Napi::Object item = Napi::Object::New(env);
                 item.Set("id", wide_to_utf8(stable_id));
-                item.Set("name", wide_to_utf8(display_name));
+                item.Set("name", wide_to_utf8(shown_name));
                 item.Set("index", Napi::Number::New(env, static_cast<double>(index)));
                 result.Set(static_cast<std::uint32_t>(index), item);
 

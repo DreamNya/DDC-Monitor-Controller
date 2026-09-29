@@ -106,8 +106,14 @@ input[type='range']:focus-visible {
 .monitor-switch:disabled,
 .footer-button:disabled,
 input:disabled {
-    cursor: wait;
+    cursor: not-allowed;
     opacity: 0.52;
+}
+
+:root[data-busy='true'] .monitor-switch:disabled,
+:root[data-busy='true'] .footer-button:disabled,
+:root[data-busy='true'] input:disabled {
+    cursor: wait;
 }
 
 .monitor-icon {

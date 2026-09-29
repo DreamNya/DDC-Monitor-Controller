@@ -366,9 +366,7 @@ send({kind:'ready', instance:new URL(location.href).searchParams.get('instance')
                 // created. This checks command ownership and destruction when
                 // draining/closing, including string and vector captures.
                 shell.postWebMessage(`pending-${sequence}:${'待释放消息🙂'.repeat(64)}`);
-                shell.setTrayMenu([
-                    { type: 'item', id: `pending-${sequence}`, label: `Pending menu ${sequence}` },
-                ]);
+                shell.setTrayMenu([{ type: 'item', id: `pending-${sequence}`, label: `Pending menu ${sequence}` }]);
             }
             shell.closeWindow();
             return;
@@ -468,8 +466,9 @@ send({kind:'ready', instance:new URL(location.href).searchParams.get('instance')
             // A final echo acts as a fence; check the entire observed sequence,
             // rather than accepting receipt of only the last numbered message.
             mark = events.length;
-            const burst = Array.from({ length: 512 }, (_, sequence) =>
-                `${id}:burst:${sequence}:${sequence % 2 === 0 ? '中文🙂'.repeat(64) : 'short'}`,
+            const burst = Array.from(
+                { length: 512 },
+                (_, sequence) => `${id}:burst:${sequence}:${sequence % 2 === 0 ? '中文🙂'.repeat(64) : 'short'}`,
             );
             for (const message of burst) {
                 shell.postWebMessage(message);
@@ -485,7 +484,11 @@ send({kind:'ready', instance:new URL(location.href).searchParams.get('instance')
                 .slice(mark)
                 .filter(messageIs('echo'))
                 .map((event) => JSON.parse(event.message).value);
-            assert.deepEqual(received, [...burst, fence], 'Messages must arrive exactly once, in order, with intact text');
+            assert.deepEqual(
+                received,
+                [...burst, fence],
+                'Messages must arrive exactly once, in order, with intact text',
+            );
 
             mark = events.length;
             shell.executeScript("chrome.webview.postMessage(JSON.stringify({kind:'script', value:6*7}))");
@@ -523,7 +526,10 @@ send({kind:'ready', instance:new URL(location.href).searchParams.get('instance')
         shell.shutdown();
     }
     await delay(100);
-    assert.deepEqual(events.filter((event) => event.type === 'error'), []);
+    assert.deepEqual(
+        events.filter((event) => event.type === 'error'),
+        [],
+    );
 }
 
 const scenarios = {

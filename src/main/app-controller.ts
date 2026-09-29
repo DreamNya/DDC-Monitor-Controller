@@ -256,10 +256,14 @@ export class AppController {
 
     saveAdvancedVcpCommand(draft: AdvancedVcpShortcutDraft): Promise<void> {
         return this.#executeCommand(() => {
-            const monitor = this.#monitorController.getCachedSnapshots().find(({ id }) => id === draft.monitorId);
+            const matches = this.#monitorController.getCachedSnapshots().filter(({ id }) => id === draft.monitorId);
+            const monitor = matches[0];
 
             if (!monitor) {
                 throw new Error(`无法为离线或不存在的显示器保存快捷命令：${draft.monitorId}`);
+            }
+            if (matches.length > 1) {
+                throw new Error(`显示器标识不唯一，无法安全地保存快捷命令：${draft.monitorId}`);
             }
 
             if (this.#state.settings.advancedVcpCommands.length >= MAX_ADVANCED_VCP_COMMANDS) {
@@ -326,8 +330,14 @@ export class AppController {
                 // 全局快捷键可能在面板关闭很久后触发，因此执行前重新枚举物理显示器
                 await this.#monitorController.getSnapshots();
 
-                if (!this.#monitorController.getCachedSnapshots().some(({ id }) => id === command.monitorId)) {
+                const matches = this.#monitorController
+                    .getCachedSnapshots()
+                    .filter(({ id }) => id === command.monitorId);
+                if (matches.length === 0) {
                     throw new Error(`目标显示器“${command.monitorName}”当前离线，快捷命令不可用`);
+                }
+                if (matches.length > 1) {
+                    throw new Error(`目标显示器“${command.monitorName}”身份不唯一，快捷命令不可用`);
                 }
 
                 const result = this.#monitorController.executeVcpAction(command.monitorId, command.action);
@@ -397,8 +407,14 @@ export class AppController {
         return this.#executeCommand(() => {
             const monitors = this.#monitorController.getCachedSnapshots();
 
-            if (monitorId !== 'all' && !monitors.some((monitor) => monitor.id === monitorId)) {
-                throw new Error(`无法选择不存在的显示器：${monitorId}`);
+            if (monitorId !== 'all') {
+                const matchCount = monitors.filter((monitor) => monitor.id === monitorId).length;
+                if (matchCount === 0) {
+                    throw new Error(`无法选择不存在的显示器：${monitorId}`);
+                }
+                if (matchCount > 1) {
+                    throw new Error(`显示器标识不唯一，无法安全地选择单台显示器：${monitorId}`);
+                }
             }
 
             if (this.#state.settings.targetMonitorId === monitorId) {
@@ -688,12 +704,12 @@ export class AppController {
 
     async #refreshMonitors(): Promise<void> {
         try {
-            const targetReset = await this.#refreshMonitorCache();
+            const targetUnavailable = await this.#refreshMonitorCache();
             const monitorCount = this.#monitorController.getCachedSnapshots().length;
 
             this.#state.succeed(
-                targetReset
-                    ? `已检测到 ${monitorCount} 台显示器；原目标不存在，已切换为全部显示器`
+                targetUnavailable
+                    ? `已检测到 ${monitorCount} 台显示器；原目标不存在或身份不唯一，请重新选择目标显示器`
                     : `已检测到 ${monitorCount} 台显示器`,
             );
         } catch (error) {
@@ -745,14 +761,13 @@ export class AppController {
 
         if (
             this.#state.settings.targetMonitorId === 'all' ||
-            monitors.some(({ id }) => id === this.#state.settings.targetMonitorId)
+            monitors.filter(({ id }) => id === this.#state.settings.targetMonitorId).length === 1
         ) {
             return false;
         }
 
-        this.#state.commit((settings) => {
-            settings.targetMonitorId = 'all';
-        });
+        // Keep the unresolved binding. Switching to "all" here can make an
+        // existing single-monitor schedule write to the wrong physical screen.
         return true;
     }
 
