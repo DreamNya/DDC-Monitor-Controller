@@ -857,9 +857,25 @@ function updateExternalApiEndpoint(): void {
 }
 
 function renderStateChange({ reason, state }: AppStateChange): void {
+    const selectedMonitorId = elements.monitorSelect.value as MonitorTarget;
+    const previousValues =
+        reason === 'execute-vcp-command' && currentState
+            ? resolveMonitorValues(currentState, selectedMonitorId)
+            : undefined;
+
     render(state, {
         syncManualValues: reason === 'refresh-monitors' || reason === 'apply-manual' || reason === 'apply-auto',
     });
+
+    if (previousValues && elements.monitorSelect.value === selectedMonitorId) {
+        const values = resolveMonitorValues(state, selectedMonitorId);
+        if (values.brightness !== previousValues.brightness) {
+            setRangeValue(elements.brightnessSlider, elements.brightnessValue, values.brightness);
+        }
+        if (values.contrast !== previousValues.contrast) {
+            setRangeValue(elements.contrastSlider, elements.contrastValue, values.contrast);
+        }
+    }
 }
 
 function readManualValues(): ManualAdjustment {

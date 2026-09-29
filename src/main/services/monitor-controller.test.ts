@@ -227,6 +227,38 @@ describe('DDCMonitorController cache policy', () => {
 
         await controller.dispose();
     });
+
+    test('advanced brightness writes update the snapshot and percentage cache without another read', async () => {
+        const client = new FakeDdcClient();
+        client.setValue(VCP_BRIGHTNESS, 80, 200);
+        const controller = new DDCMonitorController(client);
+
+        await controller.getSnapshots();
+        assert.equal(controller.getCachedSnapshots()[0]?.brightness, 40);
+
+        controller.executeVcpAction('monitor-1', { type: 'write', code: VCP_BRIGHTNESS, value: 120 });
+        assert.equal(controller.getCachedSnapshots()[0]?.brightness, 60);
+        assert.equal(controller.getCachedSnapshots()[0]?.contrast, 50);
+        assert.equal(client.readCount, 2);
+
+        await controller.applyLive({ monitorId: 'monitor-1', brightness: 60 });
+        assert.equal(client.writes.length, 1);
+
+        controller.executeVcpAction('monitor-1', {
+            type: 'adjust-percent',
+            code: VCP_BRIGHTNESS,
+            direction: 'increase',
+            percent: 10,
+        });
+        assert.equal(controller.getCachedSnapshots()[0]?.brightness, 70);
+        assert.equal(client.readCount, 3);
+
+        controller.executeVcpAction('monitor-1', { type: 'write', code: VCP_CONTRAST, value: 35 });
+        assert.equal(controller.getCachedSnapshots()[0]?.contrast, 35);
+        assert.equal(controller.getCachedSnapshots()[0]?.brightness, 70);
+
+        await controller.dispose();
+    });
 });
 
 class FakeDdcClient implements DdcClient {
@@ -275,6 +307,10 @@ class FakeDdcClient implements DdcClient {
     setCurrent(code: number, current: number): void {
         const value = this.#values.get(code);
         this.#values.set(code, { current, maximum: value?.maximum ?? 100 });
+    }
+
+    setValue(code: number, current: number, maximum: number): void {
+        this.#values.set(code, { current, maximum });
     }
 
     dispose(): void {}

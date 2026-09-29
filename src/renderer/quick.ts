@@ -149,10 +149,26 @@ function cycleMonitor(): void {
 }
 
 function renderStateChange({ reason, state }: AppStateChange): void {
+    const previousSelection = selectedMonitorId;
+    const previousValues =
+        reason === 'execute-vcp-command' && currentState && previousSelection
+            ? resolveMonitorValues(currentState, previousSelection)
+            : undefined;
+
     render(state, {
         resetMonitorSelection: reason === 'refresh-monitors',
         syncManualValues: reason === 'refresh-monitors' || reason === 'apply-auto',
     });
+
+    if (previousValues && selectedMonitorId !== undefined && selectedMonitorId === previousSelection) {
+        const values = resolveMonitorValues(state, selectedMonitorId);
+        if (values.brightness !== previousValues.brightness) {
+            setRangeValue(elements.brightnessSlider, elements.brightnessValue, values.brightness);
+        }
+        if (values.contrast !== previousValues.contrast) {
+            setRangeValue(elements.contrastSlider, elements.contrastValue, values.contrast);
+        }
+    }
 }
 
 function render(state: AppState, options: RenderOptions = {}): void {

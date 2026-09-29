@@ -131,6 +131,7 @@ export class DDCMonitorController {
 
         if (action.type === 'write') {
             this.#client.writeVcpValue(monitor.index, action.code, action.value);
+            this.#updateWrittenVcpValue(monitor, action.code, action.value);
             return {
                 monitorId: monitor.id,
                 code: action.code,
@@ -146,6 +147,7 @@ export class DDCMonitorController {
 
         // 相对调节始终执行一次写入，包括已经处于 0 / maximum 边界时
         this.#client.writeVcpValue(monitor.index, action.code, value);
+        this.#updateWrittenVcpValue(monitor, action.code, value, current.maximum);
 
         return {
             monitorId: monitor.id,
@@ -304,6 +306,26 @@ export class DDCMonitorController {
 
         this.#client.writeVcpValue(monitor.index, code, rawValue);
         this.#percentageValues.set(cacheKey, percentage);
+    }
+
+    #updateWrittenVcpValue(monitor: NativeMonitor, code: number, value: number, maximum?: number): void {
+        if (code !== VCP_BRIGHTNESS && code !== VCP_CONTRAST) {
+            return;
+        }
+
+        const cacheKey = createVcpCacheKey(monitor.index, code);
+        const knownMaximum = maximum ?? this.#maximumValues.get(cacheKey);
+        if (knownMaximum === undefined) {
+            // 初次读取失败时，写入成功也不能仅凭原始值推断百分比。
+            return;
+        }
+
+        const percentage = toPercentage({ current: value, maximum: knownMaximum });
+        this.#maximumValues.set(cacheKey, knownMaximum);
+        this.#percentageValues.set(cacheKey, percentage);
+        this.#updateSnapshotValue(monitor.index, {
+            ...(code === VCP_BRIGHTNESS ? { brightness: percentage } : { contrast: percentage }),
+        });
     }
 
     #updateSnapshotValue(monitorIndex: number, values: { brightness?: number; contrast?: number }): void {
