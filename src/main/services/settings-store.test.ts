@@ -6,6 +6,90 @@ import { test } from 'node:test';
 import { DEFAULT_EXTERNAL_API_PORT } from '../../api/external-api-config.ts';
 import { createDefaultSettings, SETTINGS_SAVE_THROTTLE_MS, SettingsStore } from './settings-store.ts';
 
+test('SettingsStore preserves monitor groups and group shortcuts across saves and loads old single-monitor configurations', async () => {
+    const directory = await fs.mkdtemp(path.join(tmpdir(), 'monitor-groups-'));
+    const settingsPath = path.join(directory, 'settings.json');
+    const store = new SettingsStore({ settingsPath });
+    try {
+        const settings = createDefaultSettings();
+        settings.monitorGroups = [{ id: 'desk', name: 'Desk', monitorIds: ['first', 'second'] }];
+        settings.advancedVcpCommands = [
+            {
+                id: 'group-command',
+                name: 'Group brightness',
+                monitorId: '',
+                monitorGroupId: 'desk',
+                monitorName: 'Desk',
+                action: { type: 'adjust-percent', code: 0x10, direction: 'increase', percent: 5 },
+                shortcut: 'Ctrl+Alt+Up',
+                closeWebViewAfter: false,
+            },
+        ];
+        store.stage(settings);
+        await store.flush();
+        assert.deepEqual(await store.load(), settings);
+        const legacy = {
+            ...settings,
+            monitorGroups: undefined,
+            advancedVcpCommands: [
+                {
+                    ...settings.advancedVcpCommands[0],
+                    monitorId: 'first',
+                    monitorGroupId: undefined,
+                    monitorName: 'First',
+                },
+            ],
+        };
+        await fs.writeFile(settingsPath, JSON.stringify(legacy), 'utf8');
+        const loaded = await store.load();
+        assert.deepEqual(loaded.monitorGroups, []);
+        assert.equal(loaded.advancedVcpCommands[0]?.monitorId, 'first');
+        assert.equal(loaded.advancedVcpCommands[0]?.monitorGroupId, undefined);
+
+        await fs.writeFile(
+            settingsPath,
+            JSON.stringify({
+                ...settings,
+                monitorGroups: [
+                    ...settings.monitorGroups,
+                    { id: 'duplicate', name: 'desk', monitorIds: ['first'] },
+                    { id: 'invalid', name: 'Invalid', monitorIds: ['all'] },
+                    { id: 'empty', name: 'Empty', monitorIds: [] },
+                ],
+                advancedVcpCommands: [
+                    ...settings.advancedVcpCommands,
+                    {
+                        ...settings.advancedVcpCommands[0],
+                        id: 'single',
+                        monitorId: 'first',
+                        monitorGroupId: undefined,
+                        shortcut: 'Alt+Control+Up',
+                    },
+                    { ...settings.advancedVcpCommands[0], id: 'ambiguous', monitorId: 'first', shortcut: null },
+                    {
+                        ...settings.advancedVcpCommands[0],
+                        id: 'missing-group',
+                        monitorGroupId: 'deleted',
+                        shortcut: null,
+                    },
+                ],
+            }),
+            'utf8',
+        );
+        const normalized = await store.load();
+        assert.deepEqual(normalized.monitorGroups, settings.monitorGroups);
+        assert.deepEqual(
+            normalized.advancedVcpCommands.map(({ id }) => id),
+            ['group-command', 'missing-group'],
+        );
+        assert.equal(normalized.advancedVcpCommands[1]?.monitorGroupId, 'deleted');
+        assert.equal(normalized.advancedVcpCommands[1]?.monitorId, '');
+    } finally {
+        await store.dispose();
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});
+
 test('SettingsStore merges all changes in one 10-second window into one write', async () => {
     const directory = await fs.mkdtemp(path.join(tmpdir(), 'monitor-settings-'));
     const settingsPath = path.join(directory, 'settings.json');

@@ -1417,7 +1417,7 @@
                                 <div class="advanced-monitor-row">
                                     <div>
                                         <span class="label">操作目标</span>
-                                        <h2>选择特定显示器</h2>
+                                        <h2>选择显示器或显示器组</h2>
                                     </div>
                                     <select id="advanced-vcp-monitor-select" aria-label="高级 VCP 目标显示器"></select>
                                 </div>
@@ -1425,6 +1425,20 @@
                                     每台显示器支持的 VCP Code 和 Value 均不相同，可先参考【枚举
                                     VCP】的返回结果，数值支持十进制或 0x 前缀十六进制
                                 </p>
+                            </section>
+
+                            <section class="card">
+                                <div class="section-heading">
+                                    <div>
+                                        <span class="label">多目标控制</span>
+                                        <h2>显示器组查看 / 编辑</h2>
+                                    </div>
+                                    <button id="monitor-group-create" class="secondary compact" type="button">
+                                        新建组
+                                    </button>
+                                </div>
+                                <p class="hint">快捷命令会同时影响显示器组中所有显示器</p>
+                                <div id="monitor-group-list" class="advanced-command-groups"></div>
                             </section>
 
                             <div class="advanced-action-grid">
@@ -1633,7 +1647,7 @@
                                     </div>
                                 </div>
                                 <p class="hint">
-                                    命令按显示器进行分组，显示器离线时点击执行会禁用；全局快捷键触发时也会先重新检测显示器，离线则拒绝写入
+                                    命令可绑定单台显示器或显示器组，快捷键不能重复。组内逐台执行，离线或失败的成员不会阻止其他成员执行，结果会汇总提示。
                                 </p>
                                 <div id="advanced-command-groups" class="advanced-command-groups"></div>
                             </section>
@@ -1642,6 +1656,23 @@
                 </div>
             </div>
         </main>
+
+        <dialog id="monitor-group-dialog" class="app-modal" aria-labelledby="monitor-group-title">
+            <form id="monitor-group-form">
+                <h2 id="monitor-group-title">新建显示器组</h2>
+                <label>
+                    组名称
+                    <input id="monitor-group-name" type="text" maxlength="40" required autocomplete="off" />
+                </label>
+                <span class="label">选择组内显示器</span>
+                <div id="monitor-group-members"></div>
+                <p class="hint">至少选择一台显示器。离线成员可保留或移除；身份不唯一的显示器无法添加。</p>
+                <div class="advanced-dialog-actions">
+                    <button id="monitor-group-cancel" class="secondary" type="button">取消</button>
+                    <button class="primary" type="submit">保存</button>
+                </div>
+            </form>
+        </dialog>
 
         <dialog id="advanced-command-dialog" class="app-modal advanced-command-dialog">
             <form id="advanced-command-form" method="dialog">

@@ -24,12 +24,14 @@ import type {
     LiveApplyRequest,
     ManualApplyRequest,
     MonitorCapabilities,
+    MonitorGroupDraft,
     MonitorTarget,
     MonitorVcpReadResult,
     SchedulePoint,
     UiScalePercent,
     UiScaleTarget,
 } from '../shared/model.ts';
+import { validateMonitorGroup } from '../shared/monitor-group.ts';
 import { calculateAutoSettings } from '../shared/schedule.ts';
 import {
     createDefaultUiScaleSettings,
@@ -267,15 +269,77 @@ export class AppController {
         return this.#executeAdvancedVcpRequest(request, '执行高级 VCP 操作失败');
     }
 
+    saveMonitorGroup(draft: MonitorGroupDraft): Promise<void> {
+        return this.#executeCommand(() => {
+            const existing = draft.id
+                ? this.#state.settings.monitorGroups.find(({ id }) => id === draft.id)
+                : undefined;
+            if (draft.id && !existing) {
+                throw new Error(`找不到显示器组：${draft.id}`);
+            }
+            const group = validateMonitorGroup({ ...draft, id: existing?.id ?? randomUUID() });
+            if (
+                this.#state.settings.monitorGroups.some(
+                    ({ id, name }) => id !== group.id && name.toLocaleLowerCase() === group.name.toLocaleLowerCase(),
+                )
+            ) {
+                throw new Error(`显示器组名称“${group.name}”已存在`);
+            }
+            const monitors = this.#monitorController.getCachedSnapshots();
+            for (const monitorId of group.monitorIds) {
+                // 已保存的成员可在离线时保留，新增成员必须具有唯一的在线身份。
+                if (existing?.monitorIds.includes(monitorId)) {
+                    continue;
+                }
+                if (monitors.filter(({ id }) => id === monitorId).length !== 1) {
+                    throw new Error(`无法添加离线或身份不唯一的显示器：${monitorId}`);
+                }
+            }
+            this.#state.commit((settings) => {
+                settings.monitorGroups = existing
+                    ? settings.monitorGroups.map((item) => (item.id === group.id ? group : item))
+                    : [...settings.monitorGroups, group];
+                for (const command of settings.advancedVcpCommands) {
+                    if (command.monitorGroupId === group.id) {
+                        command.monitorName = group.name;
+                    }
+                }
+            });
+            this.#state.succeed(`已保存显示器组“${group.name}”`);
+            return 'update-settings';
+        });
+    }
+
+    deleteMonitorGroup(groupId: string): Promise<void> {
+        return this.#executeCommand(() => {
+            const group = this.#getMonitorGroup(groupId);
+            const commandCount = this.#state.settings.advancedVcpCommands.filter(
+                (item) => item.monitorGroupId === groupId,
+            ).length;
+            this.#state.commit((settings) => {
+                settings.monitorGroups = settings.monitorGroups.filter(({ id }) => id !== groupId);
+                settings.advancedVcpCommands = settings.advancedVcpCommands.filter(
+                    (item) => item.monitorGroupId !== groupId,
+                );
+            });
+            this.#state.succeed(
+                `已删除显示器组“${group.name}”${commandCount ? `及 ${commandCount} 个关联快捷命令` : ''}`,
+            );
+            return 'update-settings';
+        });
+    }
+
     saveAdvancedVcpCommand(draft: AdvancedVcpShortcutDraft): Promise<void> {
         return this.#executeCommand(() => {
+            this.#validateAdvancedTarget(draft);
+            const group = draft.monitorGroupId ? this.#getMonitorGroup(draft.monitorGroupId) : undefined;
             const matches = this.#monitorController.getCachedSnapshots().filter(({ id }) => id === draft.monitorId);
             const monitor = matches[0];
 
-            if (!monitor) {
+            if (!group && !monitor) {
                 throw new Error(`无法为离线或不存在的显示器保存快捷命令：${draft.monitorId}`);
             }
-            if (matches.length > 1) {
+            if (!group && matches.length > 1) {
                 throw new Error(`显示器标识不唯一，无法安全地保存快捷命令：${draft.monitorId}`);
             }
 
@@ -300,8 +364,9 @@ export class AppController {
             const command: AdvancedVcpShortcutCommand = {
                 id: randomUUID(),
                 name,
-                monitorId: monitor.id,
-                monitorName: monitor.name || monitor.id,
+                monitorId: group ? '' : monitor!.id,
+                ...(group ? { monitorGroupId: group.id } : {}),
+                monitorName: group ? group.name : monitor!.name || monitor!.id,
                 action,
                 shortcut,
                 closeWebViewAfter: draft.closeWebViewAfter === true,
@@ -343,20 +408,10 @@ export class AppController {
                 // 快捷命令可能在面板关闭很久后触发；缓存超过一分钟才重新枚举
                 await this.#refreshMonitorCache();
 
-                const matches = this.#monitorController
-                    .getCachedSnapshots()
-                    .filter(({ id }) => id === command.monitorId);
-                if (matches.length === 0) {
-                    throw new Error(`目标显示器“${command.monitorName}”当前离线，快捷命令不可用`);
-                }
-                if (matches.length > 1) {
-                    throw new Error(`目标显示器“${command.monitorName}”身份不唯一，快捷命令不可用`);
-                }
-
-                const result = this.#monitorController.executeVcpAction(command.monitorId, command.action);
-                this.#state.succeed(formatAdvancedVcpSuccess(`快捷命令“${command.name}”`, result));
+                const result = this.#executeAdvancedTarget(command);
+                this.#state.succeed(this.#formatAdvancedOutcome(`快捷命令“${command.name}”`, result));
                 this.#state.publish('execute-vcp-command');
-                return { ...result, closeWebViewAfter: command.closeWebViewAfter };
+                return result;
             } catch (error) {
                 this.#state.setError(`执行快捷命令“${command.name}”失败`, error);
                 this.#state.publish('execute-vcp-command');
@@ -654,19 +709,81 @@ export class AppController {
     ): Promise<AdvancedVcpExecutionOutcome> {
         return this.#commands.run(() => {
             try {
-                const result = this.#monitorController.executeVcpAction(
-                    request.monitorId,
-                    validateAdvancedVcpAction(request.action),
-                );
-                this.#state.succeed(formatAdvancedVcpSuccess('高级 VCP', result));
+                const result = this.#executeAdvancedTarget(request);
+                this.#state.succeed(this.#formatAdvancedOutcome('高级 VCP', result));
                 this.#state.publish('execute-vcp-command');
-                return { ...result, closeWebViewAfter: request.closeWebViewAfter === true };
+                return result;
             } catch (error) {
                 this.#state.setError(context, error);
                 this.#state.publish('execute-vcp-command');
                 throw error;
             }
         });
+    }
+
+    #getMonitorGroup(groupId: string) {
+        const group = this.#state.settings.monitorGroups.find(({ id }) => id === groupId);
+        if (!group) {
+            throw new Error(`找不到显示器组：${groupId}`);
+        }
+        return group;
+    }
+
+    #validateAdvancedTarget(request: { monitorId: string; monitorGroupId?: string }): void {
+        if (
+            typeof request.monitorId !== 'string' ||
+            (request.monitorGroupId !== undefined &&
+                (typeof request.monitorGroupId !== 'string' || !request.monitorGroupId))
+        ) {
+            throw new Error('高级 VCP 操作目标无效');
+        }
+        if (Boolean(request.monitorId) === Boolean(request.monitorGroupId)) {
+            throw new Error('请选择一台显示器或一个显示器组');
+        }
+    }
+
+    #executeAdvancedTarget(request: AdvancedVcpExecuteRequest): AdvancedVcpExecutionOutcome {
+        this.#validateAdvancedTarget(request);
+        const action = validateAdvancedVcpAction(request.action);
+        const group = request.monitorGroupId ? this.#getMonitorGroup(request.monitorGroupId) : undefined;
+        const monitorIds = group ? group.monitorIds : [request.monitorId];
+        const monitors = this.#monitorController.getCachedSnapshots();
+        const results: AdvancedVcpExecutionResult[] = [];
+        const errors: string[] = [];
+        for (const monitorId of monitorIds) {
+            const matches = monitors.filter(({ id }) => id === monitorId);
+            const name = matches[0]?.name || monitorId;
+            try {
+                if (!matches.length) {
+                    throw new Error(`目标显示器“${name}”当前离线，命令不可用`);
+                }
+                if (matches.length > 1) {
+                    throw new Error(`目标显示器“${name}”身份不唯一，命令不可用`);
+                }
+                results.push(this.#monitorController.executeVcpAction(monitorId, action));
+            } catch (error) {
+                errors.push(`${name}：${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
+        if (errors.length) {
+            throw new Error(
+                `${group ? `显示器组“${group.name}”：${results.length}/${monitorIds.length} 台执行成功；` : ''}${errors.join('；')}`,
+            );
+        }
+        if (!results[0]) {
+            throw new Error('显示器组没有可执行的成员');
+        }
+        return {
+            ...results[0],
+            ...(group ? { results } : {}),
+            closeWebViewAfter: request.closeWebViewAfter === true,
+        };
+    }
+
+    #formatAdvancedOutcome(prefix: string, result: AdvancedVcpExecutionOutcome): string {
+        return result.results
+            ? `${prefix} 已对 ${result.results.length} 台显示器执行成功`
+            : formatAdvancedVcpSuccess(prefix, result);
     }
 
     async #setAutoInterval(intervalMinutes: IntervalMinutes | null): Promise<AppStateChangeReason | null> {

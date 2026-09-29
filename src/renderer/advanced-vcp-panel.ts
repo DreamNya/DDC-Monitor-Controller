@@ -7,9 +7,11 @@ import type {
     AdvancedVcpShortcutCommand,
     AdvancedVcpShortcutDraft,
     AppState,
+    MonitorSnapshot,
 } from '../shared/model';
 import { getElement } from './common';
 import type { Modal } from './modal';
+import { createMonitorGroupPanel } from './monitor-group-panel';
 
 interface AdvancedVcpPanelOptions {
     getBridge(): MonitorBridge;
@@ -65,8 +67,10 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
 
     let state: AppState | undefined;
     let pendingShortcut: PendingShortcut | undefined;
+    const monitorGroupPanel = createMonitorGroupPanel(options);
 
     function bind(): void {
+        monitorGroupPanel.bind();
         elements.presetMode.addEventListener('change', syncPresetMode);
         elements.relativeTarget.addEventListener('change', () => {
             elements.relativeCode.value = formatHex(
@@ -126,6 +130,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
 
     function render(nextState: AppState): void {
         state = nextState;
+        monitorGroupPanel.render(nextState);
         renderMonitorOptions(nextState);
         renderCommands(nextState);
         refreshControlStates();
@@ -135,53 +140,66 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
         const previous = elements.monitorSelect.value;
         elements.monitorSelect.replaceChildren();
 
-        if (nextState.monitors.length === 0) {
-            elements.monitorSelect.add(new Option('未检测到支持 DDC/CI 的显示器', ''));
-            elements.monitorSelect.value = '';
-            return;
-        }
-
         const uniqueMonitors = nextState.monitors.filter(
             (monitor) => nextState.monitors.filter(({ id }) => id === monitor.id).length === 1,
         );
         for (const monitor of uniqueMonitors) {
-            elements.monitorSelect.add(new Option(monitor.name || `显示器 ${monitor.index + 1}`, monitor.id));
+            elements.monitorSelect.add(
+                new Option(monitor.name || `显示器 ${monitor.index + 1}`, JSON.stringify({ monitorId: monitor.id })),
+            );
         }
-        if (uniqueMonitors.length === 0) {
-            elements.monitorSelect.add(new Option('显示器身份不唯一，无法单独控制', ''));
+        for (const group of nextState.settings.monitorGroups) {
+            elements.monitorSelect.add(
+                new Option(
+                    `显示器组：${group.name}（${group.monitorIds.length} 台）`,
+                    JSON.stringify({ monitorId: '', monitorGroupId: group.id }),
+                ),
+            );
+        }
+        if (elements.monitorSelect.options.length === 0) {
+            elements.monitorSelect.add(new Option('请检测显示器或新建显示器组', ''));
             elements.monitorSelect.value = '';
             return;
         }
 
-        const preferred = uniqueMonitors.some(({ id }) => id === previous)
+        const preferred = [...elements.monitorSelect.options].some(({ value }) => value === previous)
             ? previous
             : nextState.settings.targetMonitorId !== 'all' &&
                 uniqueMonitors.some(({ id }) => id === nextState.settings.targetMonitorId)
-              ? nextState.settings.targetMonitorId
-              : uniqueMonitors[0]!.id;
+              ? JSON.stringify({ monitorId: nextState.settings.targetMonitorId })
+              : elements.monitorSelect.options[0]!.value;
         elements.monitorSelect.value = preferred;
     }
 
     function refreshControlStates(): void {
+        monitorGroupPanel.refreshControlStates();
         const unavailable = !elements.monitorSelect.value;
         for (const button of [elements.presetRun, elements.presetSave, elements.customRun, elements.customSave]) {
             button.disabled = unavailable;
         }
 
         for (const button of elements.commandGroups.querySelectorAll<HTMLButtonElement>('[data-command-run]')) {
-            const monitorId = button.dataset.monitorId ?? '';
-            button.disabled = !state?.monitors.some(({ id }) => id === monitorId);
+            const command = state?.settings.advancedVcpCommands.find(({ id }) => id === button.dataset.commandRun);
+            button.disabled = !command || !targetAvailable(command);
         }
     }
 
     function execute(action: AdvancedVcpAction, closeWebViewAfter = false, resultElement?: HTMLElement): void {
-        const monitorId = requireMonitorId();
+        const target = requireTarget();
         options.runAction(async () => {
             if (resultElement) {
                 resultElement.textContent = '正在执行…';
             }
-            const result = await options.getBridge().executeAdvancedVcp({ monitorId, action, closeWebViewAfter });
-            const message = formatExecutionResult(result);
+            let result: AdvancedVcpExecutionOutcome;
+            try {
+                result = await options.getBridge().executeAdvancedVcp({ ...target, action, closeWebViewAfter });
+            } catch (error) {
+                if (resultElement) {
+                    resultElement.textContent = error instanceof Error ? error.message : String(error);
+                }
+                throw error;
+            }
+            const message = formatExecutionResult(result, state?.monitors);
             if (resultElement) {
                 resultElement.textContent = message;
             }
@@ -204,7 +222,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
         defaultName: string,
         closeWebViewAfter = false,
     ): Promise<void> {
-        const monitorId = requireMonitorId();
+        const target = requireTarget();
 
         // RegisterHotKey 注册过的组合键可能不会继续作为普通 keydown 送到 WebView
         // 在快捷键录制期间临时挂起本程序自己的全局快捷键，让重复快捷键也能
@@ -212,7 +230,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
         await options.getBridge().setGlobalHotkeyCaptureActive({ active: true });
 
         try {
-            pendingShortcut = { monitorId, action, closeWebViewAfter, defaultName };
+            pendingShortcut = { ...target, action, closeWebViewAfter, defaultName };
             elements.commandName.value = defaultName;
             elements.commandShortcut.value = '';
             elements.commandDialog.showModal();
@@ -244,6 +262,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
 
         const command: AdvancedVcpShortcutDraft = {
             monitorId: pendingShortcut.monitorId,
+            ...(pendingShortcut.monitorGroupId ? { monitorGroupId: pendingShortcut.monitorGroupId } : {}),
             action: pendingShortcut.action,
             closeWebViewAfter: pendingShortcut.closeWebViewAfter,
             name: elements.commandName.value,
@@ -309,7 +328,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
             }
             options.runAction(async () => {
                 const result = await options.getBridge().executeAdvancedVcpCommand({ commandId });
-                options.showToast(formatExecutionResult(result));
+                options.showToast(formatExecutionResult(result, state?.monitors));
             });
             return;
         }
@@ -351,12 +370,18 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
 
         const groups = new Map<string, AdvancedVcpShortcutCommand[]>();
         for (const command of commands) {
-            const list = groups.get(command.monitorId) ?? [];
+            const key = JSON.stringify([command.monitorGroupId ?? null, command.monitorId]);
+            const list = groups.get(key) ?? [];
             list.push(command);
-            groups.set(command.monitorId, list);
+            groups.set(key, list);
         }
 
-        for (const [monitorId, groupCommands] of groups) {
+        for (const groupCommands of groups.values()) {
+            const first = groupCommands[0]!;
+            const monitorId = first.monitorId;
+            const monitorGroup = first.monitorGroupId
+                ? nextState.settings.monitorGroups.find(({ id }) => id === first.monitorGroupId)
+                : undefined;
             const matches = nextState.monitors.filter(({ id }) => id === monitorId);
             const onlineMonitor = matches.length === 1 ? matches[0] : undefined;
             const group = document.createElement('section');
@@ -365,15 +390,26 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
             const heading = document.createElement('div');
             heading.className = 'advanced-command-group-heading';
             const name = document.createElement('strong');
-            name.textContent = onlineMonitor?.name || groupCommands[0]!.monitorName || monitorId;
+            name.textContent = first.monitorGroupId
+                ? `显示器组：${monitorGroup?.name || first.monitorName}`
+                : onlineMonitor?.name || first.monitorName || monitorId;
             const status = document.createElement('span');
-            status.className = `advanced-monitor-status ${onlineMonitor ? 'online' : 'offline'}`;
-            status.textContent = matches.length > 1 ? '身份不唯一 / 不可用' : onlineMonitor ? '在线' : '离线 / 不可用';
+            const available = targetAvailable(first);
+            status.className = `advanced-monitor-status ${available ? 'online' : 'offline'}`;
+            status.textContent = monitorGroup
+                ? `${monitorGroup.monitorIds.filter((id) => nextState.monitors.filter((monitor) => monitor.id === id).length === 1).length}/${monitorGroup.monitorIds.length} 台可用`
+                : first.monitorGroupId
+                  ? '组不存在 / 不可用'
+                  : matches.length > 1
+                    ? '身份不唯一 / 不可用'
+                    : onlineMonitor
+                      ? '在线'
+                      : '离线 / 不可用';
             heading.append(name, status);
             group.append(heading);
 
             for (const command of groupCommands) {
-                group.append(createCommandRow(command, Boolean(onlineMonitor)));
+                group.append(createCommandRow(command, available));
             }
             elements.commandGroups.append(group);
         }
@@ -404,9 +440,8 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
         run.type = 'button';
         run.textContent = '执行';
         run.dataset.commandRun = command.id;
-        run.dataset.monitorId = command.monitorId;
         run.disabled = !online;
-        run.title = online ? '执行此快捷命令' : '目标显示器当前离线';
+        run.title = online ? '执行此快捷命令' : '目标显示器或显示器组当前不可用';
         const remove = document.createElement('button');
         remove.className = 'secondary compact';
         remove.type = 'button';
@@ -522,12 +557,18 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
         }
     }
 
-    function requireMonitorId(): string {
-        const monitorId = elements.monitorSelect.value;
-        if (!monitorId) {
-            throw new Error('请先选择一台在线显示器');
+    function targetAvailable(target: { monitorId: string; monitorGroupId?: string }): boolean {
+        const ids = target.monitorGroupId
+            ? (state?.settings.monitorGroups.find(({ id }) => id === target.monitorGroupId)?.monitorIds ?? [])
+            : [target.monitorId];
+        return ids.some((id) => state?.monitors.filter((monitor) => monitor.id === id).length === 1);
+    }
+
+    function requireTarget(): { monitorId: string; monitorGroupId?: string } {
+        if (!elements.monitorSelect.value) {
+            throw new Error('请先选择显示器或显示器组');
         }
-        return monitorId;
+        return JSON.parse(elements.monitorSelect.value) as { monitorId: string; monitorGroupId?: string };
     }
 
     return { bind, render, refreshControlStates };
@@ -568,7 +609,15 @@ function parseFlexibleUnsignedInteger(value: string, name: string): number {
     return parsed;
 }
 
-function formatExecutionResult(result: AdvancedVcpExecutionOutcome): string {
+function formatExecutionResult(result: AdvancedVcpExecutionOutcome, monitors: MonitorSnapshot[] = []): string {
+    if (result.results) {
+        return result.results
+            .map(
+                (item) =>
+                    `${monitors.find(({ id }) => id === item.monitorId)?.name || item.monitorId}：${formatExecutionResult({ ...item, closeWebViewAfter: false })}`,
+            )
+            .join('\n');
+    }
     const code = formatHex(result.code);
     if (result.operation === 'read') {
         return `${code} = ${result.current ?? '?'} / ${result.maximum ?? '?'}`;

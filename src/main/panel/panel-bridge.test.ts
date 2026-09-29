@@ -63,6 +63,8 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
             };
         },
         saveAdvancedVcpCommand: (command: AdvancedVcpShortcutDraft) => record('saveAdvancedVcpCommand', command),
+        saveMonitorGroup: (group: { name: string; monitorIds: string[] }) => record('saveMonitorGroup', group),
+        deleteMonitorGroup: (groupId: string) => record('deleteMonitorGroup', groupId),
         deleteAdvancedVcpCommand: (commandId: string) => record('deleteAdvancedVcpCommand', commandId),
         executeAdvancedVcpCommand: async (commandId: string) => {
             calls.push({ name: 'executeAdvancedVcpCommand', args: [commandId] });
@@ -152,6 +154,9 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
     assert.equal(await bridge.setGlobalHotkeyCaptureActive({ active: false }), null);
     assert.equal(globalHotkeyCaptureActive, false);
     assert.equal(await bridge.saveAdvancedVcpCommand({ command: shortcutDraft }), null);
+    const monitorGroupDraft = { name: 'Desk', monitorIds: ['monitor-1', 'monitor-2'] };
+    assert.equal(await bridge.saveMonitorGroup({ group: monitorGroupDraft }), null);
+    assert.equal(await bridge.deleteMonitorGroup({ groupId: 'desk' }), null);
     assert.deepEqual(await bridge.executeAdvancedVcpCommand({ commandId: 'command-1' }), {
         monitorId: 'monitor-1',
         code: 0x60,
@@ -181,6 +186,8 @@ test('PanelBridge keeps an explicit command boundary and returns only acknowledg
             ],
         },
         { name: 'saveAdvancedVcpCommand', args: [shortcutDraft] },
+        { name: 'saveMonitorGroup', args: [monitorGroupDraft] },
+        { name: 'deleteMonitorGroup', args: ['desk'] },
         { name: 'executeAdvancedVcpCommand', args: ['command-1'] },
         { name: 'deleteAdvancedVcpCommand', args: ['command-1'] },
         { name: 'setAutoInterval', args: [15] },

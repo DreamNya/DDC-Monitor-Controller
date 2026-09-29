@@ -14,6 +14,7 @@ import { INTERVAL_MINUTES_OPTIONS, MAX_SCHEDULE_PROFILE_NAME_LENGTH } from '../.
 import { createDefaultFontSizeSettings, normalizeFontSizeSettings } from '../../shared/font-size.ts';
 import { MAX_ADVANCED_VCP_COMMANDS, normalizeAdvancedVcpAction } from '../../shared/advanced-vcp.ts';
 import { parseGlobalShortcut } from '../../shared/global-shortcut.ts';
+import { normalizeMonitorGroups } from '../../shared/monitor-group.ts';
 import { cloneDefaultSchedule, normalizeSchedule } from '../../shared/schedule.ts';
 import { createDefaultUiScaleSettings, normalizeUiScaleSettings } from '../../shared/ui-scale.ts';
 
@@ -178,6 +179,7 @@ export function createDefaultSettings(): AppSettings {
         scheduleProfiles: [createDefaultScheduleProfile()],
         controlWindowBounds: null,
         advancedVcpCommands: [],
+        monitorGroups: [],
     };
 }
 
@@ -214,6 +216,7 @@ function normalizeSettings(value: unknown): AppSettings {
         activeScheduleProfileId,
         scheduleProfiles,
         advancedVcpCommands: normalizeAdvancedVcpCommands(source.advancedVcpCommands),
+        monitorGroups: normalizeMonitorGroups(source.monitorGroups),
     };
 }
 
@@ -355,11 +358,12 @@ function normalizeAdvancedVcpCommands(value: unknown): AdvancedVcpShortcutComman
         }
 
         const monitorId = typeof item.monitorId === 'string' ? item.monitorId.trim() : '';
+        const monitorGroupId = typeof item.monitorGroupId === 'string' ? item.monitorGroupId.trim() : '';
         const monitorName = typeof item.monitorName === 'string' ? item.monitorName.trim() : '';
         const name = typeof item.name === 'string' ? item.name.trim().replace(/\s+/g, ' ').slice(0, 60) : '';
         const action = normalizeAdvancedVcpAction(item.action);
 
-        if (!monitorId || !name || !action) {
+        if ((!monitorId && !monitorGroupId) || (monitorId && monitorGroupId) || !name || !action) {
             continue;
         }
 
@@ -390,6 +394,7 @@ function normalizeAdvancedVcpCommands(value: unknown): AdvancedVcpShortcutComman
             id,
             name,
             monitorId,
+            ...(monitorGroupId ? { monitorGroupId } : {}),
             monitorName: monitorName || monitorId,
             action,
             shortcut,

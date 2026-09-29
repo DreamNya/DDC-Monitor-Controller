@@ -42,6 +42,8 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
             return null;
         },
         saveAdvancedVcpCommand: ({ command }) => runCommand(() => appController.saveAdvancedVcpCommand(command)),
+        saveMonitorGroup: ({ group }) => runCommand(() => appController.saveMonitorGroup(group)),
+        deleteMonitorGroup: ({ groupId }) => runCommand(() => appController.deleteMonitorGroup(groupId)),
         deleteAdvancedVcpCommand: ({ commandId }) =>
             runCommand(() => appController.deleteAdvancedVcpCommand(commandId)),
         executeAdvancedVcpCommand: async ({ commandId }) => {

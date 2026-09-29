@@ -9,6 +9,7 @@ import type {
     LiveApplyRequest,
     ManualApplyRequest,
     MonitorCapabilities,
+    MonitorGroupDraft,
     MonitorTarget,
     MonitorVcpReadResult,
     SchedulePoint,
@@ -32,6 +33,8 @@ export interface MonitorBridge {
     executeAdvancedVcp(request: AdvancedVcpExecuteRequest): Promise<AdvancedVcpExecutionOutcome>;
     setGlobalHotkeyCaptureActive(options: { active: boolean }): Promise<null>;
     saveAdvancedVcpCommand(options: { command: AdvancedVcpShortcutDraft }): Promise<null>;
+    saveMonitorGroup(options: { group: MonitorGroupDraft }): Promise<null>;
+    deleteMonitorGroup(options: { groupId: string }): Promise<null>;
     deleteAdvancedVcpCommand(options: { commandId: string }): Promise<null>;
     executeAdvancedVcpCommand(options: { commandId: string }): Promise<AdvancedVcpExecutionOutcome>;
     applyManual(request: ManualApplyRequest): Promise<null>;

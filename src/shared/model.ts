@@ -64,7 +64,9 @@ export type AdvancedVcpAction =
     | { type: 'read'; code: number };
 
 export interface AdvancedVcpExecuteRequest {
+    /** 单台显示器标识；选择显示器组时为空字符串 */
     monitorId: string;
+    monitorGroupId?: string;
     action: AdvancedVcpAction;
     /** 仅在写入成功后由界面层销毁当前 WebView */
     closeWebViewAfter?: boolean;
@@ -82,13 +84,28 @@ export interface AdvancedVcpExecutionResult {
 
 export interface AdvancedVcpExecutionOutcome extends AdvancedVcpExecutionResult {
     closeWebViewAfter: boolean;
+    /** 显示器组执行时，保留每台显示器的结果 */
+    results?: AdvancedVcpExecutionResult[];
 }
 
-/** 持久化的高级 VCP 快捷命令；绑定到单个物理显示器标识 */
+export interface MonitorGroup {
+    id: string;
+    name: string;
+    monitorIds: string[];
+}
+
+export interface MonitorGroupDraft {
+    id?: string;
+    name: string;
+    monitorIds: string[];
+}
+
+/** 持久化的高级 VCP 快捷命令；绑定到物理显示器或显示器组 */
 export interface AdvancedVcpShortcutCommand {
     id: string;
     name: string;
     monitorId: string;
+    monitorGroupId?: string;
     monitorName: string;
     action: AdvancedVcpAction;
     shortcut: string | null;
@@ -98,6 +115,7 @@ export interface AdvancedVcpShortcutCommand {
 export interface AdvancedVcpShortcutDraft {
     name: string;
     monitorId: string;
+    monitorGroupId?: string;
     action: AdvancedVcpAction;
     shortcut: string | null;
     closeWebViewAfter?: boolean;
@@ -143,6 +161,7 @@ export interface AppSettings {
     scheduleProfiles: ScheduleProfile[];
     controlWindowBounds: ControlWindowBounds | null;
     advancedVcpCommands: AdvancedVcpShortcutCommand[];
+    monitorGroups: MonitorGroup[];
 }
 
 export interface AppState {

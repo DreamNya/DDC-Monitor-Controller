@@ -1899,6 +1899,7 @@ td:last-child {
 .advanced-command-main small {
     margin-top: 3px;
     white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .advanced-command-hotkey {
@@ -1962,6 +1963,36 @@ td:last-child {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+}
+
+#monitor-group-members {
+    display: grid;
+    gap: 8px;
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+#monitor-group-members .monitor-group-member {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 8px;
+    padding: 8px;
+    background: var(--control-surface);
+    overflow-wrap: anywhere;
+}
+
+#monitor-group-members input {
+    flex: 0 0 auto;
+    width: 16px;
+    min-height: 16px;
+    height: 16px;
+    padding: 0;
+    accent-color: var(--primary);
+}
+
+.advanced-result {
+    white-space: pre-line;
 }
 
 @media (max-width: 780px) {
