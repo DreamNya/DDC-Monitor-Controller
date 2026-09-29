@@ -190,9 +190,7 @@ export class PanelManager {
             return;
         }
 
-        // 面板打开属于低频边界；先刷新实际显示器状态，避免物理按键或其他软件
-        // 修改后仍展示旧缓存；刷新失败时 AppController 会保留最后一份可用快照
-        await this.#appController.refreshMonitors();
+        await this.#appController.refreshMonitorsIfStale();
         const refreshedState = this.#appController.getState();
 
         if (this.#applicationExiting) {

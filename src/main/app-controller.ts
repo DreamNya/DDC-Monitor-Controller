@@ -65,6 +65,8 @@ type MonitorController = Pick<
     | 'dispose'
 >;
 type AutoScheduler = Pick<AutoAdjustmentScheduler, 'nextRunAt' | 'schedule' | 'stop' | 'dispose'>;
+// TODO 自定义设置
+const MONITOR_REFRESH_INTERVAL_MS = 60_000;
 
 export type AppControllerInitializationMode = 'desktop' | 'command';
 
@@ -79,6 +81,7 @@ export interface AppControllerOptions {
     onLogEnabledChanged?: (enabled: boolean) => void;
     setAutoStartRegistration?: (enabled: boolean) => Promise<void>;
     configureExternalApi?: (configuration: ExternalApiConfiguration) => Promise<void>;
+    now?: () => number;
 }
 
 export class AppController {
@@ -89,8 +92,10 @@ export class AppController {
     readonly #onLogEnabledChanged: (enabled: boolean) => void;
     readonly #setAutoStartRegistration: (enabled: boolean) => Promise<void>;
     readonly #configureExternalApi: (configuration: ExternalApiConfiguration) => Promise<void>;
+    readonly #now: () => number;
 
     #disposePromise: Promise<void> | undefined;
+    #lastMonitorRefreshAt: number | undefined;
 
     constructor(options: AppControllerOptions = {}) {
         this.#monitorController = options.monitorController ?? new DDCMonitorController();
@@ -101,6 +106,7 @@ export class AppController {
                 throw new Error('当前运行环境不支持配置登录自动启动');
             });
         this.#configureExternalApi = options.configureExternalApi ?? (async () => undefined);
+        this.#now = options.now ?? Date.now;
 
         this.#state = new AppStateManager({
             settingsStore: options.settingsStore ?? new SettingsStore(),
@@ -237,9 +243,16 @@ export class AppController {
 
     refreshMonitors(): Promise<void> {
         return this.#executeCommand(async () => {
-            await this.#refreshMonitors();
+            await this.#refreshMonitors(true);
             return 'refresh-monitors' as const;
         });
+    }
+
+    /** 面板打开等自动刷新场景共用一分钟内的显示器缓存 */
+    refreshMonitorsIfStale(): Promise<void> {
+        return this.#executeCommand(async () =>
+            (await this.#refreshMonitors()) ? ('refresh-monitors' as const) : null,
+        );
     }
 
     getMonitorCapabilities(monitorId: string): Promise<MonitorCapabilities> {
@@ -327,8 +340,8 @@ export class AppController {
             }
 
             try {
-                // 全局快捷键可能在面板关闭很久后触发，因此执行前重新枚举物理显示器
-                await this.#monitorController.getSnapshots();
+                // 快捷命令可能在面板关闭很久后触发；缓存超过一分钟才重新枚举
+                await this.#refreshMonitorCache();
 
                 const matches = this.#monitorController
                     .getCachedSnapshots()
@@ -702,9 +715,12 @@ export class AppController {
         return reason;
     }
 
-    async #refreshMonitors(): Promise<void> {
+    async #refreshMonitors(force = false): Promise<boolean> {
         try {
-            const targetUnavailable = await this.#refreshMonitorCache();
+            const { refreshed, targetUnavailable } = await this.#refreshMonitorCache(force);
+            if (!refreshed) {
+                return false;
+            }
             const monitorCount = this.#monitorController.getCachedSnapshots().length;
 
             this.#state.succeed(
@@ -716,6 +732,7 @@ export class AppController {
             // DDCMonitorController 会保留最后一份可用缓存，因此这里只更新错误状态
             this.#state.setError('检测显示器失败', error);
         }
+        return true;
     }
 
     async #applyAuto(refreshCache = true): Promise<void> {
@@ -756,19 +773,32 @@ export class AppController {
         return 'apply-auto' as const;
     }
 
-    async #refreshMonitorCache(): Promise<boolean> {
-        const monitors = await this.#monitorController.getSnapshots();
+    async #refreshMonitorCache(force = false): Promise<{ refreshed: boolean; targetUnavailable: boolean }> {
+        const now = this.#now();
+        const shouldRefresh =
+            force ||
+            this.#lastMonitorRefreshAt === undefined ||
+            now < this.#lastMonitorRefreshAt ||
+            now - this.#lastMonitorRefreshAt >= MONITOR_REFRESH_INTERVAL_MS;
+        const monitors = shouldRefresh
+            ? await this.#monitorController.getSnapshots()
+            : this.#monitorController.getCachedSnapshots();
+        if (shouldRefresh) {
+            this.#lastMonitorRefreshAt = this.#now();
+        } /* else {
+            console.log('距离上次自动枚举显示器不足1分钟 -> 跳过');
+        } */
 
         if (
             this.#state.settings.targetMonitorId === 'all' ||
             monitors.filter(({ id }) => id === this.#state.settings.targetMonitorId).length === 1
         ) {
-            return false;
+            return { refreshed: shouldRefresh, targetUnavailable: false };
         }
 
         // Keep the unresolved binding. Switching to "all" here can make an
         // existing single-monitor schedule write to the wrong physical screen.
-        return true;
+        return { refreshed: shouldRefresh, targetUnavailable: true };
     }
 
     #executeCommand<T extends AppStateChangeReason | null>(operation: () => T | Promise<T>): Promise<void> {

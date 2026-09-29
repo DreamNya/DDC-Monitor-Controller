@@ -70,6 +70,74 @@ test('AppController command initialization loads state without applying or sched
     await controller.dispose();
 });
 
+test('automatic monitor refresh is throttled for one minute and manual refresh bypasses it', async () => {
+    let now = 0;
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const controller = new AppController({
+        monitorController,
+        settingsStore: new FakeSettingsStore(settings),
+        createAutoScheduler: () => new FakeScheduler(),
+        now: () => now,
+    });
+
+    await controller.initialize();
+    assert.equal(monitorController.getSnapshotsCalls, 1);
+
+    await controller.saveAdvancedVcpCommand({
+        name: 'Read brightness',
+        monitorId: 'monitor-1',
+        action: { type: 'read', code: 0x10 },
+        shortcut: null,
+    });
+    const [command] = controller.getState().settings.advancedVcpCommands;
+    assert.ok(command);
+
+    await controller.refreshMonitorsIfStale();
+    now = 59_999;
+    await controller.executeAdvancedVcpCommand(command.id);
+    assert.equal(monitorController.getSnapshotsCalls, 1);
+
+    now = 60_000;
+    await controller.refreshMonitorsIfStale();
+    assert.equal(monitorController.getSnapshotsCalls, 2);
+
+    now = 60_001;
+    await controller.refreshMonitors();
+    assert.equal(monitorController.getSnapshotsCalls, 3);
+
+    now = 120_000;
+    await controller.executeAdvancedVcpCommand(command.id);
+    assert.equal(monitorController.getSnapshotsCalls, 3);
+    now = 120_001;
+    await controller.executeAdvancedVcpCommand(command.id);
+    assert.equal(monitorController.getSnapshotsCalls, 4);
+    await controller.dispose();
+});
+
+test('a failed automatic refresh can be retried without waiting one minute', async () => {
+    let now = 0;
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const controller = new AppController({
+        monitorController,
+        settingsStore: new FakeSettingsStore(settings),
+        createAutoScheduler: () => new FakeScheduler(),
+        now: () => now,
+    });
+
+    await controller.initialize();
+    now = 60_000;
+    monitorController.failNextRefresh();
+    await controller.refreshMonitorsIfStale();
+    assert.equal(monitorController.getSnapshotsCalls, 2);
+    await controller.refreshMonitorsIfStale();
+    assert.equal(monitorController.getSnapshotsCalls, 3);
+    await controller.dispose();
+});
+
 test('AppController publishes each command once and commits settings atomically in memory', async () => {
     const settings = createDefaultSettings();
     settings.autoEnabled = false;
@@ -478,6 +546,7 @@ class FakeMonitorController implements MonitorDependency {
     readonly applyStarted = createDeferred<void>();
     disposed = false;
     getSnapshotsCalls = 0;
+    #failNextRefresh = false;
     applyCalls = 0;
     #blockApply: boolean;
     #applyRelease = createDeferred<void>();
@@ -497,7 +566,15 @@ class FakeMonitorController implements MonitorDependency {
 
     async getSnapshots(): Promise<MonitorSnapshot[]> {
         this.getSnapshotsCalls += 1;
+        if (this.#failNextRefresh) {
+            this.#failNextRefresh = false;
+            throw new Error('Refresh failed');
+        }
         return this.getCachedSnapshots();
+    }
+
+    failNextRefresh(): void {
+        this.#failNextRefresh = true;
     }
 
     getCachedSnapshots(): MonitorSnapshot[] {
