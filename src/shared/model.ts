@@ -160,6 +160,8 @@ export interface AppSettings {
     activeScheduleProfileId: string;
     scheduleProfiles: ScheduleProfile[];
     controlWindowBounds: ControlWindowBounds | null;
+    /** 仅控制新增快捷命令时是否允许使用已占用的快捷键 */
+    allowDuplicateShortcuts: boolean;
     advancedVcpCommands: AdvancedVcpShortcutCommand[];
     monitorGroups: MonitorGroup[];
 }

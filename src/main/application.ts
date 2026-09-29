@@ -2,7 +2,6 @@ import path from 'node:path';
 import { HttpApiServer } from '../api/http-api-server.ts';
 import { PublicApiDispatcher } from '../api/public-api-dispatcher.ts';
 import type { PublicApiResponse } from '../api/public-api.ts';
-import { parseGlobalShortcut } from '../shared/global-shortcut';
 import type { AppState } from '../shared/model';
 import { AppController } from './app-controller';
 import { registerDevelopmentMessageHandler } from './development';
@@ -11,6 +10,7 @@ import { PanelManager } from './panel/panel-manager';
 import type { RuntimePaths } from './runtime-paths';
 import type { FileLogger } from './services/file-logger';
 import { AutoStartService } from './services/auto-start-service';
+import { createGlobalHotkeyBindings } from './services/global-hotkeys';
 import type { SingleInstanceLock } from './single-instance';
 import { TrayController } from './tray-controller';
 import { runBackground } from './utils/run-background';
@@ -249,26 +249,7 @@ export class DesktopApplication {
             return;
         }
 
-        const bindings = state.settings.advancedVcpCommands.flatMap((command) => {
-            if (!command.shortcut) {
-                return [];
-            }
-
-            try {
-                const parsed = parseGlobalShortcut(command.shortcut);
-                return [
-                    {
-                        id: command.id,
-                        label: `${command.name} (${parsed.normalized})`,
-                        modifiers: parsed.modifiers,
-                        virtualKey: parsed.virtualKey,
-                    },
-                ];
-            } catch (error) {
-                console.error(`忽略无效全局快捷键“${command.shortcut}”：`, error);
-                return [];
-            }
-        });
+        const bindings = createGlobalHotkeyBindings(state.settings.advancedVcpCommands);
 
         this.#globalHotkeySignature = signature;
         this.#nativeShell.setGlobalHotkeys(bindings);
@@ -286,9 +267,14 @@ export class DesktopApplication {
 
             case 'global-hotkey':
                 runBackground('执行高级 VCP 全局快捷命令', async () => {
-                    const result = await this.#appController.executeAdvancedVcpCommand(event.id);
-                    if (result.closeWebViewAfter) {
+                    const results = await this.#appController.executeAdvancedVcpHotkey(event.id);
+                    if (results.some((result) => result.status === 'fulfilled' && result.value.closeWebViewAfter)) {
                         this.#panelManager?.destroy();
+                    }
+                    for (const result of results) {
+                        if (result.status === 'rejected') {
+                            console.error('执行高级 VCP 全局快捷命令失败：', result.reason);
+                        }
                     }
                 });
                 break;

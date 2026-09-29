@@ -80,10 +80,40 @@ test('SettingsStore preserves monitor groups and group shortcuts across saves an
         assert.deepEqual(normalized.monitorGroups, settings.monitorGroups);
         assert.deepEqual(
             normalized.advancedVcpCommands.map(({ id }) => id),
-            ['group-command', 'missing-group'],
+            ['group-command', 'single', 'missing-group'],
         );
-        assert.equal(normalized.advancedVcpCommands[1]?.monitorGroupId, 'deleted');
-        assert.equal(normalized.advancedVcpCommands[1]?.monitorId, '');
+        assert.equal(normalized.advancedVcpCommands[1]?.shortcut, 'Ctrl+Alt+Up');
+        assert.equal(normalized.advancedVcpCommands[2]?.monitorGroupId, 'deleted');
+        assert.equal(normalized.advancedVcpCommands[2]?.monitorId, '');
+    } finally {
+        await store.dispose();
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});
+
+test('SettingsStore persists duplicate shortcuts with either switch state and defaults legacy settings to disabled', async () => {
+    const directory = await fs.mkdtemp(path.join(tmpdir(), 'duplicate-shortcuts-'));
+    const settingsPath = path.join(directory, 'settings.json');
+    const store = new SettingsStore({ settingsPath });
+    try {
+        const settings = createDefaultSettings();
+        settings.advancedVcpCommands = ['first', 'second'].map((id) => ({
+            id,
+            name: id,
+            monitorId: 'monitor-1',
+            monitorName: 'Test Monitor',
+            action: { type: 'read', code: 0x10 },
+            shortcut: 'Ctrl+Alt+H',
+            closeWebViewAfter: false,
+        }));
+        for (const enabled of [true, false]) {
+            settings.allowDuplicateShortcuts = enabled;
+            store.stage(settings);
+            await store.flush();
+            assert.deepEqual(await store.load(), settings);
+        }
+        await fs.writeFile(settingsPath, JSON.stringify({ ...settings, allowDuplicateShortcuts: undefined }), 'utf8');
+        assert.deepEqual(await store.load(), settings);
     } finally {
         await store.dispose();
         await fs.rm(directory, { recursive: true, force: true });

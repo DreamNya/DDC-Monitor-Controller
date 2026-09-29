@@ -188,6 +188,41 @@ test('shortcuts stay unique across single monitors and groups, including normali
     }
 });
 
+test('one hotkey executes both single-monitor and group commands after duplicate shortcuts are disabled', async () => {
+    const { controller, client, group } = await setup();
+    try {
+        await controller.setAllowDuplicateShortcuts(true);
+        await controller.saveAdvancedVcpCommand({
+            name: 'Single',
+            monitorId: 'third',
+            action: { type: 'write', code: 0x10, value: 50 },
+            shortcut: 'Ctrl+Alt+A',
+        });
+        await controller.saveAdvancedVcpCommand({
+            name: 'Group',
+            monitorId: '',
+            monitorGroupId: group.id,
+            action: { type: 'write', code: 0x12, value: 60 },
+            shortcut: 'Alt+Control+A',
+        });
+        await controller.setAllowDuplicateShortcuts(false);
+        const commands = controller.getState().settings.advancedVcpCommands;
+        // 原生只注册其中一个命令 ID；任一关联 ID 都应执行完整快捷键集合。
+        const results = await controller.executeAdvancedVcpHotkey(commands[1]!.id);
+        assert.deepEqual(
+            results.map(({ status }) => status),
+            ['fulfilled', 'fulfilled'],
+        );
+        assert.deepEqual(client.writes, [
+            { index: 2, code: 0x10, value: 50 },
+            { index: 0, code: 0x12, value: 60 },
+            { index: 1, code: 0x12, value: 60 },
+        ]);
+    } finally {
+        await controller.dispose();
+    }
+});
+
 test('group execution continues after a failed write and publishes partial cache without closing the panel', async () => {
     const { controller, client, group } = await setup();
     try {

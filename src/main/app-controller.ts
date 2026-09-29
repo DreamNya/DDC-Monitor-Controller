@@ -329,6 +329,22 @@ export class AppController {
         });
     }
 
+    setAllowDuplicateShortcuts(enabled: boolean): Promise<void> {
+        return this.#executeCommand(() => {
+            if (typeof enabled !== 'boolean') {
+                throw new TypeError('允许重复快捷键状态必须是布尔值');
+            }
+            if (this.#state.settings.allowDuplicateShortcuts === enabled) {
+                return null;
+            }
+            this.#state.commit((settings) => {
+                settings.allowDuplicateShortcuts = enabled;
+            });
+            this.#state.succeed(enabled ? '已允许重复快捷键' : '已关闭重复快捷键，已保存的快捷命令保持不变');
+            return 'update-settings';
+        });
+    }
+
     saveAdvancedVcpCommand(draft: AdvancedVcpShortcutDraft): Promise<void> {
         return this.#executeCommand(() => {
             this.#validateAdvancedTarget(draft);
@@ -351,9 +367,10 @@ export class AppController {
             const action = validateAdvancedVcpAction(draft.action);
             const shortcut = normalizeOptionalShortcut(draft.shortcut);
 
-            const shortcutOwner = shortcut
-                ? this.#state.settings.advancedVcpCommands.find((command) => command.shortcut === shortcut)
-                : undefined;
+            const shortcutOwner =
+                shortcut && !this.#state.settings.allowDuplicateShortcuts
+                    ? this.#state.settings.advancedVcpCommands.find((command) => command.shortcut === shortcut)
+                    : undefined;
 
             if (shortcutOwner) {
                 throw new Error(
@@ -394,6 +411,19 @@ export class AppController {
             this.#state.succeed(`已删除高级 VCP 快捷命令“${command.name}”`);
             return 'update-settings';
         });
+    }
+
+    executeAdvancedVcpHotkey(commandId: string): Promise<PromiseSettledResult<AdvancedVcpExecutionOutcome>[]> {
+        const command = this.#state.settings.advancedVcpCommands.find(({ id }) => id === commandId);
+        if (!command?.shortcut) {
+            return Promise.resolve([]);
+        }
+
+        // 一次按键将全部关联命令按保存顺序入队；失败也不会阻止后续命令执行。
+        const commands = this.#state.settings.advancedVcpCommands.filter(
+            ({ shortcut }) => shortcut === command.shortcut,
+        );
+        return Promise.allSettled(commands.map(({ id }) => this.executeAdvancedVcpCommand(id)));
     }
 
     executeAdvancedVcpCommand(commandId: string): Promise<AdvancedVcpExecutionOutcome> {

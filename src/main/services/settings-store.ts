@@ -178,6 +178,7 @@ export function createDefaultSettings(): AppSettings {
         activeScheduleProfileId: DEFAULT_PROFILE_ID,
         scheduleProfiles: [createDefaultScheduleProfile()],
         controlWindowBounds: null,
+        allowDuplicateShortcuts: false,
         advancedVcpCommands: [],
         monitorGroups: [],
     };
@@ -215,6 +216,7 @@ function normalizeSettings(value: unknown): AppSettings {
         fontSize: normalizeFontSizeSettings(source.fontSize),
         activeScheduleProfileId,
         scheduleProfiles,
+        allowDuplicateShortcuts: source.allowDuplicateShortcuts === true,
         advancedVcpCommands: normalizeAdvancedVcpCommands(source.advancedVcpCommands),
         monitorGroups: normalizeMonitorGroups(source.monitorGroups),
     };
@@ -350,7 +352,6 @@ function normalizeAdvancedVcpCommands(value: unknown): AdvancedVcpShortcutComman
 
     const commands: AdvancedVcpShortcutCommand[] = [];
     const usedIds = new Set<string>();
-    const usedShortcuts = new Set<string>();
 
     for (const [index, item] of value.slice(0, MAX_ADVANCED_VCP_COMMANDS).entries()) {
         if (!isRecord(item)) {
@@ -374,9 +375,6 @@ function normalizeAdvancedVcpCommands(value: unknown): AdvancedVcpShortcutComman
             } catch {
                 continue;
             }
-            if (usedShortcuts.has(shortcut)) {
-                continue;
-            }
         }
 
         const requestedId = typeof item.id === 'string' ? item.id.trim() : '';
@@ -387,9 +385,6 @@ function normalizeAdvancedVcpCommands(value: unknown): AdvancedVcpShortcutComman
         }
 
         usedIds.add(id);
-        if (shortcut) {
-            usedShortcuts.add(shortcut);
-        }
         commands.push({
             id,
             name,

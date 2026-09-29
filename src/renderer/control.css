@@ -1700,6 +1700,20 @@ td:last-child {
     margin-top: 0;
 }
 
+.advanced-monitor-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.advanced-repeat-setting {
+    margin-top: 0;
+    margin-left: auto;
+    gap: 12px;
+}
+
 .advanced-action-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1796,13 +1810,6 @@ td:last-child {
 
 .advanced-close-setting small {
     margin-top: 2px;
-}
-
-.advanced-result {
-    min-height: 1.4em;
-    margin-top: auto;
-    overflow-wrap: anywhere;
-    user-select: text;
 }
 
 .advanced-action-buttons {
@@ -1989,10 +1996,6 @@ td:last-child {
     height: 16px;
     padding: 0;
     accent-color: var(--primary);
-}
-
-.advanced-result {
-    white-space: pre-line;
 }
 
 @media (max-width: 780px) {

@@ -32,6 +32,7 @@ export interface MonitorBridge {
     getMonitorVcpValues(options: { monitorId: string; codes: number[] }): Promise<MonitorVcpReadResult[]>;
     executeAdvancedVcp(request: AdvancedVcpExecuteRequest): Promise<AdvancedVcpExecutionOutcome>;
     setGlobalHotkeyCaptureActive(options: { active: boolean }): Promise<null>;
+    setAllowDuplicateShortcuts(options: { enabled: boolean }): Promise<null>;
     saveAdvancedVcpCommand(options: { command: AdvancedVcpShortcutDraft }): Promise<null>;
     saveMonitorGroup(options: { group: MonitorGroupDraft }): Promise<null>;
     deleteMonitorGroup(options: { groupId: string }): Promise<null>;

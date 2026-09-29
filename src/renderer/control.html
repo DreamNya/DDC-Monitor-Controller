@@ -1415,9 +1415,21 @@
                             </div>
                             <section class="card advanced-vcp-header-card">
                                 <div class="advanced-monitor-row">
-                                    <div>
-                                        <span class="label">操作目标</span>
-                                        <h2>选择显示器或显示器组</h2>
+                                    <div class="advanced-monitor-heading">
+                                        <div>
+                                            <span class="label">操作目标</span>
+                                            <h2>选择显示器或显示器组</h2>
+                                        </div>
+                                        <div class="setting-row advanced-repeat-setting">
+                                            <strong id="advanced-repeat-label">允许重复快捷键</strong>
+                                            <label class="switch small-switch" title="允许新增命令使用已占用的快捷键">
+                                                <input
+                                                    id="advanced-allow-duplicate-shortcuts"
+                                                    type="checkbox"
+                                                    aria-labelledby="advanced-repeat-label" />
+                                                <span></span>
+                                            </label>
+                                        </div>
                                     </div>
                                     <select id="advanced-vcp-monitor-select" aria-label="高级 VCP 目标显示器"></select>
                                 </div>
@@ -1626,7 +1638,7 @@
                                                 spellcheck="false" />
                                         </label>
                                     </div>
-                                    <p id="advanced-custom-result" class="advanced-result hint">
+                                    <p id="advanced-custom-result" class="hint">
                                         自定义读取/写入的 VCP Code 和 Value 可参考【枚举 VCP】；读取会返回 当前值 /
                                         最大值；写入会直接尝试 Set VCP Feature
                                     </p>

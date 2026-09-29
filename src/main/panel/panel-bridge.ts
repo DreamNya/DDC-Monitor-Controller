@@ -41,6 +41,8 @@ export function createPanelBridge(dependencies: PanelBridgeDependencies) {
             dependencies.setGlobalHotkeyCaptureActive(active);
             return null;
         },
+        setAllowDuplicateShortcuts: ({ enabled }) =>
+            runCommand(() => appController.setAllowDuplicateShortcuts(enabled)),
         saveAdvancedVcpCommand: ({ command }) => runCommand(() => appController.saveAdvancedVcpCommand(command)),
         saveMonitorGroup: ({ group }) => runCommand(() => appController.saveMonitorGroup(group)),
         deleteMonitorGroup: ({ groupId }) => runCommand(() => appController.deleteMonitorGroup(groupId)),

@@ -277,6 +277,68 @@ test('AppController saves monitor-bound advanced VCP commands and rejects execut
     await controller.dispose();
 });
 
+test('duplicate shortcut settings only restrict new commands and hotkeys execute every saved match in order', async () => {
+    const settings = createDefaultSettings();
+    settings.autoEnabled = false;
+    const monitorController = new FakeMonitorController();
+    const settingsStore = new FakeSettingsStore(settings);
+    const controller = createController(monitorController, settingsStore, new FakeScheduler());
+    const codes: number[] = [];
+    const executeVcpAction = monitorController.executeVcpAction.bind(monitorController);
+    monitorController.executeVcpAction = (monitorId, action) => {
+        codes.push(action.code);
+        if (action.code === 0x12) {
+            throw new Error('Contrast command failed');
+        }
+        return executeVcpAction(monitorId, action);
+    };
+
+    try {
+        await controller.initialize();
+        const save = (code: number, shortcut = 'Ctrl+Alt+H') =>
+            controller.saveAdvancedVcpCommand({
+                name: `Command ${code}`,
+                monitorId: 'monitor-1',
+                action: { type: 'read', code },
+                shortcut,
+                closeWebViewAfter: code === 0x60,
+            });
+        await save(0x10);
+        await assert.rejects(save(0x12), /占用/);
+        await controller.setAllowDuplicateShortcuts(true);
+        await save(0x12, 'alt+control+h');
+        await save(0x60);
+        await save(0xd6, 'Ctrl+Alt+P');
+        const commands = controller.getState().settings.advancedVcpCommands;
+        assert.equal(settingsStore.staged.at(-1)?.allowDuplicateShortcuts, true);
+
+        for (const enabled of [true, false]) {
+            await controller.setAllowDuplicateShortcuts(enabled);
+            assert.deepEqual(controller.getState().settings.advancedVcpCommands, commands);
+            codes.length = 0;
+            const results = await controller.executeAdvancedVcpHotkey(commands[0]!.id);
+            assert.deepEqual(codes, [0x10, 0x12, 0x60]);
+            assert.deepEqual(
+                results.map(({ status }) => status),
+                ['fulfilled', 'rejected', 'fulfilled'],
+            );
+            const last = results[2]!;
+            assert.ok(last.status === 'fulfilled');
+            assert.equal(last.value.closeWebViewAfter, true);
+        }
+        await assert.rejects(save(0x10), /占用/);
+        assert.equal(settingsStore.staged.at(-1)?.allowDuplicateShortcuts, false);
+        assert.deepEqual(settingsStore.staged.at(-1)?.advancedVcpCommands, commands);
+        await assert.rejects(controller.setAllowDuplicateShortcuts('true' as unknown as boolean), /布尔值/);
+        assert.deepEqual(await controller.executeAdvancedVcpHotkey('deleted-command'), []);
+        codes.length = 0;
+        await controller.executeAdvancedVcpCommand(commands[0]!.id);
+        assert.deepEqual(codes, [0x10]);
+    } finally {
+        await controller.dispose();
+    }
+});
+
 test('AppController keeps an unresolved monitor target instead of retargeting every display', async () => {
     const settings = createDefaultSettings();
     settings.autoEnabled = false;

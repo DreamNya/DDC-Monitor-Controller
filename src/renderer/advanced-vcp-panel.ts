@@ -34,6 +34,7 @@ export interface AdvancedVcpPanelController {
 export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): AdvancedVcpPanelController {
     const elements = {
         monitorSelect: getElement<HTMLSelectElement>('#advanced-vcp-monitor-select'),
+        allowDuplicateShortcuts: getElement<HTMLInputElement>('#advanced-allow-duplicate-shortcuts'),
         presetMode: getElement<HTMLSelectElement>('#advanced-preset-mode'),
         presetRun: getElement<HTMLButtonElement>('#advanced-preset-run'),
         presetSave: getElement<HTMLButtonElement>('#advanced-preset-save'),
@@ -71,6 +72,17 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
 
     function bind(): void {
         monitorGroupPanel.bind();
+        elements.allowDuplicateShortcuts.addEventListener('change', () => {
+            const enabled = elements.allowDuplicateShortcuts.checked;
+            options.runAction(async () => {
+                try {
+                    await options.getBridge().setAllowDuplicateShortcuts({ enabled });
+                } catch (error) {
+                    elements.allowDuplicateShortcuts.checked = state?.settings.allowDuplicateShortcuts ?? false;
+                    throw error;
+                }
+            });
+        });
         elements.presetMode.addEventListener('change', syncPresetMode);
         elements.relativeTarget.addEventListener('change', () => {
             elements.relativeCode.value = formatHex(
@@ -130,6 +142,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
 
     function render(nextState: AppState): void {
         state = nextState;
+        elements.allowDuplicateShortcuts.checked = nextState.settings.allowDuplicateShortcuts;
         monitorGroupPanel.render(nextState);
         renderMonitorOptions(nextState);
         renderCommands(nextState);
@@ -226,7 +239,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
 
         // RegisterHotKey 注册过的组合键可能不会继续作为普通 keydown 送到 WebView
         // 在快捷键录制期间临时挂起本程序自己的全局快捷键，让重复快捷键也能
-        // 正常显示在输入框中，再由当前 settings 精确指出是哪条命令占用
+        // 正常显示在输入框中，再按当前设置决定是否检查冲突
         await options.getBridge().setGlobalHotkeyCaptureActive({ active: true });
 
         try {
@@ -312,6 +325,9 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
     }
 
     function findShortcutOwner(shortcut: string): AdvancedVcpShortcutCommand | undefined {
+        if (state?.settings.allowDuplicateShortcuts) {
+            return undefined;
+        }
         return state?.settings.advancedVcpCommands.find((command) => command.shortcut === shortcut);
     }
 
