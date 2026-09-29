@@ -7,6 +7,7 @@
     --primary: #3568d4;
     --muted: #697386;
     --surface: rgb(255 255 255 / 86%);
+    --modal-background: rgb(255 255 255 / 95%);
     --control-surface: #f1f4f8;
     --control-text: #1b1d22;
     --page-background:
@@ -92,6 +93,7 @@
     --text: #e9edf4;
     --muted: #8a96a8;
     --surface: rgb(28 33 42 / 90%);
+    --modal-background: rgb(28 33 42 / 95%);
     --control-surface: #2b323e;
     --control-text: #e1e6ef;
     --page-background:
@@ -1743,7 +1745,7 @@ td:last-child {
 }
 
 .advanced-field-grid label,
-.advanced-command-dialog label {
+.app-modal label {
     display: grid;
     gap: 5px;
     min-width: 0;
@@ -1754,7 +1756,7 @@ td:last-child {
 
 .advanced-field-grid input,
 .advanced-field-grid select,
-.advanced-command-dialog input,
+.app-modal input,
 #advanced-vcp-monitor-select {
     width: 100%;
     min-height: clamp(32px, 4.4vh, 38px);
@@ -1769,7 +1771,7 @@ td:last-child {
 
 .advanced-field-grid input:focus,
 .advanced-field-grid select:focus,
-.advanced-command-dialog input:focus,
+.app-modal input:focus,
 #advanced-vcp-monitor-select:focus {
     outline: none;
     border-color: color-mix(in srgb, var(--primary) 68%, var(--input-border));
@@ -1920,25 +1922,35 @@ td:last-child {
     cursor: not-allowed;
 }
 
-.advanced-command-dialog {
+.app-modal {
     width: min(460px, calc(100vw - 32px));
     border: 1px solid var(--card-border);
     border-radius: 16px;
     padding: 0;
-    background: var(--surface);
+    background: var(--modal-background);
     color: var(--text);
     box-shadow: 0 20px 60px rgb(0 0 0 / 32%);
+    user-select: none;
 }
 
-.advanced-command-dialog::backdrop {
+.app-modal::backdrop {
     background: rgb(0 0 0 / 38%);
     backdrop-filter: blur(2px);
 }
 
-.advanced-command-dialog form {
+.app-modal form {
     display: grid;
     gap: 13px;
     padding: 18px;
+}
+
+.app-modal [hidden] {
+    display: none;
+}
+
+#app-modal-message {
+    margin: 0;
+    line-height: 1.5;
 }
 
 #advanced-command-shortcut {

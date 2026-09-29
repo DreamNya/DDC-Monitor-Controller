@@ -9,11 +9,13 @@ import type {
     AppState,
 } from '../shared/model';
 import { getElement } from './common';
+import type { Modal } from './modal';
 
 interface AdvancedVcpPanelOptions {
     getBridge(): MonitorBridge;
     runAction(action: () => Promise<void>): void;
     showToast(message: string): void;
+    modal: Modal;
 }
 
 type PendingShortcut = Omit<AdvancedVcpShortcutDraft, 'name' | 'shortcut' | 'closeWebViewAfter'> & {
@@ -114,7 +116,9 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
             event.preventDefault();
             savePendingShortcut();
         });
-        elements.commandGroups.addEventListener('click', handleCommandGroupClick);
+        elements.commandGroups.addEventListener('click', (event) => {
+            void handleCommandGroupClick(event);
+        });
 
         syncPresetMode();
         syncCustomMode();
@@ -284,7 +288,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
         return state?.settings.advancedVcpCommands.find((command) => command.shortcut === shortcut);
     }
 
-    function handleCommandGroupClick(event: MouseEvent): void {
+    async function handleCommandGroupClick(event: MouseEvent): Promise<void> {
         if (!(event.target instanceof Element)) {
             return;
         }
@@ -308,7 +312,15 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
         }
         const commandId = deleteButton.dataset.commandDelete;
         const command = state?.settings.advancedVcpCommands.find(({ id }) => id === commandId);
-        if (!command || !confirm(`确定删除快捷命令“${command.name}”吗？`)) {
+        if (
+            !command ||
+            !(await options.modal.confirm({
+                title: '删除快捷命令',
+                message: `确定删除快捷命令“${command.name}”吗？`,
+                confirmText: '删除',
+                danger: true,
+            }))
+        ) {
             return;
         }
 

@@ -13,7 +13,7 @@ import type {
     ScheduleProfile,
     UiScaleTarget,
 } from '../shared/model';
-import { INTERVAL_MINUTES_OPTIONS } from '../shared/model';
+import { INTERVAL_MINUTES_OPTIONS, MAX_SCHEDULE_PROFILE_NAME_LENGTH } from '../shared/model';
 import { formatTime, parseTime } from '../shared/schedule';
 import { isUiScalePercent } from '../shared/ui-scale';
 import { createAdvancedVcpPanel } from './advanced-vcp-panel';
@@ -32,6 +32,7 @@ import {
     waitForBridge,
     type ManualAdjustment,
 } from './common';
+import { createModal } from './modal';
 import { applyTheme } from './theme';
 
 type RenderOptions = {
@@ -162,12 +163,15 @@ const actions = createActionController({
     onError: (error) => showToast(getErrorMessage(error)),
 });
 
+const modal = createModal();
+
 const advancedVcpPanel = createAdvancedVcpPanel({
     getBridge: () => bridge,
     runAction: (action) => {
         void actions.run(action);
     },
     showToast,
+    modal,
 });
 
 void initialize();
@@ -341,10 +345,18 @@ function bindEvents(): void {
         });
     });
 
-    elements.scheduleProfileSelect.addEventListener('change', handleScheduleProfileChange);
-    elements.createProfileButton.addEventListener('click', createScheduleProfile);
-    elements.renameProfileButton.addEventListener('click', renameScheduleProfile);
-    elements.deleteProfileButton.addEventListener('click', deleteScheduleProfile);
+    elements.scheduleProfileSelect.addEventListener('change', () => {
+        void handleScheduleProfileChange();
+    });
+    elements.createProfileButton.addEventListener('click', () => {
+        void createScheduleProfile();
+    });
+    elements.renameProfileButton.addEventListener('click', () => {
+        void renameScheduleProfile();
+    });
+    elements.deleteProfileButton.addEventListener('click', () => {
+        void deleteScheduleProfile();
+    });
 
     elements.addPointButton.addEventListener('click', () => {
         addScheduleRow({ time: 12, brightness: 50, contrast: 50 });
@@ -713,7 +725,7 @@ function handleSliderInput(event: Event): void {
     }
 }
 
-function handleScheduleProfileChange(): void {
+async function handleScheduleProfileChange(): Promise<void> {
     const currentProfile = getActiveScheduleProfile();
     const profileId = elements.scheduleProfileSelect.value;
 
@@ -721,7 +733,15 @@ function handleScheduleProfileChange(): void {
         return;
     }
 
-    if (hasUnsavedScheduleChanges() && !confirm('当前方案存在未保存的修改，是否放弃修改并切换方案？')) {
+    if (
+        hasUnsavedScheduleChanges() &&
+        !(await modal.confirm({
+            title: '切换定时方案',
+            message: '当前方案存在未保存的修改，是否放弃修改并切换方案？',
+            confirmText: '放弃并切换',
+            danger: true,
+        }))
+    ) {
         elements.scheduleProfileSelect.value = currentProfile.id;
         return;
     }
@@ -731,9 +751,15 @@ function handleScheduleProfileChange(): void {
     });
 }
 
-function createScheduleProfile(): void {
+async function createScheduleProfile(): Promise<void> {
     const defaultName = `方案 ${(currentState?.settings.scheduleProfiles.length ?? 0) + 1}`;
-    const name = prompt('请输入新定时方案的名称：', defaultName);
+    const name = await modal.prompt({
+        title: '新建定时方案',
+        label: '方案名称',
+        defaultValue: defaultName,
+        confirmText: '新建',
+        maxLength: MAX_SCHEDULE_PROFILE_NAME_LENGTH,
+    });
 
     if (name === null) {
         return;
@@ -747,9 +773,15 @@ function createScheduleProfile(): void {
     });
 }
 
-function renameScheduleProfile(): void {
+async function renameScheduleProfile(): Promise<void> {
     const profile = getActiveScheduleProfile();
-    const name = prompt('请输入新的定时方案名称：', profile.name);
+    const name = await modal.prompt({
+        title: '重命名定时方案',
+        label: '方案名称',
+        defaultValue: profile.name,
+        confirmText: '保存',
+        maxLength: MAX_SCHEDULE_PROFILE_NAME_LENGTH,
+    });
 
     if (name === null || name === profile.name) {
         return;
@@ -763,7 +795,7 @@ function renameScheduleProfile(): void {
     });
 }
 
-function deleteScheduleProfile(): void {
+async function deleteScheduleProfile(): Promise<void> {
     const profile = getActiveScheduleProfile();
 
     if ((currentState?.settings.scheduleProfiles.length ?? 0) <= 1) {
@@ -771,7 +803,14 @@ function deleteScheduleProfile(): void {
         return;
     }
 
-    if (!confirm(`确定删除定时方案“${profile.name}”吗？此操作无法撤销`)) {
+    if (
+        !(await modal.confirm({
+            title: '删除定时方案',
+            message: `确定删除定时方案“${profile.name}”吗？此操作无法撤销`,
+            confirmText: '删除',
+            danger: true,
+        }))
+    ) {
         return;
     }
 

@@ -1640,7 +1640,7 @@
             </div>
         </main>
 
-        <dialog id="advanced-command-dialog" class="advanced-command-dialog">
+        <dialog id="advanced-command-dialog" class="app-modal advanced-command-dialog">
             <form id="advanced-command-form" method="dialog">
                 <div>
                     <span class="label">快捷命令</span>
@@ -1663,6 +1663,21 @@
                 <div class="advanced-dialog-actions">
                     <button id="advanced-command-cancel" class="secondary" type="button">取消</button>
                     <button id="advanced-command-confirm" class="primary" type="submit">保存</button>
+                </div>
+            </form>
+        </dialog>
+
+        <dialog id="app-modal" class="app-modal" aria-labelledby="app-modal-title">
+            <form id="app-modal-form">
+                <h2 id="app-modal-title"></h2>
+                <p id="app-modal-message"></p>
+                <label id="app-modal-field" hidden>
+                    <span id="app-modal-label"></span>
+                    <input id="app-modal-input" type="text" autocomplete="off" />
+                </label>
+                <div class="advanced-dialog-actions">
+                    <button id="app-modal-cancel" class="secondary" type="button">取消</button>
+                    <button id="app-modal-confirm" class="primary" type="submit"></button>
                 </div>
             </form>
         </dialog>
