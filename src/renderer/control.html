@@ -1422,8 +1422,8 @@
                                     <select id="advanced-vcp-monitor-select" aria-label="高级 VCP 目标显示器"></select>
                                 </div>
                                 <p class="hint">
-                                    亮度 / 对比度的相对百分比调节会限制在 0 到显示器返回的 maximum；其余 Value 不做
-                                    0–100 或显示器范围兜底；VCP Code 可自行修改，数值支持十进制或 0x 前缀十六进制
+                                    每台显示器支持的 VCP Code 和 Value 均不相同，可先参考【枚举
+                                    VCP】的返回结果，数值支持十进制或 0x 前缀十六进制
                                 </p>
                             </section>
 
@@ -1481,10 +1481,7 @@
                                                     placeholder="自行填写" />
                                             </label>
                                         </div>
-                                        <p class="hint">
-                                            按显示器返回的 maximum 计算百分比增减量，并将最终写入值限制在
-                                            0～maximum，即使当前值已在边界，执行或快捷键仍会发送一次写入
-                                        </p>
+                                        <p class="hint">百分比范围0~100，每次增减不会超出显示器支持的最大值、最小值</p>
                                     </div>
 
                                     <div class="advanced-preset-section" data-preset-mode="absolute" hidden>
@@ -1513,7 +1510,10 @@
                                                     spellcheck="false" />
                                             </label>
                                         </div>
-                                        <p class="hint">Value 将原样转换为整数后发送，无最大值最小值兜底</p>
+                                        <p class="hint">
+                                            可在【枚举 VCP】中读取 0x10 / 0x12 的当前值和最大值进行参考；
+                                            再填写所需的绝对数值
+                                        </p>
                                     </div>
 
                                     <div class="advanced-preset-section" data-preset-mode="input" hidden>
@@ -1545,7 +1545,7 @@
                                                 <span></span>
                                             </label>
                                         </div>
-                                        <p class="hint">默认 VCP Code 为 0x60；具体输入源 Value 由显示器决定</p>
+                                        <p class="hint">可在【枚举 VCP】中读取 0x60 的支持值进行参考</p>
                                     </div>
 
                                     <div class="advanced-preset-section" data-preset-mode="power" hidden>
@@ -1567,7 +1567,9 @@
                                                     spellcheck="false" />
                                             </label>
                                         </div>
-                                        <p class="hint">默认 VCP Code 为 0xD6；具体电源模式 Value 由显示器决定</p>
+                                        <p class="hint">
+                                            注：部分显示器对“切换输入源”实际支持值会超出【枚举 VCP】返回的支持值范围
+                                        </p>
                                     </div>
 
                                     <div class="advanced-action-buttons">
@@ -1611,7 +1613,8 @@
                                         </label>
                                     </div>
                                     <p id="advanced-custom-result" class="advanced-result hint">
-                                        读取会返回 current / maximum；写入会直接尝试 Set VCP Feature
+                                        自定义读取/写入的 VCP Code 和 Value 可参考【枚举 VCP】；读取会返回 当前值 /
+                                        最大值；写入会直接尝试 Set VCP Feature
                                     </p>
                                     <div class="advanced-action-buttons">
                                         <button id="advanced-custom-run" class="primary" type="button">执行</button>
