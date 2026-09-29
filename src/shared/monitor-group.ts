@@ -42,7 +42,7 @@ export function normalizeMonitorGroups(value: unknown): MonitorGroup[] {
             }
             groups.push(group);
         } catch {
-            // 忽略损坏的组，不把原有命令转绑到其他显示器。
+            // 忽略损坏的组，不把原有命令转绑到其他显示器
         }
     }
     return groups;

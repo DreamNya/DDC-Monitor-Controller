@@ -287,7 +287,7 @@ export class AppController {
             }
             const monitors = this.#monitorController.getCachedSnapshots();
             for (const monitorId of group.monitorIds) {
-                // 已保存的成员可在离线时保留，新增成员必须具有唯一的在线身份。
+                // 已保存的成员可在离线时保留，新增成员必须具有唯一的在线身份
                 if (existing?.monitorIds.includes(monitorId)) {
                     continue;
                 }
@@ -419,7 +419,7 @@ export class AppController {
             return Promise.resolve([]);
         }
 
-        // 一次按键将全部关联命令按保存顺序入队；失败也不会阻止后续命令执行。
+        // 一次按键将全部关联命令按保存顺序入队；失败也不会阻止后续命令执行
         const commands = this.#state.settings.advancedVcpCommands.filter(
             ({ shortcut }) => shortcut === command.shortcut,
         );

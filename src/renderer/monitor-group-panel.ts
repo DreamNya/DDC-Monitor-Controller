@@ -41,7 +41,7 @@ export function createMonitorGroupPanel(options: {
             members.append(label);
         }
         if (!ids.size) {
-            members.textContent = '未检测到显示器，请刷新显示器后再添加。';
+            members.textContent = '未检测到显示器，请刷新显示器后再添加';
         }
         dialog.showModal();
         name.focus();
@@ -87,7 +87,7 @@ export function createMonitorGroupPanel(options: {
             !group ||
             !(await options.modal.confirm({
                 title: '删除显示器组',
-                message: `确定删除显示器组“${group.name}”吗？${commandCount ? `将同时删除 ${commandCount} 个关联快捷命令，并注销对应的全局快捷键。` : ''}`,
+                message: `确定删除显示器组“${group.name}”吗？${commandCount ? `将同时删除 ${commandCount} 个关联快捷命令，并注销对应的全局快捷键` : ''}`,
                 confirmText: '删除',
                 danger: true,
             }))

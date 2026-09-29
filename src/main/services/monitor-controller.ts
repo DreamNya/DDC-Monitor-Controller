@@ -316,7 +316,7 @@ export class DDCMonitorController {
         const cacheKey = createVcpCacheKey(monitor.index, code);
         const knownMaximum = maximum ?? this.#maximumValues.get(cacheKey);
         if (knownMaximum === undefined) {
-            // 初次读取失败时，写入成功也不能仅凭原始值推断百分比。
+            // 初次读取失败时，写入成功也不能仅凭原始值推断百分比
             return;
         }
 

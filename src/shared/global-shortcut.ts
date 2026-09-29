@@ -1,5 +1,3 @@
-export const GLOBAL_SHORTCUT_MAX_LENGTH = 64;
-
 export interface KeyboardShortcutKeyInput {
     key: string;
     code: string;
@@ -12,53 +10,20 @@ export interface KeyboardShortcutKeyInput {
  * 例如 Shift+1 的 event.key，通常是 "!"，但 RegisterHotKey 需要的是 MOD_SHIFT + VK_1
  */
 export function keyboardShortcutKey(input: KeyboardShortcutKeyInput): string {
-    const letterMatch = /^Key([A-Z])$/.exec(input.code);
-    if (letterMatch) {
-        return letterMatch[1]!;
+    const physicalKey = /^(?:Key([A-Z])|Digit([0-9]))$/.exec(input.code);
+    if (physicalKey) {
+        return physicalKey[1] ?? physicalKey[2]!;
     }
 
-    const digitMatch = /^Digit([0-9])$/.exec(input.code);
-    if (digitMatch) {
-        return digitMatch[1]!;
-    }
-
-    const numpadMatch = /^Numpad([0-9])$/.exec(input.code);
-    if (numpadMatch) {
-        return `Numpad${numpadMatch[1]}`;
-    }
-
-    if (input.code === 'Space') {
-        return 'Space';
-    }
-    if (input.code.startsWith('Arrow')) {
-        return input.code.slice('Arrow'.length);
+    const codeKey = PART_NAMES.get(input.code.toLowerCase());
+    if (codeKey && NAMED_KEYS.has(codeKey)) {
+        return codeKey;
     }
     if (/^F(?:[1-9]|1[0-9]|2[0-4])$/.test(input.code)) {
         return input.code;
     }
-    if (['PageUp', 'PageDown', 'Home', 'End', 'Insert', 'Delete'].includes(input.code)) {
-        return input.code;
-    }
 
-    if (input.key === ' ') {
-        return 'Space';
-    }
-    if (input.key.startsWith('Arrow')) {
-        return input.key.slice('Arrow'.length);
-    }
-    if (/^[a-z]$/i.test(input.key)) {
-        return input.key.toUpperCase();
-    }
-    if (/^[0-9]$/.test(input.key)) {
-        return input.key;
-    }
-    if (/^F(?:[1-9]|1[0-9]|2[0-4])$/i.test(input.key)) {
-        return input.key.toUpperCase();
-    }
-    if (['PageUp', 'PageDown', 'Home', 'End', 'Insert', 'Delete'].includes(input.key)) {
-        return input.key;
-    }
-    return input.key;
+    return normalizePart(input.key === ' ' ? 'Space' : input.key);
 }
 
 export interface ParsedGlobalShortcut {
@@ -67,10 +32,13 @@ export interface ParsedGlobalShortcut {
     virtualKey: number;
 }
 
-const MOD_ALT = 0x0001;
-const MOD_CONTROL = 0x0002;
-const MOD_SHIFT = 0x0004;
-const MOD_WIN = 0x0008;
+// 插入顺序同时决定快捷键文本中的修饰键顺序
+const MODIFIER_FLAGS = new Map<string, number>([
+    ['Ctrl', 0x0002],
+    ['Alt', 0x0001],
+    ['Shift', 0x0004],
+    ['Win', 0x0008],
+]);
 
 const NAMED_KEYS = new Map<string, number>([
     ['Space', 0x20],
@@ -96,33 +64,47 @@ const NAMED_KEYS = new Map<string, number>([
     ['Delete', 0x2e],
 ]);
 
+const PART_NAMES = new Map<string, string>([
+    ...[...MODIFIER_FLAGS.keys(), ...NAMED_KEYS.keys()].map((name) => [name.toLowerCase(), name] as const),
+    // 保留已有配置可使用的别名，统一输出规范名称
+    ['control', 'Ctrl'],
+    ['meta', 'Win'],
+    ['super', 'Win'],
+    ['spacebar', 'Space'],
+    ['page up', 'PageUp'],
+    ['page down', 'PageDown'],
+    ['arrowleft', 'Left'],
+    ['arrowright', 'Right'],
+    ['arrowup', 'Up'],
+    ['arrowdown', 'Down'],
+    ['del', 'Delete'],
+]);
+
 export function parseGlobalShortcut(value: string): ParsedGlobalShortcut {
     const raw = value.trim();
 
-    if (!raw || raw.length > GLOBAL_SHORTCUT_MAX_LENGTH) {
-        throw new Error('全局快捷键为空或过长');
+    if (!raw) {
+        throw new Error('全局快捷键为空');
     }
 
-    const parts = raw
-        .split('+')
-        .map((part) => part.trim())
-        .filter(Boolean);
+    const parts = raw.split('+').map((part) => part.trim());
+    if (parts.some((part) => !part)) {
+        throw new Error('全局快捷键包含空的按键片段');
+    }
     const modifiers = new Set<string>();
+    let modifierFlags = 0;
     let key = '';
 
     for (const part of parts) {
         const normalizedPart = normalizePart(part);
 
-        if (
-            normalizedPart === 'Ctrl' ||
-            normalizedPart === 'Alt' ||
-            normalizedPart === 'Shift' ||
-            normalizedPart === 'Win'
-        ) {
+        const modifierFlag = MODIFIER_FLAGS.get(normalizedPart);
+        if (modifierFlag !== undefined) {
             if (modifiers.has(normalizedPart)) {
                 throw new Error(`全局快捷键包含重复修饰键：${normalizedPart}`);
             }
             modifiers.add(normalizedPart);
+            modifierFlags |= modifierFlag;
             continue;
         }
 
@@ -139,22 +121,8 @@ export function parseGlobalShortcut(value: string): ParsedGlobalShortcut {
         throw new Error('全局快捷键至少需要 Ctrl、Alt、Shift 或 Win 中的一个修饰键');
     }
 
-    let modifierFlags = 0;
-    if (modifiers.has('Ctrl')) {
-        modifierFlags |= MOD_CONTROL;
-    }
-    if (modifiers.has('Alt')) {
-        modifierFlags |= MOD_ALT;
-    }
-    if (modifiers.has('Shift')) {
-        modifierFlags |= MOD_SHIFT;
-    }
-    if (modifiers.has('Win')) {
-        modifierFlags |= MOD_WIN;
-    }
-
     const virtualKey = toVirtualKey(key);
-    const ordered = ['Ctrl', 'Alt', 'Shift', 'Win'].filter((part) => modifiers.has(part));
+    const ordered = [...MODIFIER_FLAGS.keys()].filter((part) => modifiers.has(part));
 
     return {
         normalized: [...ordered, key].join('+'),
@@ -164,74 +132,20 @@ export function parseGlobalShortcut(value: string): ParsedGlobalShortcut {
 }
 
 function normalizePart(value: string): string {
-    const lower = value.toLocaleLowerCase('en-US');
-
-    if (lower === 'ctrl' || lower === 'control') {
-        return 'Ctrl';
-    }
-    if (lower === 'alt') {
-        return 'Alt';
-    }
-    if (lower === 'shift') {
-        return 'Shift';
-    }
-    if (lower === 'win' || lower === 'meta' || lower === 'super') {
-        return 'Win';
-    }
-    if (lower === 'space' || lower === 'spacebar') {
-        return 'Space';
-    }
-    if (lower === 'pageup' || lower === 'page up') {
-        return 'PageUp';
-    }
-    if (lower === 'pagedown' || lower === 'page down') {
-        return 'PageDown';
-    }
-    if (lower === 'arrowleft' || lower === 'left') {
-        return 'Left';
-    }
-    if (lower === 'arrowright' || lower === 'right') {
-        return 'Right';
-    }
-    if (lower === 'arrowup' || lower === 'up') {
-        return 'Up';
-    }
-    if (lower === 'arrowdown' || lower === 'down') {
-        return 'Down';
-    }
-    if (lower === 'insert') {
-        return 'Insert';
-    }
-    if (lower === 'delete' || lower === 'del') {
-        return 'Delete';
-    }
-    if (lower === 'home') {
-        return 'Home';
-    }
-    if (lower === 'end') {
-        return 'End';
-    }
-    const numpadMatch = /^numpad([0-9])$/i.exec(value);
-    if (numpadMatch) {
-        return `Numpad${numpadMatch[1]}`;
+    const named = PART_NAMES.get(value.toLowerCase());
+    if (named) {
+        return named;
     }
 
-    if (/^[a-z]$/i.test(value)) {
+    if (/^[a-z0-9]$/i.test(value) || /^f([1-9]|1[0-9]|2[0-4])$/i.test(value)) {
         return value.toUpperCase();
-    }
-    if (/^[0-9]$/.test(value)) {
-        return value;
-    }
-    const functionMatch = /^f([1-9]|1[0-9]|2[0-4])$/i.exec(value);
-    if (functionMatch) {
-        return `F${functionMatch[1]}`;
     }
 
     throw new Error(`不支持的全局快捷键按键：${value}`);
 }
 
 function toVirtualKey(key: string): number {
-    if (/^[A-Z]$/.test(key) || /^[0-9]$/.test(key)) {
+    if (/^[A-Z0-9]$/.test(key)) {
         return key.charCodeAt(0);
     }
 

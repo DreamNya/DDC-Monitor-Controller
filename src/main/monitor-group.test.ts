@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { AppSettings, AppStateChange } from '../shared/model.ts';
 import { AppController } from './app-controller.ts';
 import { createPanelBridge } from './panel/panel-bridge.ts';
 import { DDCMonitorController, type DdcClient } from './services/monitor-controller.ts';
-import { createDefaultSettings } from './services/settings-store.ts';
 import type { NativeMonitor } from './services/monitor/native-ddc-client.ts';
-import type { AppSettings, AppStateChange } from '../shared/model.ts';
+import { createDefaultSettings } from './services/settings-store.ts';
 
 class GroupDdcClient implements DdcClient {
     monitors: NativeMonitor[] = [
@@ -207,7 +207,7 @@ test('one hotkey executes both single-monitor and group commands after duplicate
         });
         await controller.setAllowDuplicateShortcuts(false);
         const commands = controller.getState().settings.advancedVcpCommands;
-        // 原生只注册其中一个命令 ID；任一关联 ID 都应执行完整快捷键集合。
+        // 原生只注册其中一个命令 ID；任一关联 ID 都应执行完整快捷键集合
         const results = await controller.executeAdvancedVcpHotkey(commands[1]!.id);
         assert.deepEqual(
             results.map(({ status }) => status),
