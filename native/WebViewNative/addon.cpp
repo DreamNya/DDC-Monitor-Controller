@@ -435,6 +435,21 @@ namespace {
         return env.Undefined();
     }
 
+    Napi::Value get_event_sequence(const Napi::CallbackInfo& info) {
+        const Napi::Env env = info.Env();
+        try {
+            require_shell(env);
+            return Napi::Number::New(env, static_cast<double>(g_shell->get_event_sequence()));
+        }
+        catch (const Napi::Error& error) {
+            error.ThrowAsJavaScriptException();
+        }
+        catch (const std::exception& error) {
+            Napi::Error::New(env, error.what()).ThrowAsJavaScriptException();
+        }
+        return env.Undefined();
+    }
+
     Napi::Value open_path(const Napi::CallbackInfo& info) {
         const Napi::Env env = info.Env();
         try {
@@ -486,6 +501,7 @@ namespace {
         exports.Set("setTrayMenu", Napi::Function::New(env, set_tray_menu));
         exports.Set("setTheme", Napi::Function::New(env, set_theme));
         exports.Set("setGlobalHotkeys", Napi::Function::New(env, set_global_hotkeys));
+        exports.Set("getEventSequence", Napi::Function::New(env, get_event_sequence));
         exports.Set("openPath", Napi::Function::New(env, open_path));
         exports.Set("shutdown", Napi::Function::New(env, shutdown));
         return exports;

@@ -141,7 +141,14 @@ export class PanelManager {
 
     reloadPageForDevelopment(): void {
         if (!this.#applicationExiting && this.#page) {
+            this.#setGlobalHotkeyCaptureActive(false);
             this.#nativeShell.reload();
+        }
+    }
+
+    pushCapturedShortcut(shortcut: string): void {
+        if (!this.#applicationExiting && this.#page === 'control') {
+            this.#nativeShell.postWebMessage(`global-hotkey-captured:${JSON.stringify(shortcut)}`);
         }
     }
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
@@ -168,6 +169,7 @@ function webviewContract() {
         'setTrayMenu',
         'setTheme',
         'setGlobalHotkeys',
+        'getEventSequence',
         'openPath',
     ];
     exportsMatch(addon, ['initialize', ...methods, 'shutdown']);
@@ -455,6 +457,20 @@ send({kind:'ready', instance:new URL(location.href).searchParams.get('instance')
             shell.openWindow(windowOptions(id));
             const ready = JSON.parse((await waitFor(messageIs('ready', id), 'page ready', mark)).message);
 
+            if (cycle === 0) {
+                shell.setGlobalHotkeys([{ id: 'recorded', label: 'Recorded', modifiers: 7, virtualKey: 0x83 }]);
+                mark = events.length;
+                const sequence = shell.getEventSequence();
+                probeHotkey('dispatch');
+                const hotkey = await waitFor(
+                    (event) => event.type === 'global-hotkey' && event.id === 'recorded',
+                    'unconditional foreground hotkey delivery',
+                    mark,
+                );
+                assert.ok(hotkey.sequence > sequence);
+                shell.setGlobalHotkeys([]);
+            }
+
             mark = events.length;
             const payload = `往返中文🙂 "quotes" \\ newline\n${cycle}`;
             shell.postWebMessage(payload);
@@ -532,12 +548,116 @@ send({kind:'ready', instance:new URL(location.href).searchParams.get('instance')
     );
 }
 
+function probeHotkey(action, nativeId = 0x4000, virtualKey = 0x83) {
+    const result = spawnSync(
+        'powershell.exe',
+        [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            path.join(root, 'scripts/native-tests/hotkey-probe.ps1'),
+            '-TargetProcessId',
+            String(process.pid),
+            '-Action',
+            action,
+            '-NativeId',
+            String(nativeId),
+            '-VirtualKey',
+            String(virtualKey),
+        ],
+        { encoding: 'utf8', windowsHide: true, timeout: 10_000 },
+    );
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    return JSON.parse(result.stdout.trim());
+}
+
+async function webviewHotkeys() {
+    const addon = webviewAddon();
+    const { GlobalHotkeyRouter } = await import('../../src/main/services/global-hotkeys.ts');
+    const router = new GlobalHotkeyRouter();
+    const events = [];
+    const routed = [];
+    addon.initialize(config(), (event) => {
+        events.push(event);
+        if (event.type === 'global-hotkey') {
+            routed.push({ id: event.id, route: router.route(event.sequence) });
+        }
+    });
+    const binding = (id, virtualKey) => ({ id, label: id, modifiers: 7, virtualKey });
+    const first = binding('first', 0x83); // Ctrl+Alt+Shift+F20
+    const second = binding('second', 0x84);
+    async function dispatch(expected, nativeId = 0x4000, virtualKey = first.virtualKey, route = 'execute') {
+        const mark = events.length;
+        const routeMark = routed.length;
+        probeHotkey('dispatch', nativeId, virtualKey);
+        // The native TSFN queues onto this Node thread; drain after the helper exits.
+        await delay(50);
+        const received = events.slice(mark);
+        let sequence = mark > 0 ? events[mark - 1].sequence : 0;
+        for (const event of received) {
+            assert.ok(Number.isSafeInteger(event.sequence) && event.sequence > sequence);
+            sequence = event.sequence;
+        }
+        assert.deepEqual(
+            received.map(({ sequence: _sequence, ...event }) => event),
+            expected,
+        );
+        assert.deepEqual(
+            routed.slice(routeMark),
+            expected.map(({ id }) => ({ id, route })),
+        );
+    }
+    try {
+        assert.equal(Object.hasOwn(addon, 'setGlobalHotkeyCaptureActive'), false);
+        addon.setGlobalHotkeys([first, second]);
+        assert.equal(probeHotkey('available').available, false);
+        await dispatch([{ type: 'global-hotkey', id: 'first' }]);
+
+        // Repeating, reordering, relabeling and changing the owning command must
+        // preserve the original native ID/OS registration.
+        addon.setGlobalHotkeys([second, { ...first, id: 'new-owner', label: 'Renamed' }]);
+        await dispatch([{ type: 'global-hotkey', id: 'new-owner' }]);
+        addon.setGlobalHotkeys([second, { ...first, id: 'new-owner' }]);
+        await dispatch([{ type: 'global-hotkey', id: 'new-owner' }]);
+
+        router.setCaptureActive(true, addon.getEventSequence());
+        assert.equal(probeHotkey('available').available, false, 'Recording must retain OS registration');
+        // Native delivers the same event even without a foreground window;
+        // TypeScript alone chooses to record rather than execute it.
+        await dispatch([{ type: 'global-hotkey', id: 'new-owner' }], 0x4000, first.virtualKey, 'capture');
+        const routeMark = routed.length;
+        probeHotkey('dispatch'); // Emit while this Node thread is blocked in the helper.
+        router.setCaptureActive(false, addon.getEventSequence());
+        await delay(50);
+        assert.deepEqual(routed.slice(routeMark), [{ id: 'new-owner', route: 'ignore' }]);
+        await dispatch([{ type: 'global-hotkey', id: 'new-owner' }]);
+
+        addon.setGlobalHotkeys([second]);
+        assert.equal(probeHotkey('available').available, true, 'Deleted shortcut must be released');
+        await dispatch([]); // Stale messages must not invoke a remaining command.
+        await dispatch([{ type: 'global-hotkey', id: 'second' }], 0x4001, second.virtualKey);
+        await dispatch([], 0x4001, first.virtualKey); // Mismatched message payload.
+
+        addon.setGlobalHotkeys([second, first]);
+        await dispatch([]); // Removed IDs must not immediately be reused.
+        await dispatch([{ type: 'global-hotkey', id: 'first' }], 0x4002);
+        addon.setGlobalHotkeys([]);
+        assert.equal(probeHotkey('available').available, true);
+        assert.equal(probeHotkey('available', 0x4001, second.virtualKey).available, true);
+    } finally {
+        addon.shutdown();
+    }
+}
+
 const scenarios = {
     'monitor-contract': monitorContract,
     'monitor-enumeration': () => monitorEnumeration(false),
     'monitor-env-cleanup': () => monitorEnumeration(true),
     'webview-contract': webviewContract,
     'directory-error': directoryError,
+    'webview-hotkeys': webviewHotkeys,
     'ddc-read': ddcRead,
     'ddc-write': ddcWrite,
     'webview-lifecycle': () => webviewLifecycle(false),

@@ -11,6 +11,7 @@ declare global {
         chrome?: { webview?: WebViewHost };
         __monitorStateChanged?: (change: AppStateChange) => void;
         __monitorToast?: (message: string) => void;
+        __monitorGlobalHotkeyCaptured?: (shortcut: string) => void;
     }
 }
 
@@ -119,6 +120,13 @@ function handleNativeMessage(event: MessageEvent<unknown>): void {
             const message: unknown = JSON.parse(event.data.slice('toast:'.length));
             if (typeof message === 'string') {
                 window.__monitorToast?.(message);
+            }
+        }
+
+        if (event.data.startsWith('global-hotkey-captured:')) {
+            const shortcut: unknown = JSON.parse(event.data.slice('global-hotkey-captured:'.length));
+            if (typeof shortcut === 'string') {
+                window.__monitorGlobalHotkeyCaptured?.(shortcut);
             }
         }
     } catch (error) {

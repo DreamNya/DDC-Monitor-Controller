@@ -128,6 +128,15 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
                 .catch((error: unknown) => options.showToast(error instanceof Error ? error.message : String(error)));
         });
         elements.commandShortcut.addEventListener('keydown', captureShortcut);
+        window.__monitorGlobalHotkeyCaptured = (shortcut) => {
+            if (
+                elements.commandDialog.open &&
+                document.hasFocus() &&
+                document.activeElement === elements.commandShortcut
+            ) {
+                recordShortcut(shortcut);
+            }
+        };
         elements.commandForm.addEventListener('submit', (event) => {
             event.preventDefault();
             savePendingShortcut();
@@ -237,9 +246,7 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
     ): Promise<void> {
         const target = requireTarget();
 
-        // RegisterHotKey 注册过的组合键可能不会继续作为普通 keydown 送到 WebView
-        // 在快捷键录制期间临时挂起本程序自己的全局快捷键，让重复快捷键也能
-        // 正常显示在输入框中，再按当前设置决定是否检查冲突
+        // 保留全局注册，将已注册组合键转发给录入框；弹窗期间不执行快捷命令。
         await options.getBridge().setGlobalHotkeyCaptureActive({ active: true });
 
         try {
@@ -311,8 +318,12 @@ export function createAdvancedVcpPanel(options: AdvancedVcpPanelOptions): Advanc
             key,
         ].filter(Boolean);
 
+        recordShortcut(parts.join('+'));
+    }
+
+    function recordShortcut(value: string): void {
         try {
-            const shortcut = parseGlobalShortcut(parts.join('+')).normalized;
+            const shortcut = parseGlobalShortcut(value).normalized;
             elements.commandShortcut.value = shortcut;
 
             const shortcutOwner = findShortcutOwner(shortcut);

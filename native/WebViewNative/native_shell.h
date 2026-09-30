@@ -7,6 +7,7 @@
 #include <napi.h>
 
 #include <array>
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -100,6 +101,7 @@ enum class NativeEventKind {
 
 struct NativeEvent {
     NativeEventKind kind = NativeEventKind::Error;
+    std::uint64_t sequence = 0;
     std::string id;
     std::string text;
     int x = 0;
@@ -126,17 +128,21 @@ public:
     void set_tray_menu(std::vector<TrayMenuItem> items);
     void set_theme(bool dark);
     void set_global_hotkeys(std::vector<GlobalHotkeyBinding> bindings);
+    std::uint64_t get_event_sequence() const noexcept;
     void open_path(std::wstring path);
     void shutdown();
 
 private:
-    // Registration and dispatch need only the native command and an owned ID.
-    // Share the element type with the temporary tray mapping so both tables
-    // use the same vector specialization. Labels remain in the input bindings
-    // for registration error messages.
     struct CommandMapping {
         UINT command = 0;
         std::string id;
+    };
+
+    struct GlobalHotkeyMapping {
+        UINT command = 0;
+        std::string id;
+        UINT modifiers = 0;
+        UINT virtual_key = 0;
     };
 
     static constexpr UINT kCommandMessage = WM_APP + 1;
@@ -156,9 +162,9 @@ private:
     void show_tray_menu();
     void apply_native_theme(bool dark);
     void handle_tray_message(LPARAM lparam);
-    void replace_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> bindings);
+    void sync_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> bindings);
     void clear_global_hotkeys_on_ui();
-    void handle_global_hotkey(WPARAM wparam);
+    void handle_global_hotkey(WPARAM wparam, LPARAM lparam);
 
     void create_resize_hit_windows();
     void destroy_resize_hit_windows();
@@ -216,7 +222,9 @@ private:
     bool tray_added_ = false;
     UINT taskbar_created_message_ = 0;
     std::vector<TrayMenuItem> tray_menu_items_;
-    std::vector<CommandMapping> global_hotkeys_;
+    std::vector<GlobalHotkeyMapping> global_hotkeys_;
+    UINT next_global_hotkey_id_ = 0x4000;
+    std::atomic<std::uint64_t> event_sequence_{ 0 };
     ULONGLONG last_tray_primary_click_tick_ = 0;
     int ui_scale_percent_ = 100;
     std::uint64_t generation_ = 0;

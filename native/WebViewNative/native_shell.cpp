@@ -24,6 +24,7 @@ namespace {
     constexpr UINT kTrayIconId = 1;
     constexpr UINT kFirstTrayMenuCommand = 1000;
     constexpr int kFirstGlobalHotkeyId = 0x4000;
+    constexpr int kLastGlobalHotkeyId = 0xbfff;
     constexpr int kResizeBorderDip = 8;
     enum class PreferredAppMode {
         Default,
@@ -337,20 +338,63 @@ void NativeShell::set_theme(const bool dark) {
 
 void NativeShell::set_global_hotkeys(std::vector<GlobalHotkeyBinding> bindings) {
     post_command([this, bindings = std::move(bindings)]() mutable {
-        replace_global_hotkeys_on_ui(std::move(bindings));
+        sync_global_hotkeys_on_ui(std::move(bindings));
         });
 }
 
-void NativeShell::replace_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> bindings) {
-    clear_global_hotkeys_on_ui();
+std::uint64_t NativeShell::get_event_sequence() const noexcept {
+    return event_sequence_.load(std::memory_order_relaxed);
+}
 
+void NativeShell::sync_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> bindings) {
     if (!message_window_) {
         return;
     }
 
-    for (std::size_t index = 0; index < bindings.size(); ++index) {
-        const int native_id = kFirstGlobalHotkeyId + static_cast<int>(index);
-        auto& binding = bindings[index];
+    // Retain registrations by combination, including owner changes/reordering.
+    for (auto it = global_hotkeys_.begin(); it != global_hotkeys_.end();) {
+        const auto desired = std::find_if(bindings.begin(), bindings.end(),
+            [&it](const auto& binding) {
+                return binding.modifiers == it->modifiers &&
+                    binding.virtual_key == it->virtual_key;
+            });
+        if (desired != bindings.end()) {
+            it->id = desired->id;
+            ++it;
+        }
+        else {
+            if (!UnregisterHotKey(message_window_, static_cast<int>(it->command))) {
+                emit_error("注销全局快捷键失败（Win32 错误码 " +
+                    std::to_string(GetLastError()) + "）");
+                // Keep the registration for a later retry, but disable dispatch.
+                it->id.clear();
+                ++it;
+            }
+            else {
+                it = global_hotkeys_.erase(it);
+            }
+        }
+    }
+
+    for (auto& binding : bindings) {
+        if (std::any_of(global_hotkeys_.begin(), global_hotkeys_.end(),
+            [&binding](const auto& item) {
+                return item.modifiers == binding.modifiers &&
+                    item.virtual_key == binding.virtual_key;
+            })) {
+            continue;
+        }
+
+        // Avoid immediately reusing IDs referenced by queued WM_HOTKEY events.
+        UINT native_id;
+        do {
+            native_id = next_global_hotkey_id_++;
+            if (next_global_hotkey_id_ > kLastGlobalHotkeyId) {
+                next_global_hotkey_id_ = kFirstGlobalHotkeyId;
+            }
+        } while (std::any_of(global_hotkeys_.begin(), global_hotkeys_.end(),
+            [native_id](const auto& item) { return item.command == native_id; }));
+
         constexpr UINT kModNoRepeat = 0x4000;
         const UINT modifiers = binding.modifiers | kModNoRepeat;
 
@@ -370,7 +414,8 @@ void NativeShell::replace_global_hotkeys_on_ui(std::vector<GlobalHotkeyBinding> 
         }
 
         global_hotkeys_.push_back(
-            CommandMapping{ static_cast<UINT>(native_id), std::move(binding.id) });
+            GlobalHotkeyMapping{ native_id, std::move(binding.id),
+                binding.modifiers, binding.virtual_key });
     }
 }
 
@@ -383,13 +428,14 @@ void NativeShell::clear_global_hotkeys_on_ui() {
     global_hotkeys_.clear();
 }
 
-void NativeShell::handle_global_hotkey(const WPARAM wparam) {
+void NativeShell::handle_global_hotkey(const WPARAM wparam, const LPARAM lparam) {
     const UINT native_id = static_cast<UINT>(wparam);
     const auto it = std::find_if(
         global_hotkeys_.begin(), global_hotkeys_.end(),
         [native_id](const auto& item) { return item.command == native_id; });
 
-    if (it == global_hotkeys_.end()) {
+    if (it == global_hotkeys_.end() || it->id.empty() ||
+        it->modifiers != LOWORD(lparam) || it->virtual_key != HIWORD(lparam)) {
         return;
     }
 
@@ -1462,11 +1508,14 @@ void NativeShell::emit_window_bounds() {
 }
 
 void NativeShell::emit(NativeEvent event) {
+    // Generic event ordering metadata; interpretation belongs to TypeScript.
+    event.sequence = event_sequence_.fetch_add(1, std::memory_order_relaxed) + 1;
     auto* payload = new NativeEvent(std::move(event));
     const napi_status status = event_callback_.NonBlockingCall(
         payload, [](Napi::Env env, Napi::Function callback, NativeEvent* value) {
             std::unique_ptr<NativeEvent> event(value);
             Napi::Object result = Napi::Object::New(env);
+            result.Set("sequence", Napi::Number::New(env, static_cast<double>(event->sequence)));
             switch (event->kind) {
             case NativeEventKind::TrayPrimaryClick:
                 result.Set("type", "tray-primary-click");
@@ -1624,7 +1673,7 @@ LRESULT NativeShell::handle_window_message(HWND window, UINT message,
             return 0;
         }
         if (message == WM_HOTKEY) {
-            handle_global_hotkey(wparam);
+            handle_global_hotkey(wparam, lparam);
             return 0;
         }
         return DefWindowProcW(window, message, wparam, lparam);

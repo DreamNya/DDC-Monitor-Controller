@@ -16,14 +16,15 @@ export interface NativeWindowBackgroundColor {
     blue: number;
 }
 
-export type NativeShellEvent =
+export type NativeShellEvent = { sequence: number } & (
     | { type: 'tray-primary-click'; x: number; y: number }
     | { type: 'tray-command'; id: string; x: number; y: number }
     | { type: 'global-hotkey'; id: string }
     | { type: 'web-message'; message: string }
     | { type: 'window-closed'; id: string }
     | { type: 'window-bounds'; id: string; bounds: NativeWindowBounds }
-    | { type: 'error'; message: string };
+    | { type: 'error'; message: string }
+);
 
 export interface NativeShellInitializeOptions {
     rendererRoot: string;
@@ -90,6 +91,7 @@ interface WebViewNativeAddon {
     setTrayMenu(items: NativeTrayMenuItem[]): void;
     setTheme(theme: 'light' | 'dark'): void;
     setGlobalHotkeys(bindings: NativeGlobalHotkeyBinding[]): void;
+    getEventSequence(): number;
     openPath(targetPath: string): void;
     shutdown(): void;
 }
@@ -144,6 +146,9 @@ export class NativeShell {
     }
     setGlobalHotkeys(bindings: NativeGlobalHotkeyBinding[]): void {
         this.#addon.setGlobalHotkeys(bindings);
+    }
+    getEventSequence(): number {
+        return this.#addon.getEventSequence();
     }
     openPath(targetPath: string): void {
         this.#addon.openPath(targetPath);

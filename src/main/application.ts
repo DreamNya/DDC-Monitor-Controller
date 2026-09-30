@@ -10,7 +10,7 @@ import { PanelManager } from './panel/panel-manager';
 import type { RuntimePaths } from './runtime-paths';
 import type { FileLogger } from './services/file-logger';
 import { AutoStartService } from './services/auto-start-service';
-import { createGlobalHotkeyBindings } from './services/global-hotkeys';
+import { createGlobalHotkeyBindings, GlobalHotkeyRouter } from './services/global-hotkeys';
 import type { SingleInstanceLock } from './single-instance';
 import { TrayController } from './tray-controller';
 import { runBackground } from './utils/run-background';
@@ -37,7 +37,7 @@ export class DesktopApplication {
     #quitting = false;
     #globalHotkeySignature = '';
     #nativeTheme: AppState['settings']['theme'] | undefined;
-    #globalHotkeyCaptureActive = false;
+    readonly #globalHotkeyRouter = new GlobalHotkeyRouter();
 
     constructor(options: DesktopApplicationOptions) {
         this.#paths = options.paths;
@@ -208,22 +208,16 @@ export class DesktopApplication {
     }
 
     #setGlobalHotkeyCaptureActive(active: boolean): void {
-        if (this.#globalHotkeyCaptureActive === active) {
+        if (this.#globalHotkeyRouter.captureActive === active) {
             return;
         }
 
-        this.#globalHotkeyCaptureActive = active;
+        this.#globalHotkeyRouter.setCaptureActive(active, this.#nativeShell.getEventSequence());
 
-        if (active) {
-            // 已注册的 RegisterHotKey 会先于 WebView 输入框收到组合键
-            // 录制快捷键期间临时注销本程序快捷键，使已被本程序命令占用的组合键仍能进入输入框并由 Renderer 检测重复
-            this.#nativeShell.setGlobalHotkeys([]);
-            return;
+        if (!active) {
+            // 捕获期间暂缓配置同步；结束时只提交发生变化的绑定。
+            this.#syncGlobalHotkeys(this.#appController.getState());
         }
-
-        // 捕获期间设置可能发生变化（例如刚保存了新命令），强制用最新状态重建注册
-        this.#globalHotkeySignature = '';
-        this.#syncGlobalHotkeys(this.#appController.getState());
     }
 
     #syncNativeTheme(state: AppState): void {
@@ -237,7 +231,7 @@ export class DesktopApplication {
     }
 
     #syncGlobalHotkeys(state: AppState): void {
-        if (this.#globalHotkeyCaptureActive) {
+        if (this.#globalHotkeyRouter.captureActive) {
             return;
         }
 
@@ -265,7 +259,20 @@ export class DesktopApplication {
                 this.#trayController?.handleMenuClick(event.id, event.x, event.y);
                 break;
 
-            case 'global-hotkey':
+            case 'global-hotkey': {
+                const route = this.#globalHotkeyRouter.route(event.sequence);
+                if (route === 'ignore') {
+                    break;
+                }
+                if (route === 'capture') {
+                    const command = this.#appController
+                        .getState()
+                        .settings.advancedVcpCommands.find(({ id }) => id === event.id);
+                    if (command?.shortcut) {
+                        this.#panelManager?.pushCapturedShortcut(command.shortcut);
+                    }
+                    break;
+                }
                 runBackground('执行高级 VCP 全局快捷命令', async () => {
                     const results = await this.#appController.executeAdvancedVcpHotkey(event.id);
                     if (results.some((result) => result.status === 'fulfilled' && result.value.closeWebViewAfter)) {
@@ -278,6 +285,7 @@ export class DesktopApplication {
                     }
                 });
                 break;
+            }
 
             case 'web-message':
                 this.#panelManager?.handleWebMessage(event.message);

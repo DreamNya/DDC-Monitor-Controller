@@ -19,6 +19,7 @@ const suites = {
         'monitor-env-cleanup',
         'webview-contract',
         'directory-error',
+        'webview-hotkeys',
     ],
     ddc: ['ddc-read'],
     'ddc-write': ['ddc-write'],

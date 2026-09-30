@@ -2,6 +2,32 @@ import { parseGlobalShortcut } from '../../shared/global-shortcut.ts';
 import type { AdvancedVcpShortcutCommand } from '../../shared/model.ts';
 import type { NativeGlobalHotkeyBinding } from '../native-shell.ts';
 
+export class GlobalHotkeyRouter {
+    #captureActive = false;
+    #transitionSequence = 0;
+
+    get captureActive(): boolean {
+        return this.#captureActive;
+    }
+
+    setCaptureActive(active: boolean, eventSequence: number): void {
+        if (this.#captureActive === active) {
+            return;
+        }
+        this.#captureActive = active;
+        // Exclude events already emitted before this UI mode transition,
+        // including recordings still queued when the dialog closes.
+        this.#transitionSequence = eventSequence;
+    }
+
+    route(eventSequence: number): 'execute' | 'capture' | 'ignore' {
+        if (eventSequence <= this.#transitionSequence) {
+            return 'ignore';
+        }
+        return this.#captureActive ? 'capture' : 'execute';
+    }
+}
+
 export function createGlobalHotkeyBindings(
     commands: readonly AdvancedVcpShortcutCommand[],
 ): NativeGlobalHotkeyBinding[] {
