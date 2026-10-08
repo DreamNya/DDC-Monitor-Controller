@@ -172,7 +172,8 @@ function webviewContract() {
         'getEventSequence',
         'openPath',
     ];
-    exportsMatch(addon, ['initialize', ...methods, 'shutdown']);
+    exportsMatch(addon, ['initialize', ...methods, 'trimWorkingSet', 'shutdown']);
+    assert.equal(addon.trimWorkingSet(), true);
     for (const method of methods) {
         assert.throws(() => addon[method](), /WebViewNative 尚未初始化/, method);
     }

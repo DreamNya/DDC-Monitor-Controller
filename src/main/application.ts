@@ -8,8 +8,8 @@ import { registerDevelopmentMessageHandler } from './development';
 import { NativeShell, type NativeShellEvent } from './native-shell';
 import { PanelManager } from './panel/panel-manager';
 import type { RuntimePaths } from './runtime-paths';
-import type { FileLogger } from './services/file-logger';
 import { AutoStartService } from './services/auto-start-service';
+import type { FileLogger } from './services/file-logger';
 import { createGlobalHotkeyBindings, GlobalHotkeyRouter } from './services/global-hotkeys';
 import type { SingleInstanceLock } from './single-instance';
 import { TrayController } from './tray-controller';
@@ -140,6 +140,13 @@ export class DesktopApplication {
             reloadPage: () => panelManager.reloadPageForDevelopment(),
             shutdown: () => this.quit(),
         });
+
+        // 启动初始化调用栈结束后只回收一次工作集，让后台运行所需页面按需重新驻留
+        setImmediate(() => {
+            if (!this.#quitting && !this.#nativeShell.trimWorkingSet()) {
+                console.warn('启动后回收工作集失败');
+            }
+        });
     }
 
     executePublicApi(request: unknown): Promise<PublicApiResponse> {
@@ -215,7 +222,7 @@ export class DesktopApplication {
         this.#globalHotkeyRouter.setCaptureActive(active, this.#nativeShell.getEventSequence());
 
         if (!active) {
-            // 捕获期间暂缓配置同步；结束时只提交发生变化的绑定。
+            // 捕获期间暂缓配置同步；结束时只提交发生变化的绑定
             this.#syncGlobalHotkeys(this.#appController.getState());
         }
     }

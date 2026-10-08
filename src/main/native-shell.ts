@@ -93,6 +93,7 @@ interface WebViewNativeAddon {
     setGlobalHotkeys(bindings: NativeGlobalHotkeyBinding[]): void;
     getEventSequence(): number;
     openPath(targetPath: string): void;
+    trimWorkingSet(): boolean;
     shutdown(): void;
 }
 
@@ -152,6 +153,9 @@ export class NativeShell {
     }
     openPath(targetPath: string): void {
         this.#addon.openPath(targetPath);
+    }
+    trimWorkingSet(): boolean {
+        return this.#addon.trimWorkingSet();
     }
     shutdown(): void {
         if (!this.#initialized) {

@@ -1,6 +1,7 @@
 #include "native_shell.h"
 
 #include <napi.h>
+#include <psapi.h>
 
 #include <memory>
 #include <optional>
@@ -468,6 +469,11 @@ namespace {
         return env.Undefined();
     }
 
+    Napi::Value trim_working_set(const Napi::CallbackInfo& info) {
+        return Napi::Boolean::New(info.Env(),
+            EmptyWorkingSet(GetCurrentProcess()) != FALSE);
+    }
+
     void shutdown_shell() {
         if (!g_shell) {
             return;
@@ -503,6 +509,7 @@ namespace {
         exports.Set("setGlobalHotkeys", Napi::Function::New(env, set_global_hotkeys));
         exports.Set("getEventSequence", Napi::Function::New(env, get_event_sequence));
         exports.Set("openPath", Napi::Function::New(env, open_path));
+        exports.Set("trimWorkingSet", Napi::Function::New(env, trim_working_set));
         exports.Set("shutdown", Napi::Function::New(env, shutdown));
         return exports;
     }
