@@ -41,7 +41,7 @@
         "typescript-eslint": "^8.65.0"
     },
     "engines": {
-        "node": ">=24"
+        "node": ">=24.22.1"
     },
     "os": [
         "win32"
